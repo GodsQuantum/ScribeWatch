@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from '$lib/api';
   import { saveMarkdownLocally } from '$lib/local-save';
-  import type { Job, Workflow } from '$lib/types';
+  import type { Job, TranscriptionAttempt, Workflow } from '$lib/types';
   export let jobs:Job[]=[];
   export let workflows:Workflow[]=[];
   export let refresh:()=>Promise<void>=async()=>{};
@@ -17,10 +17,14 @@
   async function download(id:string){try{const result=await api.jobMarkdown(id);await saveMarkdownLocally(result.filename,result.blob);notify('success','Markdown saved.');}catch(e){notify('error',e instanceof Error?e.message:String(e));}}
   const when=(ms:number)=>new Date(ms).toLocaleString();
   const size=(bytes:number)=>bytes<1024*1024?`${Math.max(1,Math.round(bytes/1024))} KB`:`${(bytes/1024/1024).toFixed(1)} MB`;
+  const elapsed=(attempt:TranscriptionAttempt)=>{
+    const ms=Math.max(0,attempt.finishedAtMs-attempt.startedAtMs);
+    return ms<1000?`${ms} ms`:ms<60_000?`${(ms/1000).toFixed(1)} s`:`${(ms/60_000).toFixed(1)} min`;
+  };
 </script>
 
 <div class="page">
-  <div class="page-head"><div><p class="page-kicker">HISTORY</p><h1 class="page-title">Jobs</h1><p class="page-copy">Every automatic and one-off transcription keeps a durable lifecycle, including retries and restart recovery.</p></div><div class="segmented"><button class:active={filter==='all'} on:click={()=>filter='all'}>All</button><button class:active={filter==='active'} on:click={()=>filter='active'}>Current</button><button class:active={filter==='failed'} on:click={()=>filter='failed'}>Errors</button><button class:active={filter==='done'} on:click={()=>filter='done'}>Done</button></div></div>
+  <div class="page-head"><div><p class="page-kicker">HISTORY</p><h1 class="page-title">Jobs</h1><p class="page-copy">Every automatic and one-off transcription keeps a durable lifecycle, including retries, fallback attempts and restart recovery.</p></div><div class="segmented"><button class:active={filter==='all'} on:click={()=>filter='all'}>All</button><button class:active={filter==='active'} on:click={()=>filter='active'}>Current</button><button class:active={filter==='failed'} on:click={()=>filter='failed'}>Errors</button><button class:active={filter==='done'} on:click={()=>filter='done'}>Done</button></div></div>
   <div class="job-list">
     {#if visible.length===0}<div class="empty">No jobs in this view.</div>{/if}
     {#each visible as job}
@@ -35,8 +39,22 @@
           {#if job.archivePath}<div><span>Archive</span><code>{job.archivePath}</code></div>{/if}
         </div>
         {#if job.error}<div class="error-box"><strong>Processing error</strong><span>{job.error}</span></div>{/if}
+        {#if (job.transcriptionAttempts??[]).length>0}
+          <details class="attempt-details">
+            <summary>Transcription attempts ({job.transcriptionAttempts.length})</summary>
+            <div class="attempt-list">
+              {#each job.transcriptionAttempts as attempt}
+                <div class="attempt-row">
+                  <span class="attempt-outcome {attempt.outcome}">{attempt.outcome.replace('_',' ')}</span>
+                  <span>Run {attempt.run} · {attempt.providerName} / <code>{attempt.model}</code> · {elapsed(attempt)}</span>
+                  {#if attempt.error}<span class="attempt-error">{attempt.error}</span>{/if}
+                </div>
+              {/each}
+            </div>
+          </details>
+        {/if}
         <div class="job-footer">
-          <span class="muted small">Attempt {job.attempts} · model {job.model}{job.language?` · ${job.language}`:' · auto language'}</span>
+          <span class="muted small">{job.usedProviderName&&job.usedModel?`Run ${job.attempts} · used ${job.usedProviderName} / ${job.usedModel}`:`Run ${job.attempts} · model ${job.model}`}{job.language?` · ${job.language}`:' · auto language'}</span>
           <div class="row wrap">
             {#if job.kind==='quick'&&job.status==='done'&&job.quick?.outputKind==='client'}<button class="btn primary" on:click={()=>download(job.id)}>Save Markdown</button>{/if}
             {#if job.status==='error'||job.status==='interrupted'||job.status==='cancelled'}<button class="btn primary" on:click={()=>retry(job.id)}>Retry</button>{/if}

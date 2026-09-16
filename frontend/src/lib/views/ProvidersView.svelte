@@ -57,7 +57,7 @@
         <div class="field"><label for="provider-url">Transcription URL</label><input id="provider-url" class="input mono" bind:value={draft.transcriptionUrl} placeholder="http://host:8000/v1/audio/transcriptions" /><span class="help">Use the complete OpenAI-compatible transcription endpoint. Nothing is hardcoded to a specific service.</span></div>
         <div class="grid two">
           <div class="field"><label for="provider-key">API key</label><input id="provider-key" class="input" type="password" bind:value={draft.apiKey} placeholder={selected?.hasApiKey?'Leave empty to keep stored key':'Optional'} /><span class="help">The stored value is never returned to this browser.</span></div>
-          <div class="field"><label for="provider-timeout">Timeout (seconds)</label><input id="provider-timeout" class="input" type="number" min="1" bind:value={draft.timeoutSeconds} /></div>
+          <div class="field"><label for="provider-timeout">Model discovery timeout (seconds)</label><input id="provider-timeout" class="input" type="number" min="1" bind:value={draft.timeoutSeconds} /><span class="help">This only bounds model discovery. Transcription has no provider-wide processing timeout; optional fallback timeouts are configured per route.</span></div>
         </div>
         <label class="check"><input type="checkbox" bind:checked={draft.enabled} /> Provider enabled</label>
         {#if models.length>0}<div class="model-list"><span class="field-label">Models reported by provider</span><div class="row wrap">{#each models as model}<button class="chip-button" on:click={()=>draft.model=model}>{model}</button>{/each}</div></div>{/if}

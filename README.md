@@ -37,6 +37,7 @@ It is especially useful as a **voice notes → Obsidian** bridge, but nothing is
 - **Watch folders** — automatically process new recordings from a server, NAS or mounted sync folder.
 - **Obsidian-friendly by default** — clean filenames, H1 titles, YAML properties and tags.
 - **Bring your own transcription engine** — works with OpenAI-compatible STT endpoints such as Speaches/Whisper services.
+- **Resilient transcription chains** — mix providers and models in any order. If one route fails, ScribeWatch automatically tries the next — even another model from the same provider.
 - **No LLM required** — titles and Markdown formatting are deterministic; the transcript stays authoritative.
 - **Safe publication** — Markdown is written before workflow audio is archived, and existing notes are never silently overwritten.
 - **Small self-hosted stack** — Rust/Axum backend, SvelteKit UI, SQLite state, one container.
@@ -55,6 +56,22 @@ It is especially useful as a **voice notes → Obsidian** bridge, but nothing is
   <img src="docs/screenshots/quick-transcribe.png" width="49%" alt="ScribeWatch Quick Transcribe">
   <img src="docs/screenshots/workflow-folders.png" width="49%" alt="ScribeWatch workflow folders">
 </p>
+
+## 🔁 Provider + model fallbacks
+
+Every transcription route is an explicit **provider + model** pair. ScribeWatch discovers the models exposed by each configured provider, so you choose the exact chain — including multiple models from the same provider.
+
+```text
+Speaches / whisper-large-v3
+          ↓ failed
+Speaches / distil-whisper-large-v3
+          ↓ failed
+OpenAI / gpt-4o-transcribe
+          ↓
+Markdown
+```
+
+There is **no processing timeout by default**, which matters for long recordings. Each route can optionally define its own fallback timeout (`Never`, 10/30/60 minutes or custom). Connection failures, provider errors, rate limits and invalid responses can fall through; explicit user cancellation stops the whole chain. Jobs keep the attempt history and record the provider/model that actually succeeded.
 
 ## 🚀 Quick start
 
@@ -92,6 +109,8 @@ tags:
   - transcription
   - scribewatch
 source: "Recording 42.m4a"
+provider: "Local Speaches"
+model: "whisper-large-v3"
 language: "en"
 ---
 

@@ -10,4 +10,5 @@ mod pipeline_quick;
 pub mod provider;
 pub mod quick;
 pub mod state;
+pub mod transcription_chain;
 pub mod workflows;

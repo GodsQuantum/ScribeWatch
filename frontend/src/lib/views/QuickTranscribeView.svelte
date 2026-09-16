@@ -2,7 +2,8 @@
   import { api } from '$lib/api';
   import { canSaveToDirectory, saveMarkdownLocally } from '$lib/local-save';
   import PathPicker from '$lib/components/PathPicker.svelte';
-  import type { Job, Provider, QuickOptions } from '$lib/types';
+  import TranscriptionChainEditor from '$lib/components/TranscriptionChainEditor.svelte';
+  import type { Job, Provider, QuickOptions, TranscriptionRoute } from '$lib/types';
   export let providers:Provider[]=[];
   export let jobs:Job[]=[];
   export let refresh:()=>Promise<void>=async()=>{};
@@ -13,8 +14,8 @@
   let localFile:File|null=null;
   let serverFile='';
   let outputDir='';
-  let providerId='';
-  let model='';
+  let transcriptionChain:TranscriptionRoute[]=[{providerId:'',model:''}];
+  let chainInitialized=false;
   let language='';
   let frontmatter=true;
   let advanced=false;
@@ -23,11 +24,15 @@
   let submitted:Job|undefined;
   let drag=false;
 
-  $: if(!providerId && providers.length) providerId=providers.find((p)=>p.enabled)?.id??providers[0].id;
+  $: if(!chainInitialized&&providers.length){
+    transcriptionChain=[{providerId:providers.find((provider)=>provider.enabled)?.id??providers[0].id,model:''}];
+    chainInitialized=true;
+  }
   $: current=submitted ? (jobs.find((job)=>job.id===submitted?.id)??submitted) : undefined;
   $: sourceReady=sourceMode==='computer' ? !!localFile : !!serverFile;
   $: outputReady=outputMode==='computer' || !!outputDir;
-  $: canSubmit=sourceReady&&outputReady&&!!providerId&&!busy;
+  $: chainReady=transcriptionChain.length>0&&transcriptionChain.every((route)=>!!route.providerId&&!!route.model);
+  $: canSubmit=sourceReady&&outputReady&&chainReady&&!busy;
   $: localDirectoryAvailable=typeof window!=='undefined'&&canSaveToDirectory(window);
 
   function chooseFile(file:File|undefined){ if(file){localFile=file;submitted=undefined;} }
@@ -35,8 +40,10 @@
   async function submit(){
     if(!canSubmit)return;
     busy=true; submitted=undefined;
+    const primary=transcriptionChain[0];
     const options:QuickOptions={
-      providerId, model:model.trim()||undefined, language:language.trim()||undefined,
+      providerId:primary?.providerId, model:primary?.model, transcriptionChain,
+      language:language.trim()||undefined,
       outputKind:outputMode==='server'?'server':'client', outputDir:outputMode==='server'?outputDir:undefined,
       frontmatter
     };
@@ -82,13 +89,11 @@
           <div class="field"><label for="quick-server-file">Server audio file</label><div class="path-control"><input id="quick-server-file" class="input mono" value={serverFile} readonly placeholder="Choose an allowed server file" /><button class="btn" on:click={()=>picker='source'}>Browse</button></div><span class="help">Only explicitly mounted and allowed server roots are visible.</span></div>
         {/if}
 
-        <div class="quick-step"><span>02</span><div><strong>Transcription</strong><p>Use any configured OpenAI-compatible transcription provider.</p></div></div>
-        <div class="grid two">
-          <div class="field"><label for="quick-provider">Provider</label><select id="quick-provider" class="select" bind:value={providerId}><option value="">Choose provider</option>{#each providers.filter((p)=>p.enabled) as provider}<option value={provider.id}>{provider.name}</option>{/each}</select></div>
-          <div class="field"><label for="quick-language">Language</label><input id="quick-language" class="input" bind:value={language} placeholder="auto, fr, en…" /></div>
-        </div>
+        <div class="quick-step"><span>02</span><div><strong>Transcription</strong><p>Pick an exact provider + model chain. Failed routes automatically fall through.</p></div></div>
+        <TranscriptionChainEditor value={transcriptionChain} {providers} {notify} onchange={(routes)=>transcriptionChain=routes} />
+        <div class="field"><label for="quick-language">Language</label><input id="quick-language" class="input" bind:value={language} placeholder="auto, fr, en…" /></div>
         <button class="advanced-toggle" on:click={()=>advanced=!advanced} aria-expanded={advanced}>{advanced?'−':'+'} Advanced</button>
-        {#if advanced}<div class="grid two advanced-panel"><div class="field"><label for="quick-model">Model override</label><input id="quick-model" class="input" bind:value={model} placeholder="Provider default" /></div><label class="check"><input type="checkbox" bind:checked={frontmatter} /> YAML / Obsidian properties</label></div>{/if}
+        {#if advanced}<div class="advanced-panel"><label class="check"><input type="checkbox" bind:checked={frontmatter} /> YAML / Obsidian properties</label></div>{/if}
 
         <div class="quick-step"><span>03</span><div><strong>Save the note</strong><p>Publish on the server or bring the Markdown back to this computer.</p></div></div>
         <div class="segmented source-tabs"><button class:active={outputMode==='computer'} on:click={()=>outputMode='computer'}>This computer</button><button class:active={outputMode==='server'} on:click={()=>outputMode='server'}>Server folder</button></div>
