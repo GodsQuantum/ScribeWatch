@@ -2,8 +2,8 @@ use crate::{
     domain::{Job, JobStatus, QuickJobMeta, QuickOutputKind, QuickSourceKind},
     jobs::update_job,
     markdown::{self, NoteContext},
-    provider,
     state::AppState,
+    transcription_chain,
 };
 use anyhow::{Context, Result, anyhow, bail};
 use std::path::Path;
@@ -45,34 +45,19 @@ async fn process_quick_inner(
     source: &Path,
     token: &CancellationToken,
 ) -> Result<()> {
-    let provider = state
-        .providers
-        .read()
-        .await
-        .iter()
-        .find(|provider| provider.id == job.provider_id)
-        .cloned()
-        .ok_or_else(|| anyhow!("provider not found: {}", job.provider_id))?;
-    if !provider.enabled {
-        bail!("provider '{}' is disabled", provider.name);
-    }
     if token.is_cancelled() {
         bail!("cancelled");
     }
-    update_job(state, &job.id, |job| {
-        job.status = JobStatus::Transcribing;
-        job.error = None;
-    })?;
-    let transcript = provider::transcribe(
-        &provider,
-        &job.model,
-        job.language.as_deref(),
+    let success = transcription_chain::transcribe_job_chain(
+        state,
+        &job.id,
         source,
-        &state.http,
+        job.language.as_deref(),
         token,
     )
     .await
     .context("transcription")?;
+    let transcript = success.transcript;
     if token.is_cancelled() {
         bail!("cancelled");
     }
@@ -82,8 +67,8 @@ async fn process_quick_inner(
         title: &title,
         source_name: &job.original_name,
         workflow_name: None,
-        provider_name: &provider.name,
-        model: &job.model,
+        provider_name: &success.provider_name,
+        model: &success.model,
         language: job.language.as_deref(),
         tags: &[],
         frontmatter: meta.frontmatter,
