@@ -37,6 +37,7 @@ Le cas d’usage naturel est **notes vocales → Obsidian**, mais rien n’est v
 - **Watch folders** — automatisez les nouveaux enregistrements d’un serveur, NAS ou dossier synchronisé.
 - **Prêt pour Obsidian** — noms propres, titre H1, propriétés YAML et tags.
 - **Votre moteur de transcription** — endpoint STT compatible OpenAI, notamment Speaches/Whisper.
+- **Chaînes de fallback résilientes** — mélangez providers et modèles dans l’ordre voulu. Si une route échoue, ScribeWatch essaie automatiquement la suivante — y compris un autre modèle du même provider.
 - **Aucun LLM obligatoire** — titres et formatage sont déterministes ; la transcription reste la source de vérité.
 - **Publication sûre** — le Markdown est publié avant l’archivage de l’audio, sans écraser une note existante.
 - **Petite stack auto-hébergée** — backend Rust/Axum, UI SvelteKit, SQLite, un conteneur.
@@ -55,6 +56,22 @@ Le cas d’usage naturel est **notes vocales → Obsidian**, mais rien n’est v
   <img src="docs/screenshots/quick-transcribe.png" width="49%" alt="Quick Transcribe dans ScribeWatch">
   <img src="docs/screenshots/workflow-folders.png" width="49%" alt="Dossiers d’un workflow ScribeWatch">
 </p>
+
+## 🔁 Fallbacks provider + modèle
+
+Chaque route de transcription est un couple explicite **provider + modèle**. ScribeWatch aspire la liste des modèles exposés par chaque provider configuré : vous choisissez donc exactement la chaîne voulue, y compris plusieurs modèles d’un même provider.
+
+```text
+Speaches / whisper-large-v3
+          ↓ échec
+Speaches / distil-whisper-large-v3
+          ↓ échec
+OpenAI / gpt-4o-transcribe
+          ↓
+Markdown
+```
+
+Il n’y a **aucun timeout de traitement par défaut**, ce qui évite de pénaliser les longs enregistrements. Chaque route peut cependant définir son propre délai de fallback (`Jamais`, 10/30/60 minutes ou personnalisé). Une panne réseau, erreur provider, rate limit ou réponse invalide peut passer à la route suivante ; une annulation utilisateur stoppe toute la chaîne. L’historique conserve chaque tentative et le provider/modèle réellement utilisé.
 
 ## 🚀 Installation rapide
 
@@ -92,6 +109,8 @@ tags:
   - transcription
   - scribewatch
 source: "Enregistrement 42.m4a"
+provider: "Speaches local"
+model: "whisper-large-v3"
 language: "fr"
 ---
 

@@ -12,7 +12,8 @@ cleanup(){
   rm -rf "$TMP"
 }
 trap cleanup EXIT
-mkdir -p "$TMP/config" "$TMP/data" "$TMP/media/watch" "$TMP/media/notes" "$TMP/media/archive" "$TMP/media/quick"
+mkdir -p "$TMP/config" "$TMP/data" "$TMP/media/watch" "$TMP/media/notes" "$TMP/media/archive" "$TMP/media/quick" \
+  "$TMP/media/fallback-watch" "$TMP/media/fallback-notes" "$TMP/media/fallback-archive"
 
 PORT="$MOCK_PORT" python3 "$ROOT/scripts/mock-transcription-server.py" >"$TMP/mock.log" 2>&1 & MOCK_PID=$!
 (
@@ -61,6 +62,51 @@ workflow_note="$(find "$TMP/media/notes" -maxdepth 1 -name '*.md' -print -quit)"
 grep -q '^title: "Remember to book the train tomorrow\."' "$workflow_note"
 grep -q '^  - ideas$' "$workflow_note"
 grep -q '^# Remember to book the train tomorrow\.$' "$workflow_note"
+
+# Fallback chain: same provider, first model fails, second model succeeds.
+fallback_workflow_json=$(python3 - "$TMP" <<'PY'
+import json,sys
+r=sys.argv[1]
+print(json.dumps({
+  "id":"fallback-workflow","name":"Fallback proof",
+  "watchDir":r+"/media/fallback-watch","outputDir":r+"/media/fallback-notes","archiveDir":r+"/media/fallback-archive",
+  "tags":["fallback"],"providerId":"provider","model":"fail-model",
+  "transcriptionChain":[
+    {"providerId":"provider","model":"fail-model"},
+    {"providerId":"provider","model":"fallback-model"}
+  ],
+  "language":"en","markdown":{"frontmatter":True,"transcriptHeading":"Transcript"},"enabled":True
+}))
+PY
+)
+curl -fsS -X POST "$BASE/workflows" -H 'content-type: application/json' -d "$fallback_workflow_json" >/dev/null
+printf 'fallback workflow audio' >"$TMP/media/fallback-watch/fallback.m4a"
+curl -fsS -X PUT "$BASE/workflows/fallback-workflow/scan" >/dev/null
+fallback_id=""
+for _ in $(seq 1 80); do
+  fallback_id="$(curl -fsS "$BASE/jobs" | python3 -c 'import json,sys; x=json.load(sys.stdin); print(next((j["id"] for j in x if j.get("workflowId")=="fallback-workflow"), ""))')"
+  [[ -n "$fallback_id" ]] && break
+  sleep .1
+done
+[[ -n "$fallback_id" ]]
+wait_job "$fallback_id"
+fallback_job="$(curl -fsS "$BASE/jobs/$fallback_id")"
+printf '%s' "$fallback_job" | python3 -c '
+import json,sys
+j=json.load(sys.stdin); a=j["transcriptionAttempts"]
+assert len(a)==2, a
+assert (a[0]["model"],a[0]["outcome"])==("fail-model","failed"), a
+assert (a[1]["model"],a[1]["outcome"])==("fallback-model","success"), a
+assert j["usedProviderId"]=="provider", j
+assert j["usedModel"]=="fallback-model", j
+'
+[[ ! -e "$TMP/media/fallback-watch/fallback.m4a" ]]
+[[ -f "$TMP/media/fallback-archive/fallback.m4a" ]]
+fallback_note="$(find "$TMP/media/fallback-notes" -maxdepth 1 -name '*.md' -print -quit)"
+[[ -n "$fallback_note" && -f "$fallback_note" ]]
+grep -q '^provider: "Mock Provider"$' "$fallback_note"
+grep -q '^model: "fallback-model"$' "$fallback_note"
+grep -q 'Fallback route worked\.' "$fallback_note"
 
 # Quick server file: publish another note, preserve source.
 printf 'server quick audio' >"$TMP/media/quick/server.m4a"
