@@ -1,5 +1,5 @@
 use crate::{
-    domain::{Job, QuickOutputKind},
+    domain::{Job, QuickOutputKind, TranscriptionRoute},
     error::{AppError, AppResult},
     jobs,
     quick::{self, QuickOptions},
@@ -44,6 +44,27 @@ fn text_bool(value: Option<String>, default: bool) -> Result<bool, AppError> {
     }
 }
 
+fn parse_transcription_chain(value: Option<String>) -> Result<Vec<TranscriptionRoute>, AppError> {
+    let Some(value) = value else {
+        return Ok(Vec::new());
+    };
+    let value = value.trim();
+    if value.is_empty() {
+        return Ok(Vec::new());
+    }
+    let routes: Vec<TranscriptionRoute> = serde_json::from_str(value)
+        .map_err(|error| AppError::BadRequest(format!("invalid transcriptionChain: {error}")))?;
+    if routes
+        .iter()
+        .any(|route| route.fallback_after_seconds == Some(0))
+    {
+        return Err(AppError::BadRequest(
+            "fallbackAfterSeconds must be greater than zero".into(),
+        ));
+    }
+    Ok(routes)
+}
+
 fn parse_output_kind(value: Option<String>) -> Result<QuickOutputKind, AppError> {
     match value.as_deref().map(str::trim) {
         Some("server") => Ok(QuickOutputKind::Server),
@@ -67,6 +88,7 @@ pub async fn upload(
     let mut original_name: Option<String> = None;
     let mut provider_id = None;
     let mut model = None;
+    let mut transcription_chain = None;
     let mut language = None;
     let mut output_kind = None;
     let mut output_dir = None;
@@ -159,6 +181,7 @@ pub async fn upload(
         match name.as_str() {
             "providerId" => provider_id = Some(value),
             "model" => model = Some(value),
+            "transcriptionChain" => transcription_chain = Some(value),
             "language" => language = Some(value),
             "outputKind" => output_kind = Some(value),
             "outputDir" => output_dir = Some(value),
@@ -171,11 +194,15 @@ pub async fn upload(
         staged.ok_or_else(|| AppError::BadRequest("audio file is required".into()))?;
     let original_name = original_name.unwrap_or_else(|| "audio".into());
     let options_result: AppResult<QuickOptions> = (|| {
+        let transcription_chain = parse_transcription_chain(transcription_chain)?;
+        let provider_id = provider_id.unwrap_or_default();
+        if transcription_chain.is_empty() && provider_id.trim().is_empty() {
+            return Err(AppError::BadRequest("providerId is required".into()));
+        }
         Ok(QuickOptions {
-            provider_id: provider_id
-                .filter(|value| !value.trim().is_empty())
-                .ok_or_else(|| AppError::BadRequest("providerId is required".into()))?,
+            provider_id,
             model: model.unwrap_or_default(),
+            transcription_chain,
             language,
             output_kind: parse_output_kind(output_kind)?,
             output_dir,
@@ -229,5 +256,35 @@ mod tests {
         assert!(!text_bool(Some("false".into()), true).unwrap());
         assert!(text_bool(Some("1".into()), false).unwrap());
         assert!(text_bool(Some("sometimes".into()), true).is_err());
+    }
+
+    #[test]
+    fn transcription_chain_parser_accepts_ordered_routes() {
+        let chain = parse_transcription_chain(Some(
+            r#"[
+              {"providerId":"p","model":"large-v3"},
+              {"providerId":"p","model":"distil-large-v3","fallbackAfterSeconds":1800}
+            ]"#
+            .into(),
+        ))
+        .unwrap();
+        assert_eq!(chain.len(), 2);
+        assert_eq!(chain[0].provider_id, "p");
+        assert_eq!(chain[0].model, "large-v3");
+        assert_eq!(chain[0].fallback_after_seconds, None);
+        assert_eq!(chain[1].model, "distil-large-v3");
+        assert_eq!(chain[1].fallback_after_seconds, Some(1800));
+    }
+
+    #[test]
+    fn transcription_chain_parser_rejects_bad_json_and_zero_timeout() {
+        assert!(parse_transcription_chain(Some("not-json".into())).is_err());
+        assert!(
+            parse_transcription_chain(Some(
+                r#"[{"providerId":"p","model":"m","fallbackAfterSeconds":0}]"#.into()
+            ))
+            .is_err()
+        );
+        assert!(parse_transcription_chain(None).unwrap().is_empty());
     }
 }

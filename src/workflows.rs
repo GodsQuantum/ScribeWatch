@@ -317,20 +317,19 @@ pub async fn normalize_definition(state: &AppState, mut workflow: Workflow) -> R
     if archive == watch || archive.starts_with(&watch) {
         anyhow::bail!("archive directory must be outside the watch directory");
     }
-    if !state
-        .providers
-        .read()
-        .await
-        .iter()
-        .any(|provider| provider.id == workflow.provider_id)
-    {
-        anyhow::bail!("unknown providerId");
-    }
+    let providers = state.providers.read().await.clone();
+    let chain = crate::transcription_chain::normalize_workflow_chain(&workflow, &providers)?;
+    let primary = chain
+        .first()
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("transcription chain is empty"))?;
+    workflow.transcription_chain = chain;
+    workflow.provider_id = primary.provider_id;
+    workflow.model = primary.model;
     workflow.watch_dir = watch.to_string_lossy().into_owned();
     workflow.output_dir = output.map(|path| path.to_string_lossy().into_owned());
     workflow.archive_dir = archive.to_string_lossy().into_owned();
     workflow.tags = crate::markdown::normalize_custom_tags(&workflow.tags);
-    workflow.model = workflow.model.trim().to_owned();
     workflow.language = workflow
         .language
         .as_deref()
@@ -417,6 +416,7 @@ mod validation_tests {
             tags: Vec::new(),
             provider_id: "provider".into(),
             model: String::new(),
+            transcription_chain: Vec::new(),
             language: Some("auto".into()),
             markdown: MarkdownOptions::default(),
             enabled: true,
@@ -462,6 +462,7 @@ mod validation_tests {
             tags: Vec::new(),
             provider_id: "provider".into(),
             model: String::new(),
+            transcription_chain: Vec::new(),
             language: None,
             markdown: MarkdownOptions::default(),
             enabled: true,
@@ -494,6 +495,7 @@ mod validation_tests {
             tags: Vec::new(),
             provider_id: "provider".into(),
             model: String::new(),
+            transcription_chain: Vec::new(),
             language: None,
             markdown: MarkdownOptions::default(),
             enabled: true,

@@ -40,3 +40,31 @@ test('product promise is visible on Home', async () => {
   const view = await read('lib/views/DashboardView.svelte');
   assert.ok(view.includes('Turn voice notes into Markdown before you forget them.'));
 });
+
+
+test('quick transport exposes transcription chains', async () => {
+  const api = await read('lib/api.ts');
+  const types = await read('lib/types.ts');
+  assert.ok(api.includes("form.append('transcriptionChain'"));
+  assert.ok(types.includes('interface TranscriptionRoute'));
+  assert.ok(types.includes('transcriptionChain'));
+  assert.ok(types.includes('transcriptionAttempts'));
+  assert.ok(types.includes('usedProviderId'));
+});
+
+
+test('workflow and quick share the fallback chain editor with live model discovery', async () => {
+  const editor = await read('lib/components/TranscriptionChainEditor.svelte');
+  const workflows = await read('lib/views/WorkflowsView.svelte');
+  const quick = await read('lib/views/QuickTranscribeView.svelte');
+  const providers = await read('lib/views/ProvidersView.svelte');
+  assert.ok(editor.includes('api.models'));
+  assert.ok(editor.includes('+ Add fallback'));
+  assert.ok(editor.includes('Primary'));
+  assert.ok(editor.includes('Fallback'));
+  assert.ok(workflows.includes('TranscriptionChainEditor'));
+  assert.ok(quick.includes('TranscriptionChainEditor'));
+  assert.ok(!workflows.includes('Model override'));
+  assert.ok(!quick.includes('Model override'));
+  assert.ok(providers.includes('Model discovery timeout'));
+});

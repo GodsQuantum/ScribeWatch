@@ -53,19 +53,13 @@ pub async fn create_job(
     source_size: u64,
     source_mtime_ns: i128,
 ) -> Result<Job> {
-    let provider = state
-        .providers
-        .read()
-        .await
-        .iter()
-        .find(|provider| provider.id == workflow.provider_id)
+    let providers = state.providers.read().await.clone();
+    let transcription_chain =
+        crate::transcription_chain::normalize_workflow_chain(workflow, &providers)?;
+    let primary = transcription_chain
+        .first()
         .cloned()
-        .ok_or_else(|| anyhow!("provider not found: {}", workflow.provider_id))?;
-    let model = if workflow.model.trim().is_empty() {
-        provider.model
-    } else {
-        workflow.model.clone()
-    };
+        .ok_or_else(|| anyhow!("transcription chain is empty"))?;
     let original_name = source_path
         .file_name()
         .and_then(|v| v.to_str())
@@ -77,12 +71,17 @@ pub async fn create_job(
         kind: crate::domain::JobKind::Workflow,
         workflow_id: Some(workflow.id.clone()),
         quick: None,
-        provider_id: workflow.provider_id.clone(),
+        provider_id: primary.provider_id.clone(),
+        transcription_chain,
+        transcription_attempts: Vec::new(),
+        used_provider_id: None,
+        used_provider_name: None,
+        used_model: None,
         original_name,
         source_path,
         source_size,
         source_mtime_ns,
-        model,
+        model: primary.model,
         language: workflow.language.clone(),
         status: JobStatus::Pending,
         attempts: 1,
@@ -175,11 +174,18 @@ mod tests {
     use crate::pipeline::process_job;
     use crate::{
         config::Config,
-        domain::{MarkdownOptions, Provider},
+        domain::{MarkdownOptions, Provider, TranscriptionAttemptOutcome, TranscriptionRoute},
     };
     use axum::{Json, Router, body::Bytes, http::StatusCode, routing::post};
     use serde_json::json;
-    use std::{path::Path, time::Duration};
+    use std::{
+        path::Path,
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+        time::Duration,
+    };
 
     async fn success_provider() -> String {
         let app = Router::new().route(
@@ -200,6 +206,37 @@ mod tests {
             }),
         );
         spawn_server(app).await
+    }
+
+    async fn counted_provider(
+        status: StatusCode,
+        text: &'static str,
+    ) -> (String, Arc<AtomicUsize>) {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let seen = calls.clone();
+        let app = Router::new().route(
+            "/v1/audio/transcriptions",
+            post(move |_body: Bytes| {
+                let seen = seen.clone();
+                async move {
+                    seen.fetch_add(1, Ordering::SeqCst);
+                    if status.is_success() {
+                        (status, Json(json!({"text": text})))
+                    } else {
+                        (status, Json(json!({"error": text})))
+                    }
+                }
+            }),
+        );
+        (spawn_server(app).await, calls)
+    }
+
+    fn route(provider_id: &str, model: &str) -> TranscriptionRoute {
+        TranscriptionRoute {
+            provider_id: provider_id.into(),
+            model: model.into(),
+            fallback_after_seconds: None,
+        }
     }
     async fn spawn_server(app: Router) -> String {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -255,6 +292,7 @@ mod tests {
             tags: Vec::new(),
             provider_id: "provider".into(),
             model: String::new(),
+            transcription_chain: Vec::new(),
             language: None,
             markdown: MarkdownOptions::default(),
             enabled: true,
@@ -413,6 +451,102 @@ mod tests {
         );
     }
     #[tokio::test]
+    async fn markdown_uses_provider_and_model_that_actually_succeeded() {
+        let temp = tempfile::tempdir().unwrap();
+        let (fail_url, _) = counted_provider(StatusCode::BAD_GATEWAY, "primary down").await;
+        let (success_url, success_calls) =
+            counted_provider(StatusCode::OK, "fallback transcript").await;
+        let (state, mut workflow) = setup(temp.path(), fail_url).await;
+        state.providers.write().await.push(Provider {
+            id: "fallback".into(),
+            name: "Fallback Provider".into(),
+            transcription_url: success_url,
+            model: "fallback-default".into(),
+            api_key: String::new(),
+            timeout_seconds: 5,
+            enabled: true,
+        });
+        workflow.transcription_chain = vec![
+            route("provider", "primary-model"),
+            route("fallback", "fallback-model"),
+        ];
+        let job = make_job(&state, &workflow, "winner.m4a").await;
+        process_job(&state, &job.id, &CancellationToken::new())
+            .await
+            .unwrap();
+        assert_eq!(success_calls.load(Ordering::SeqCst), 1);
+        let finished = get_job(&state, &job.id).unwrap();
+        assert_eq!(finished.used_provider_id.as_deref(), Some("fallback"));
+        assert_eq!(finished.used_model.as_deref(), Some("fallback-model"));
+        let markdown = std::fs::read_to_string(finished.markdown_path.unwrap()).unwrap();
+        assert!(markdown.contains("provider: \"Fallback Provider\""));
+        assert!(markdown.contains("model: \"fallback-model\""));
+        assert!(markdown.contains("fallback transcript"));
+    }
+
+    #[tokio::test]
+    async fn publication_failure_does_not_contact_another_route() {
+        let temp = tempfile::tempdir().unwrap();
+        let (primary_url, primary_calls) = counted_provider(StatusCode::OK, "publish me").await;
+        let (fallback_url, fallback_calls) =
+            counted_provider(StatusCode::OK, "should not run").await;
+        let (state, mut workflow) = setup(temp.path(), primary_url).await;
+        state.providers.write().await.push(Provider {
+            id: "fallback".into(),
+            name: "Fallback".into(),
+            transcription_url: fallback_url,
+            model: "fallback-model".into(),
+            api_key: String::new(),
+            timeout_seconds: 5,
+            enabled: true,
+        });
+        let notes = temp.path().join("notes");
+        std::fs::create_dir_all(&notes).unwrap();
+        workflow.output_dir = Some(notes.to_string_lossy().into_owned());
+        workflow.transcription_chain = vec![
+            route("provider", "primary-model"),
+            route("fallback", "fallback-model"),
+        ];
+        state.workflows.write().await[0] = workflow.clone();
+        state
+            .db
+            .upsert("workflow", &workflow.id, &workflow)
+            .unwrap();
+        let job = make_job(&state, &workflow, "publish-fail.m4a").await;
+        std::fs::remove_dir(&notes).unwrap();
+        assert!(
+            process_job(&state, &job.id, &CancellationToken::new())
+                .await
+                .is_err()
+        );
+        assert_eq!(primary_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(fallback_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn archive_failure_does_not_retranscribe() {
+        let temp = tempfile::tempdir().unwrap();
+        let (primary_url, primary_calls) = counted_provider(StatusCode::OK, "archive me").await;
+        let (state, mut workflow) = setup(temp.path(), primary_url).await;
+        workflow.transcription_chain = vec![route("provider", "primary-model")];
+        let job = make_job(&state, &workflow, "archive-fail.m4a").await;
+        std::fs::remove_dir(&workflow.archive_dir).unwrap();
+        assert!(
+            process_job(&state, &job.id, &CancellationToken::new())
+                .await
+                .is_err()
+        );
+        assert_eq!(primary_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            get_job(&state, &job.id)
+                .unwrap()
+                .transcription_attempts
+                .len(),
+            1
+        );
+    }
+
+    #[tokio::test]
     async fn retry_reuses_failed_job_and_completes() {
         let temp = tempfile::tempdir().unwrap();
         let (state, workflow) = setup(temp.path(), failing_provider().await).await;
@@ -427,6 +561,19 @@ mod tests {
         let finished = wait_for_terminal(&state, &job.id).await;
         assert_eq!(finished.status, JobStatus::Done);
         assert_eq!(finished.attempts, 2);
+        assert_eq!(finished.transcription_attempts.len(), 2);
+        assert_eq!(finished.transcription_attempts[0].run, 1);
+        assert_eq!(finished.transcription_attempts[0].route_index, 0);
+        assert_eq!(
+            finished.transcription_attempts[0].outcome,
+            TranscriptionAttemptOutcome::Failed
+        );
+        assert_eq!(finished.transcription_attempts[1].run, 2);
+        assert_eq!(finished.transcription_attempts[1].route_index, 0);
+        assert_eq!(
+            finished.transcription_attempts[1].outcome,
+            TranscriptionAttemptOutcome::Success
+        );
         assert!(
             Path::new(&workflow.watch_dir)
                 .join("hello from provider.md")

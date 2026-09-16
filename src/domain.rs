@@ -51,6 +51,39 @@ impl From<&Provider> for ProviderView {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct TranscriptionRoute {
+    pub provider_id: String,
+    pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fallback_after_seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TranscriptionAttemptOutcome {
+    Success,
+    Failed,
+    TimedOut,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptionAttempt {
+    pub run: u32,
+    pub route_index: usize,
+    pub provider_id: String,
+    pub provider_name: String,
+    pub model: String,
+    pub started_at_ms: u128,
+    pub finished_at_ms: u128,
+    pub outcome: TranscriptionAttemptOutcome,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct MarkdownOptions {
     #[serde(default = "default_true")]
     pub frontmatter: bool,
@@ -82,9 +115,12 @@ pub struct Workflow {
     pub archive_dir: String,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
     pub provider_id: String,
     #[serde(default)]
     pub model: String,
+    #[serde(default)]
+    pub transcription_chain: Vec<TranscriptionRoute>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
     #[serde(default)]
@@ -162,6 +198,16 @@ pub struct Job {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quick: Option<QuickJobMeta>,
     pub provider_id: String,
+    #[serde(default)]
+    pub transcription_chain: Vec<TranscriptionRoute>,
+    #[serde(default)]
+    pub transcription_attempts: Vec<TranscriptionAttempt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub used_provider_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub used_provider_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub used_model: Option<String>,
     pub original_name: String,
     pub source_path: PathBuf,
     pub source_size: u64,
@@ -212,12 +258,17 @@ mod tests {
         let workflow: Workflow = serde_json::from_str(workflow_json).unwrap();
         assert_eq!(workflow.output_dir, None);
         assert!(workflow.tags.is_empty());
+        assert!(workflow.transcription_chain.is_empty());
 
         let job_json = r#"{"id":"j","workflowId":"w","providerId":"p","originalName":"a.m4a","sourcePath":"/w/a.m4a","sourceSize":1,"sourceMtimeNs":1,"model":"m","status":"done","attempts":1,"markdownPublished":true,"createdAtMs":1,"updatedAtMs":1}"#;
         let job: Job = serde_json::from_str(job_json).unwrap();
         assert_eq!(job.kind, JobKind::Workflow);
         assert_eq!(job.workflow_id.as_deref(), Some("w"));
         assert!(job.quick.is_none());
+        assert!(job.transcription_chain.is_empty());
+        assert!(job.transcription_attempts.is_empty());
+        assert!(job.used_provider_id.is_none());
+        assert!(job.used_model.is_none());
     }
 
     #[test]

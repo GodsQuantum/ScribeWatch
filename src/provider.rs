@@ -51,12 +51,7 @@ pub async fn transcribe(
         form = form.text("language", language.to_owned());
     }
 
-    let mut request = client
-        .post(&provider.transcription_url)
-        .timeout(std::time::Duration::from_secs(
-            provider.timeout_seconds.max(1),
-        ))
-        .multipart(form);
+    let mut request = client.post(&provider.transcription_url).multipart(form);
     if !provider.api_key.trim().is_empty() {
         request = request.bearer_auth(&provider.api_key);
     }

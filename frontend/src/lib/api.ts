@@ -25,8 +25,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 function appendQuickOptions(form: FormData, options: QuickOptions) {
-  form.append('providerId', options.providerId);
-  form.append('model', options.model ?? '');
+  if (options.providerId) form.append('providerId', options.providerId);
+  if (options.model) form.append('model', options.model);
+  if (options.transcriptionChain) form.append('transcriptionChain', JSON.stringify(options.transcriptionChain));
   form.append('language', options.language ?? '');
   form.append('outputKind', options.outputKind);
   form.append('outputDir', options.outputDir ?? '');

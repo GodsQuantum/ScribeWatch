@@ -113,13 +113,13 @@ pub async fn delete(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> AppResult<StatusCode> {
-    if state
-        .workflows
-        .read()
-        .await
-        .iter()
-        .any(|workflow| workflow.provider_id == id)
-    {
+    if state.workflows.read().await.iter().any(|workflow| {
+        workflow.provider_id == id
+            || workflow
+                .transcription_chain
+                .iter()
+                .any(|route| route.provider_id == id)
+    }) {
         return Err(AppError::Conflict(
             "provider is still used by a workflow".into(),
         ));

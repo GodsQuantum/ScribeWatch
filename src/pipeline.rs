@@ -2,8 +2,8 @@ use crate::{
     domain::{JobKind, JobStatus, Workflow},
     jobs::{get_job, update_job},
     markdown::{self, NoteContext},
-    provider,
     state::AppState,
+    transcription_chain,
 };
 use anyhow::{Context, Result, anyhow, bail};
 use std::{
@@ -38,18 +38,6 @@ async fn process_workflow_job(
         .find(|workflow| workflow.id == workflow_id)
         .cloned()
         .ok_or_else(|| anyhow!("workflow not found: {workflow_id}"))?;
-    let provider = state
-        .providers
-        .read()
-        .await
-        .iter()
-        .find(|provider| provider.id == job.provider_id)
-        .cloned()
-        .ok_or_else(|| anyhow!("provider not found: {}", job.provider_id))?;
-    if !provider.enabled {
-        bail!("provider '{}' is disabled", provider.name);
-    }
-
     let source = state.config.resolve_allowed_file(&job.source_path)?;
     let watch_dir = state
         .config
@@ -71,20 +59,16 @@ async fn process_workflow_job(
         return finish_archive(state, &job.id, &workflow, &source, token).await;
     }
 
-    update_job(state, &job.id, |job| {
-        job.status = JobStatus::Transcribing;
-        job.error = None;
-    })?;
-    let transcript = provider::transcribe(
-        &provider,
-        &job.model,
-        job.language.as_deref(),
+    let success = transcription_chain::transcribe_job_chain(
+        state,
+        &job.id,
         &source,
-        &state.http,
+        job.language.as_deref(),
         token,
     )
     .await
     .context("transcription")?;
+    let transcript = success.transcript;
     if token.is_cancelled() {
         bail!("cancelled");
     }
@@ -99,8 +83,8 @@ async fn process_workflow_job(
         title: &title,
         source_name: &job.original_name,
         workflow_name: Some(&workflow.name),
-        provider_name: &provider.name,
-        model: &job.model,
+        provider_name: &success.provider_name,
+        model: &success.model,
         language: job.language.as_deref(),
         tags: &workflow.tags,
         frontmatter: workflow.markdown.frontmatter,
