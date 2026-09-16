@@ -5,6 +5,26 @@ export type JobKind = 'workflow' | 'quick';
 export type QuickSourceKind = 'server' | 'upload';
 export type QuickOutputKind = 'server' | 'client';
 
+export interface TranscriptionRoute {
+  providerId: string;
+  model: string;
+  fallbackAfterSeconds?: number;
+}
+
+export type TranscriptionAttemptOutcome = 'success' | 'failed' | 'timed_out' | 'cancelled';
+
+export interface TranscriptionAttempt {
+  run: number;
+  routeIndex: number;
+  providerId: string;
+  providerName: string;
+  model: string;
+  startedAtMs: number;
+  finishedAtMs: number;
+  outcome: TranscriptionAttemptOutcome;
+  error?: string;
+}
+
 export interface Provider {
   id: string;
   name: string;
@@ -38,6 +58,7 @@ export interface Workflow {
   tags: string[];
   providerId: string;
   model: string;
+  transcriptionChain?: TranscriptionRoute[];
   language?: string;
   markdown: MarkdownOptions;
   enabled: boolean;
@@ -57,6 +78,11 @@ export interface Job {
   workflowId?: string;
   quick?: QuickJobMeta;
   providerId: string;
+  transcriptionChain: TranscriptionRoute[];
+  transcriptionAttempts: TranscriptionAttempt[];
+  usedProviderId?: string;
+  usedProviderName?: string;
+  usedModel?: string;
   originalName: string;
   sourcePath: string;
   sourceSize: number;
@@ -74,8 +100,9 @@ export interface Job {
 }
 
 export interface QuickOptions {
-  providerId: string;
+  providerId?: string;
   model?: string;
+  transcriptionChain?: TranscriptionRoute[];
   language?: string;
   outputKind: QuickOutputKind;
   outputDir?: string;

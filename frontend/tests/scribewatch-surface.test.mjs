@@ -40,3 +40,14 @@ test('product promise is visible on Home', async () => {
   const view = await read('lib/views/DashboardView.svelte');
   assert.ok(view.includes('Turn voice notes into Markdown before you forget them.'));
 });
+
+
+test('quick transport exposes transcription chains', async () => {
+  const api = await read('lib/api.ts');
+  const types = await read('lib/types.ts');
+  assert.ok(api.includes("form.append('transcriptionChain'"));
+  assert.ok(types.includes('interface TranscriptionRoute'));
+  assert.ok(types.includes('transcriptionChain'));
+  assert.ok(types.includes('transcriptionAttempts'));
+  assert.ok(types.includes('usedProviderId'));
+});
