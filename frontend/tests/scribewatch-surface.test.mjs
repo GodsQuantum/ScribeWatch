@@ -51,3 +51,20 @@ test('quick transport exposes transcription chains', async () => {
   assert.ok(types.includes('transcriptionAttempts'));
   assert.ok(types.includes('usedProviderId'));
 });
+
+
+test('workflow and quick share the fallback chain editor with live model discovery', async () => {
+  const editor = await read('lib/components/TranscriptionChainEditor.svelte');
+  const workflows = await read('lib/views/WorkflowsView.svelte');
+  const quick = await read('lib/views/QuickTranscribeView.svelte');
+  const providers = await read('lib/views/ProvidersView.svelte');
+  assert.ok(editor.includes('api.models'));
+  assert.ok(editor.includes('+ Add fallback'));
+  assert.ok(editor.includes('Primary'));
+  assert.ok(editor.includes('Fallback'));
+  assert.ok(workflows.includes('TranscriptionChainEditor'));
+  assert.ok(quick.includes('TranscriptionChainEditor'));
+  assert.ok(!workflows.includes('Model override'));
+  assert.ok(!quick.includes('Model override'));
+  assert.ok(providers.includes('Model discovery timeout'));
+});
