@@ -77,6 +77,7 @@ fn options(output_kind: QuickOutputKind, output_dir: Option<String>) -> QuickOpt
     QuickOptions {
         provider_id: "provider".into(),
         model: String::new(),
+        transcription_chain: Vec::new(),
         language: None,
         output_kind,
         output_dir,

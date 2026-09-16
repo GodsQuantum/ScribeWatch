@@ -53,19 +53,13 @@ pub async fn create_job(
     source_size: u64,
     source_mtime_ns: i128,
 ) -> Result<Job> {
-    let provider = state
-        .providers
-        .read()
-        .await
-        .iter()
-        .find(|provider| provider.id == workflow.provider_id)
+    let providers = state.providers.read().await.clone();
+    let transcription_chain =
+        crate::transcription_chain::normalize_workflow_chain(workflow, &providers)?;
+    let primary = transcription_chain
+        .first()
         .cloned()
-        .ok_or_else(|| anyhow!("provider not found: {}", workflow.provider_id))?;
-    let model = if workflow.model.trim().is_empty() {
-        provider.model
-    } else {
-        workflow.model.clone()
-    };
+        .ok_or_else(|| anyhow!("transcription chain is empty"))?;
     let original_name = source_path
         .file_name()
         .and_then(|v| v.to_str())
@@ -77,12 +71,17 @@ pub async fn create_job(
         kind: crate::domain::JobKind::Workflow,
         workflow_id: Some(workflow.id.clone()),
         quick: None,
-        provider_id: workflow.provider_id.clone(),
+        provider_id: primary.provider_id.clone(),
+        transcription_chain,
+        transcription_attempts: Vec::new(),
+        used_provider_id: None,
+        used_provider_name: None,
+        used_model: None,
         original_name,
         source_path,
         source_size,
         source_mtime_ns,
-        model,
+        model: primary.model,
         language: workflow.language.clone(),
         status: JobStatus::Pending,
         attempts: 1,
@@ -255,6 +254,7 @@ mod tests {
             tags: Vec::new(),
             provider_id: "provider".into(),
             model: String::new(),
+            transcription_chain: Vec::new(),
             language: None,
             markdown: MarkdownOptions::default(),
             enabled: true,

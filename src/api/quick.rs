@@ -176,6 +176,7 @@ pub async fn upload(
                 .filter(|value| !value.trim().is_empty())
                 .ok_or_else(|| AppError::BadRequest("providerId is required".into()))?,
             model: model.unwrap_or_default(),
+            transcription_chain: Vec::new(),
             language,
             output_kind: parse_output_kind(output_kind)?,
             output_dir,

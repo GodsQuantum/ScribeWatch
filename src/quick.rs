@@ -1,5 +1,7 @@
 use crate::{
-    domain::{Job, JobKind, JobStatus, QuickJobMeta, QuickOutputKind, QuickSourceKind},
+    domain::{
+        Job, JobKind, JobStatus, QuickJobMeta, QuickOutputKind, QuickSourceKind, TranscriptionRoute,
+    },
     jobs::{now_ms, persist_job},
     state::AppState,
     workflows::is_audio_candidate,
@@ -16,9 +18,12 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuickOptions {
+    #[serde(default)]
     pub provider_id: String,
     #[serde(default)]
     pub model: String,
+    #[serde(default)]
+    pub transcription_chain: Vec<TranscriptionRoute>,
     #[serde(default)]
     pub language: Option<String>,
     pub output_kind: QuickOutputKind,
@@ -50,19 +55,13 @@ async fn normalized_job(
     if !is_audio_candidate(Path::new(&original_name)) {
         bail!("unsupported audio file: {original_name}");
     }
-    let provider = state
-        .providers
-        .read()
-        .await
-        .iter()
-        .find(|provider| provider.id == options.provider_id)
+    let providers = state.providers.read().await.clone();
+    let transcription_chain =
+        crate::transcription_chain::normalize_quick_chain(&options, &providers)?;
+    let primary = transcription_chain
+        .first()
         .cloned()
-        .ok_or_else(|| anyhow!("provider not found: {}", options.provider_id))?;
-    let model = if options.model.trim().is_empty() {
-        provider.model.clone()
-    } else {
-        options.model.trim().to_owned()
-    };
+        .ok_or_else(|| anyhow!("transcription chain is empty"))?;
     options.language = options
         .language
         .as_deref()
@@ -103,12 +102,17 @@ async fn normalized_job(
             result_name: None,
             frontmatter: options.frontmatter,
         }),
-        provider_id: provider.id,
+        provider_id: primary.provider_id.clone(),
+        transcription_chain,
+        transcription_attempts: Vec::new(),
+        used_provider_id: None,
+        used_provider_name: None,
+        used_model: None,
         original_name,
         source_path,
         source_size: metadata.len(),
         source_mtime_ns: mtime_ns(&metadata),
-        model,
+        model: primary.model,
         language: options.language,
         status: JobStatus::Pending,
         attempts: 1,
