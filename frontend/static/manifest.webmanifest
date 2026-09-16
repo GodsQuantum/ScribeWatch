@@ -1,0 +1,17 @@
+{
+  "name": "ScribeWatch",
+  "short_name": "ScribeWatch",
+  "description": "Voice notes and audio transcription to Markdown",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09100f",
+  "theme_color": "#09100f",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

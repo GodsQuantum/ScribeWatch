@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.98.0 --profile minimal --component clippy,rustfmt
+      - run: cargo +1.98.0 fmt --all -- --check
+      - run: cargo +1.98.0 clippy --locked --all-targets --all-features -- -D warnings
+      - run: cargo +1.98.0 test --locked --all-targets
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run check
+      - run: npm run build
+
+  container:
+    needs: [rust, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build --pull -t scribewatch-ci .
+      - name: Container smoke test
+        run: |
+          mkdir -p .ci/config .ci/data .ci/watch .ci/notes .ci/archive
+          chmod 777 .ci/config .ci/data .ci/watch .ci/notes .ci/archive
+          docker run -d --rm --name scribewatch-ci \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=64m \
+            --cap-drop ALL --security-opt no-new-privileges \
+            -p 127.0.0.1:3000:3000 \
+            -v "$PWD/.ci/config:/config" \
+            -v "$PWD/.ci/data:/data" \
+            -v "$PWD/.ci/watch:/media/watch" \
+            -v "$PWD/.ci/notes:/media/notes" \
+            -v "$PWD/.ci/archive:/media/archive" \
+            scribewatch-ci
+          trap 'docker rm -f scribewatch-ci >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3000/api/v1/ready && exit 0
+            sleep 1
+          done
+          docker logs scribewatch-ci
+          exit 1

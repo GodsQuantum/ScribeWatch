@@ -1,0 +1,43 @@
+services:
+  scribewatch:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: scribewatch:local
+    init: true
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    ports:
+      - "${SCRIBEWATCH_BIND_HOST:-127.0.0.1}:${SCRIBEWATCH_HTTP_PORT:-3000}:3000"
+    environment:
+      TZ: "${TZ:-UTC}"
+      SCRIBEWATCH_CONFIG_DIR: /config
+      SCRIBEWATCH_DATA_DIR: /data
+      SCRIBEWATCH_DIST_DIR: /app/frontend
+      SCRIBEWATCH_ALLOWED_ROOTS: /media
+      SCRIBEWATCH_SCAN_SECONDS: "${SCRIBEWATCH_SCAN_SECONDS:-5}"
+      SCRIBEWATCH_FILE_STABILITY_MS: "${SCRIBEWATCH_FILE_STABILITY_MS:-2000}"
+      SCRIBEWATCH_MAX_TRANSCRIPTION_JOBS: "${SCRIBEWATCH_MAX_TRANSCRIPTION_JOBS:-2}"
+      SCRIBEWATCH_MAX_UPLOAD_BYTES: "${SCRIBEWATCH_MAX_UPLOAD_BYTES:-2147483648}"
+      SCRIBEWATCH_QUICK_RESULT_RETENTION_HOURS: "${SCRIBEWATCH_QUICK_RESULT_RETENTION_HOURS:-24}"
+    volumes:
+      - ./config:/config
+      - ./data:/data
+      - "${WATCH_PATH:-./watch}:/media/watch"
+      - "${NOTES_PATH:-./notes}:/media/notes"
+      - "${ARCHIVE_PATH:-./archive}:/media/archive"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:3000/api/v1/ready"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
