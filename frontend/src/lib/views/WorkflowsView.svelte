@@ -13,7 +13,7 @@
   const blank=():Workflow=>({
     id:'', name:'', watchDir:'', outputDir:undefined, archiveDir:'', tags:[],
     providerId:'', model:'', transcriptionChain:[{providerId:firstProvider(),model:''}], language:undefined,
-    markdown:{frontmatter:true,transcriptHeading:'Transcript'}, enabled:true
+    markdown:{frontmatter:true,paragraphs:true,transcriptHeading:'Transcript'}, enabled:true
   });
   let selectedId='';
   let draft=blank();
@@ -89,6 +89,8 @@
         <div class="subsection stack">
           <div><strong>Obsidian / Markdown</strong><p class="help">Every note gets a transcript-derived title. YAML properties stay optional.</p></div>
           <label class="check"><input type="checkbox" bind:checked={draft.markdown.frontmatter} /> Add YAML properties</label>
+          <label class="check"><input type="checkbox" bind:checked={draft.markdown.paragraphs} /> Readable deterministic paragraphs</label>
+          <span class="help">Groups the transcript with Unicode sentence boundaries and length rules; it never rewrites the words.</span>
           <TagEditor value={draft.tags} onchange={(tags)=>draft={...draft,tags}} />
         </div>
         <label class="check"><input type="checkbox" bind:checked={draft.enabled} disabled={providers.length===0} /> Watch this folder continuously</label>

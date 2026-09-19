@@ -31,6 +31,8 @@ pub struct QuickOptions {
     pub output_dir: Option<String>,
     #[serde(default = "default_true")]
     pub frontmatter: bool,
+    #[serde(default = "default_true")]
+    pub paragraphs: bool,
 }
 fn default_true() -> bool {
     true
@@ -101,6 +103,7 @@ async fn normalized_job(
             output_dir,
             result_name: None,
             frontmatter: options.frontmatter,
+            paragraphs: options.paragraphs,
         }),
         provider_id: primary.provider_id.clone(),
         transcription_chain,

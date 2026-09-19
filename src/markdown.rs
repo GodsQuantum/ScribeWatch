@@ -7,11 +7,16 @@ use std::{
     path::{Path, PathBuf},
 };
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
 const DEFAULT_TAGS: [&str; 3] = ["voice-note", "transcription", "scribewatch"];
 const MAX_TITLE_CHARS: usize = 80;
 const MAX_TITLE_WORDS: usize = 10;
+const MAX_PARAGRAPH_SENTENCES: usize = 3;
+const MAX_PARAGRAPH_WORDS: usize = 90;
+const MAX_PARAGRAPH_CHARS: usize = 620;
+const UNPUNCTUATED_PARAGRAPH_WORDS: usize = 70;
 
 pub struct NoteContext<'a> {
     pub title: &'a str,
@@ -22,6 +27,7 @@ pub struct NoteContext<'a> {
     pub language: Option<&'a str>,
     pub tags: &'a [String],
     pub frontmatter: bool,
+    pub paragraphs: bool,
     pub created_at: OffsetDateTime,
 }
 
@@ -35,6 +41,90 @@ fn normalize_whitespace(value: &str) -> String {
 
 fn truncate_chars(value: &str, max: usize) -> String {
     value.chars().take(max).collect()
+}
+
+fn format_block(value: &str) -> Vec<String> {
+    let normalized = normalize_whitespace(value);
+    if normalized.is_empty() {
+        return Vec::new();
+    }
+
+    let sentences = normalized
+        .unicode_sentences()
+        .map(normalize_whitespace)
+        .filter(|sentence| !sentence.is_empty())
+        .collect::<Vec<_>>();
+
+    if sentences.len() <= 1 {
+        let words = normalized.split_whitespace().collect::<Vec<_>>();
+        if words.len() <= UNPUNCTUATED_PARAGRAPH_WORDS {
+            return vec![normalized];
+        }
+        return words
+            .chunks(UNPUNCTUATED_PARAGRAPH_WORDS)
+            .map(|chunk| chunk.join(" "))
+            .collect();
+    }
+
+    let mut paragraphs = Vec::new();
+    let mut current = String::new();
+    let mut current_sentences = 0usize;
+    let mut current_words = 0usize;
+
+    for sentence in sentences {
+        let sentence_words = sentence.split_whitespace().count();
+        let sentence_chars = sentence.chars().count();
+        let separator_chars = usize::from(!current.is_empty());
+        let would_overflow = !current.is_empty()
+            && (current_sentences >= MAX_PARAGRAPH_SENTENCES
+                || current_words + sentence_words > MAX_PARAGRAPH_WORDS
+                || current.chars().count() + separator_chars + sentence_chars
+                    > MAX_PARAGRAPH_CHARS);
+
+        if would_overflow {
+            paragraphs.push(current);
+            current = String::new();
+            current_sentences = 0;
+            current_words = 0;
+        }
+
+        if !current.is_empty() {
+            current.push(' ');
+        }
+        current.push_str(&sentence);
+        current_sentences += 1;
+        current_words += sentence_words;
+    }
+
+    if !current.is_empty() {
+        paragraphs.push(current);
+    }
+    paragraphs
+}
+
+pub fn format_transcript(transcript: &str) -> String {
+    let mut paragraphs = Vec::new();
+    let mut block = Vec::new();
+
+    let flush = |block: &mut Vec<&str>, paragraphs: &mut Vec<String>| {
+        if block.is_empty() {
+            return;
+        }
+        let joined = block.join(" ");
+        paragraphs.extend(format_block(&joined));
+        block.clear();
+    };
+
+    for line in transcript.lines() {
+        if line.trim().is_empty() {
+            flush(&mut block, &mut paragraphs);
+        } else {
+            block.push(line.trim());
+        }
+    }
+    flush(&mut block, &mut paragraphs);
+
+    paragraphs.join("\n\n")
 }
 
 pub fn derive_title(transcript: &str, source_name: &str) -> String {
@@ -160,7 +250,11 @@ pub fn render_note(context: &NoteContext<'_>, transcript: &str) -> Result<String
     out.push_str("# ");
     out.push_str(context.title.trim());
     out.push_str("\n\n");
-    out.push_str(transcript.trim());
+    if context.paragraphs {
+        out.push_str(&format_transcript(transcript));
+    } else {
+        out.push_str(transcript.trim());
+    }
     out.push('\n');
     Ok(out)
 }
@@ -221,6 +315,7 @@ pub fn render(
 ) -> String {
     let MarkdownOptions {
         frontmatter,
+        paragraphs,
         transcript_heading,
     } = &workflow.markdown;
     let mut out = String::new();
@@ -244,7 +339,11 @@ pub fn render(
         heading
     });
     out.push_str("\n\n");
-    out.push_str(transcript.trim());
+    if *paragraphs {
+        out.push_str(&format_transcript(transcript));
+    } else {
+        out.push_str(transcript.trim());
+    }
     out.push('\n');
     out
 }
@@ -333,6 +432,7 @@ mod tests {
             language: Some("fr"),
             tags: &custom,
             frontmatter: true,
+            paragraphs: true,
             created_at: OffsetDateTime::from_unix_timestamp(1_789_501_200).unwrap(),
         };
         let note = render_note(&ctx, "Acheter du lait demain.").unwrap();
@@ -356,9 +456,48 @@ mod tests {
             language: None,
             tags: &[],
             frontmatter: false,
+            paragraphs: false,
             created_at: OffsetDateTime::from_unix_timestamp(1_789_501_200).unwrap(),
         };
         assert_eq!(render_note(&ctx, "Texte").unwrap(), "# Titre\n\nTexte\n");
+    }
+
+    #[test]
+    fn deterministic_paragraphs_group_unicode_sentences_without_rewriting() {
+        let transcript =
+            "Première idée. Deuxième idée ! Troisième idée ? Quatrième idée. Cinquième idée.";
+        let formatted = format_transcript(transcript);
+        assert_eq!(
+            formatted,
+            "Première idée. Deuxième idée ! Troisième idée ?\n\nQuatrième idée. Cinquième idée."
+        );
+        assert_eq!(
+            normalize_whitespace(&formatted),
+            normalize_whitespace(transcript)
+        );
+    }
+
+    #[test]
+    fn punctuationless_transcript_is_chunked_without_changing_words() {
+        let transcript = (1..=145)
+            .map(|index| format!("mot{index}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let formatted = format_transcript(&transcript);
+        assert_eq!(formatted.split("\n\n").count(), 3);
+        assert_eq!(
+            normalize_whitespace(&formatted),
+            normalize_whitespace(&transcript)
+        );
+    }
+
+    #[test]
+    fn explicit_blank_lines_remain_paragraph_boundaries() {
+        let transcript = "Premier bloc avec une phrase.\n\nDeuxième bloc avec une phrase.";
+        assert_eq!(
+            format_transcript(transcript),
+            "Premier bloc avec une phrase.\n\nDeuxième bloc avec une phrase."
+        );
     }
 
     #[test]

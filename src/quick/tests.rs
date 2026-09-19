@@ -82,6 +82,7 @@ fn options(output_kind: QuickOutputKind, output_dir: Option<String>) -> QuickOpt
         output_kind,
         output_dir,
         frontmatter: true,
+        paragraphs: true,
     }
 }
 

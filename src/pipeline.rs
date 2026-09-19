@@ -88,6 +88,7 @@ async fn process_workflow_job(
         language: job.language.as_deref(),
         tags: &workflow.tags,
         frontmatter: workflow.markdown.frontmatter,
+        paragraphs: workflow.markdown.paragraphs,
         created_at: OffsetDateTime::now_utc(),
     };
     let document = markdown::render_note(&context, &transcript)?;

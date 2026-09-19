@@ -32,6 +32,7 @@ function appendQuickOptions(form: FormData, options: QuickOptions) {
   form.append('outputKind', options.outputKind);
   form.append('outputDir', options.outputDir ?? '');
   form.append('frontmatter', String(options.frontmatter));
+  form.append('paragraphs', String(options.paragraphs));
 }
 function markdownFilename(response: Response): string {
   const disposition = response.headers.get('content-disposition') ?? '';

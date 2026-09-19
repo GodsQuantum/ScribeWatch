@@ -93,6 +93,7 @@ pub async fn upload(
     let mut output_kind = None;
     let mut output_dir = None;
     let mut frontmatter = None;
+    let mut paragraphs = None;
 
     loop {
         let field = match multipart.next_field().await {
@@ -186,6 +187,7 @@ pub async fn upload(
             "outputKind" => output_kind = Some(value),
             "outputDir" => output_dir = Some(value),
             "frontmatter" => frontmatter = Some(value),
+            "paragraphs" => paragraphs = Some(value),
             _ => {}
         }
     }
@@ -207,6 +209,7 @@ pub async fn upload(
             output_kind: parse_output_kind(output_kind)?,
             output_dir,
             frontmatter: text_bool(frontmatter, true)?,
+            paragraphs: text_bool(paragraphs, true)?,
         })
     })();
     let options = match options_result {

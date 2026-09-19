@@ -1,9 +1,6 @@
 services:
   scribewatch:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: scribewatch:local
+    image: ghcr.io/godsquantum/scribewatch:latest
     init: true
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"

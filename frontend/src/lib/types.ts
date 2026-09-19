@@ -47,6 +47,7 @@ export interface ProviderInput {
 
 export interface MarkdownOptions {
   frontmatter: boolean;
+  paragraphs: boolean;
   transcriptHeading: string;
 }
 export interface Workflow {
@@ -70,6 +71,7 @@ export interface QuickJobMeta {
   outputDir?: string;
   resultName?: string;
   frontmatter: boolean;
+  paragraphs: boolean;
 }
 
 export interface Job {
@@ -107,6 +109,7 @@ export interface QuickOptions {
   outputKind: QuickOutputKind;
   outputDir?: string;
   frontmatter: boolean;
+  paragraphs: boolean;
 }
 
 export interface DashboardStats {
