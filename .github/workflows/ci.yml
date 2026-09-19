@@ -23,6 +23,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Install audio test dependency
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Install pinned Rust
         run: rustup toolchain install 1.98.0 --profile minimal --component clippy,rustfmt
       - run: cargo +1.98.0 fmt --all -- --check
@@ -79,3 +81,11 @@ jobs:
           done
           docker logs scribewatch-ci
           exit 1
+      - name: Enable arm64 emulation
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+      - name: Configure Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Verify arm64 image builds
+        run: docker buildx build --platform linux/arm64 --progress=plain .

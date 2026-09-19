@@ -1,6 +1,7 @@
 import { parseApiResponse } from './api-response.js';
 import type {
-  BrowseResponse, DashboardStats, Job, Provider, ProviderInput, QuickOptions, Workflow
+  BrowseResponse, DashboardStats, ExportFormat, Job, LlmProvider, LlmProviderInput,
+  Provider, ProviderInput, QuickOptions, StructureProfile, Workflow
 } from './types';
 
 export class ApiError extends Error {
@@ -33,6 +34,7 @@ function appendQuickOptions(form: FormData, options: QuickOptions) {
   form.append('outputDir', options.outputDir ?? '');
   form.append('frontmatter', String(options.frontmatter));
   form.append('paragraphs', String(options.paragraphs));
+  form.append('structureProfileId', options.structureProfileId ?? '');
 }
 function markdownFilename(response: Response): string {
   const disposition = response.headers.get('content-disposition') ?? '';
@@ -47,6 +49,17 @@ function markdownFilename(response: Response): string {
 export const api = {
   dashboard: () => request<DashboardStats>('/api/v1/dashboard'),
   providers: () => request<Provider[]>('/api/v1/providers'),
+  llmProviders: () => request<LlmProvider[]>('/api/v1/llm-providers'),
+  saveLlmProvider: (provider: LlmProviderInput) => request<LlmProvider>('/api/v1/llm-providers', {
+    method: 'POST', body: JSON.stringify(provider)
+  }),
+  deleteLlmProvider: (id: string) => request<void>(`/api/v1/llm-providers/${id}`, { method: 'DELETE' }),
+  llmModels: (id: string) => request<{models:string[]}>(`/api/v1/llm-providers/${id}/models`),
+  structureProfiles: () => request<StructureProfile[]>('/api/v1/structure-profiles'),
+  saveStructureProfile: (profile: Omit<StructureProfile,'builtIn'>) => request<StructureProfile>('/api/v1/structure-profiles', {
+    method: 'POST', body: JSON.stringify(profile)
+  }),
+  deleteStructureProfile: (id: string) => request<void>(`/api/v1/structure-profiles/${id}`, { method: 'DELETE' }),
   saveProvider: (provider: ProviderInput) => request<Provider>('/api/v1/providers', {
     method: 'POST', body: JSON.stringify(provider)
   }),
@@ -73,6 +86,11 @@ export const api = {
     const response = await fetch('/api/v1/quick/upload', { method: 'POST', body: form });
     if (!response.ok) throw new ApiError(response.status, await errorMessage(response));
     return response.json() as Promise<Job>;
+  },
+  jobExport: async (id: string, format: ExportFormat) => {
+    const response = await fetch(`/api/v1/jobs/${id}/export/${format}`);
+    if (!response.ok) throw new ApiError(response.status, await errorMessage(response));
+    return { blob: await response.blob(), filename: markdownFilename(response) };
   },
   jobMarkdown: async (id: string) => {
     const response = await fetch(`/api/v1/jobs/${id}/markdown`);

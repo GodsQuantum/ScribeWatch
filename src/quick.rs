@@ -1,10 +1,11 @@
 use crate::{
+    audio,
     domain::{
         Job, JobKind, JobStatus, QuickJobMeta, QuickOutputKind, QuickSourceKind, TranscriptionRoute,
     },
     jobs::{now_ms, persist_job},
+    llm,
     state::AppState,
-    workflows::is_audio_candidate,
 };
 use anyhow::{Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
@@ -33,6 +34,8 @@ pub struct QuickOptions {
     pub frontmatter: bool,
     #[serde(default = "default_true")]
     pub paragraphs: bool,
+    #[serde(default)]
+    pub structure_profile_id: Option<String>,
 }
 fn default_true() -> bool {
     true
@@ -54,9 +57,11 @@ async fn normalized_job(
     source_kind: QuickSourceKind,
     mut options: QuickOptions,
 ) -> Result<Job> {
-    if !is_audio_candidate(Path::new(&original_name)) {
-        bail!("unsupported audio file: {original_name}");
+    if !audio::probe_audio(&source_path, &tokio_util::sync::CancellationToken::new()).await? {
+        bail!("file does not contain a decodable audio stream: {original_name}");
     }
+    options.structure_profile_id =
+        llm::validate_profile_selection(state, options.structure_profile_id.as_deref()).await?;
     let providers = state.providers.read().await.clone();
     let transcription_chain =
         crate::transcription_chain::normalize_quick_chain(&options, &providers)?;
@@ -104,6 +109,7 @@ async fn normalized_job(
             result_name: None,
             frontmatter: options.frontmatter,
             paragraphs: options.paragraphs,
+            structure_profile_id: options.structure_profile_id.clone(),
         }),
         provider_id: primary.provider_id.clone(),
         transcription_chain,
@@ -111,6 +117,10 @@ async fn normalized_job(
         used_provider_id: None,
         used_provider_name: None,
         used_model: None,
+        structured_profile_id: None,
+        structured_profile_name: None,
+        structured_model: None,
+        structuring_error: None,
         original_name,
         source_path,
         source_size: metadata.len(),

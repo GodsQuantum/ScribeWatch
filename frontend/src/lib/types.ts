@@ -1,5 +1,5 @@
 export type JobStatus =
-  | 'pending' | 'transcribing' | 'publishing' | 'archiving'
+  | 'pending' | 'transcribing' | 'structuring' | 'publishing' | 'archiving'
   | 'done' | 'error' | 'cancelled' | 'interrupted';
 export type JobKind = 'workflow' | 'quick';
 export type QuickSourceKind = 'server' | 'upload';
@@ -50,6 +50,37 @@ export interface MarkdownOptions {
   paragraphs: boolean;
   transcriptHeading: string;
 }
+
+export interface LlmProvider {
+  id: string;
+  name: string;
+  chatCompletionsUrl: string;
+  model: string;
+  timeoutSeconds: number;
+  enabled: boolean;
+  hasApiKey: boolean;
+}
+
+export interface LlmProviderInput {
+  id: string;
+  name: string;
+  chatCompletionsUrl: string;
+  model: string;
+  apiKey?: string;
+  clearApiKey?: boolean;
+  timeoutSeconds: number;
+  enabled: boolean;
+}
+
+export interface StructureProfile {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  providerId: string;
+  model: string;
+  builtIn: boolean;
+}
 export interface Workflow {
   id: string;
   name: string;
@@ -61,6 +92,7 @@ export interface Workflow {
   model: string;
   transcriptionChain?: TranscriptionRoute[];
   language?: string;
+  structureProfileId?: string;
   markdown: MarkdownOptions;
   enabled: boolean;
 }
@@ -72,6 +104,7 @@ export interface QuickJobMeta {
   resultName?: string;
   frontmatter: boolean;
   paragraphs: boolean;
+  structureProfileId?: string;
 }
 
 export interface Job {
@@ -85,6 +118,10 @@ export interface Job {
   usedProviderId?: string;
   usedProviderName?: string;
   usedModel?: string;
+  structuredProfileId?: string;
+  structuredProfileName?: string;
+  structuredModel?: string;
+  structuringError?: string;
   originalName: string;
   sourcePath: string;
   sourceSize: number;
@@ -110,7 +147,10 @@ export interface QuickOptions {
   outputDir?: string;
   frontmatter: boolean;
   paragraphs: boolean;
+  structureProfileId?: string;
 }
+
+export type ExportFormat = 'md'|'txt'|'html'|'docx'|'odt'|'pdf';
 
 export interface DashboardStats {
   workflows: number;

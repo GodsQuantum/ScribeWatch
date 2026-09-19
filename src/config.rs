@@ -47,6 +47,8 @@ impl Config {
         self.data_dir = std::fs::canonicalize(&self.data_dir)?;
         std::fs::create_dir_all(self.quick_upload_dir())?;
         std::fs::create_dir_all(self.quick_result_dir())?;
+        reset_ephemeral_dir(&self.normalized_dir())?;
+        reset_ephemeral_dir(&self.export_dir())?;
         if self.allowed_roots.is_empty() {
             bail!("SCRIBEWATCH_ALLOWED_ROOTS must contain at least one existing directory");
         }
@@ -72,6 +74,14 @@ impl Config {
 
     pub fn quick_result_dir(&self) -> PathBuf {
         self.data_dir.join("quick-results")
+    }
+
+    pub fn normalized_dir(&self) -> PathBuf {
+        self.data_dir.join("normalized-audio")
+    }
+
+    pub fn export_dir(&self) -> PathBuf {
+        self.data_dir.join("exports")
     }
 
     pub fn resolve_allowed_path(&self, path: &Path) -> Result<PathBuf> {
@@ -105,6 +115,16 @@ impl Config {
         }
         Ok(path)
     }
+}
+
+fn reset_ephemeral_dir(path: &Path) -> Result<()> {
+    if path.exists() {
+        std::fs::remove_dir_all(path)
+            .with_context(|| format!("clear ephemeral directory {}", path.display()))?;
+    }
+    std::fs::create_dir_all(path)
+        .with_context(|| format!("create ephemeral directory {}", path.display()))?;
+    Ok(())
 }
 
 fn unescape_mount(value: &str) -> String {

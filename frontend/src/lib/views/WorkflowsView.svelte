@@ -3,9 +3,10 @@
   import PathPicker from '$lib/components/PathPicker.svelte';
   import TagEditor from '$lib/components/TagEditor.svelte';
   import TranscriptionChainEditor from '$lib/components/TranscriptionChainEditor.svelte';
-  import type { Provider, TranscriptionRoute, Workflow } from '$lib/types';
+  import type { Provider, StructureProfile, TranscriptionRoute, Workflow } from '$lib/types';
   export let workflows:Workflow[]=[];
   export let providers:Provider[]=[];
+  export let structureProfiles:StructureProfile[]=[];
   export let refresh:()=>Promise<void>=async()=>{};
   export let notify:(type:'success'|'error',message:string)=>void=()=>{};
 
@@ -13,6 +14,7 @@
   const blank=():Workflow=>({
     id:'', name:'', watchDir:'', outputDir:undefined, archiveDir:'', tags:[],
     providerId:'', model:'', transcriptionChain:[{providerId:firstProvider(),model:''}], language:undefined,
+    structureProfileId:undefined,
     markdown:{frontmatter:true,paragraphs:true,transcriptHeading:'Transcript'}, enabled:true
   });
   let selectedId='';
@@ -79,8 +81,9 @@
           <div class="field"><label for="workflow-language">Language</label><input id="workflow-language" class="input" bind:value={draft.language} placeholder="auto, fr, en…" /><span class="help">Empty or “auto” lets the provider detect it.</span></div>
         </div>
         <TranscriptionChainEditor value={draft.transcriptionChain??[]} {providers} {notify} onchange={(routes)=>draft={...draft,transcriptionChain:routes}} />
+        <div class="field"><label for="workflow-structure">AI structure <span class="muted">optional</span></label><select id="workflow-structure" class="select" bind:value={draft.structureProfileId}><option value="">None — deterministic transcript only</option>{#each structureProfiles.filter((profile)=>!!profile.providerId) as profile}<option value={profile.id}>{profile.name}</option>{/each}</select><span class="help">Runs after transcription. Failure never blocks the canonical transcript or source archiving.</span></div>
         <div class="folder-flow">
-          <div class="field folder-step"><span class="step-no">1</span><label for="workflow-watch">Watch folder</label><div class="path-control"><input id="workflow-watch" class="input mono" bind:value={draft.watchDir} placeholder="/media/inbox" /><button class="btn" on:click={()=>picker='watch'}>Browse</button></div><span class="help">Stable audio files detected here are queued automatically.</span></div>
+          <div class="field folder-step"><span class="step-no">1</span><label for="workflow-watch">Watch folder</label><div class="path-control"><input id="workflow-watch" class="input mono" bind:value={draft.watchDir} placeholder="/media/inbox" /><button class="btn" on:click={()=>picker='watch'}>Browse</button></div><span class="help">Any stable file containing an FFmpeg-decodable audio stream is detected by content, regardless of extension, then normalized before STT.</span></div>
           <div class="flow-arrow">↓</div>
           <div class="field folder-step"><span class="step-no">2</span><label for="workflow-output">Markdown folder</label><div class="path-control"><input id="workflow-output" class="input mono" bind:value={draft.outputDir} placeholder="Same as Watch folder" /><button class="btn" on:click={()=>picker='output'}>Browse</button></div><span class="help">Point this at an Obsidian vault folder, or leave empty to publish beside the audio.</span></div>
           <div class="flow-arrow">↓</div>

@@ -1,9 +1,12 @@
 pub mod api;
+pub mod audio;
 pub mod config;
 pub mod db;
 pub mod domain;
 pub mod error;
+pub mod export;
 pub mod jobs;
+pub mod llm;
 pub mod markdown;
 pub mod pipeline;
 mod pipeline_quick;

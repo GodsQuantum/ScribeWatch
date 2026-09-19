@@ -2,6 +2,31 @@
 
 All notable ScribeWatch changes are documented here.
 
+## [0.4.0] - 2026-09-19
+
+### Added
+- Live Recorder with browser microphone discovery, device selection, timer, level meter and record/stop transcription.
+- Content-based audio ingest with FFprobe plus FFmpeg normalization to mono 16 kHz PCM before STT; Watch folders are no longer limited by filename extensions.
+- Optional OpenAI-compatible LLM providers kept separate from STT providers.
+- Reusable AI structure profiles with built-ins for general notes, meetings/phone calls, medical-consultation documentation drafts, marketing brainstorms and interviews/research.
+- Long-transcript AI structuring with bounded evidence chunks followed by a final synthesis pass.
+- Document export from completed jobs to Markdown, plain text, HTML, DOCX, ODT and PDF.
+- AI structuring state, model/profile metadata and non-fatal structuring errors in job history.
+- CI verification for the arm64 container build in addition to the amd64 runtime smoke test.
+
+### Changed
+- The canonical transcript is now explicitly preserved when AI structuring is enabled; structured notes are an additional view in the same Markdown document.
+- Quick Transcribe and Workflows can optionally select an AI structure profile without making an LLM mandatory.
+- The runtime image now uses an Alpine base with a static musl Rust binary, retaining FFmpeg/Pandoc/WeasyPrint while keeping the image substantially smaller than the initial Debian export-runtime design.
+- Temporary normalized audio and derived export working files live under the ephemeral data area and are cleaned after processing.
+
+### Safety
+- LLM prompts treat transcript content as untrusted data and explicitly forbid following instructions embedded in transcripts or inventing names, dates, measurements, diagnoses, commitments or other missing facts.
+- AI structuring is best-effort: an LLM outage or invalid response never invalidates a successful transcript or blocks Markdown publication.
+- The medical-consultation profile is documentation-only and forbids inferring diagnoses, examination findings, medications, doses, results or treatment plans not present in the transcript.
+- Derived document exports neutralize Markdown image targets and disable raw HTML before Pandoc conversion.
+- Leaving the Live Recorder view while recording stops capture without uploading an unfinished recording.
+
 ## [0.3.0] - 2026-09-19
 
 ### Added

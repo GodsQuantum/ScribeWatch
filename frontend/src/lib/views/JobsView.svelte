@@ -1,12 +1,13 @@
 <script lang="ts">
   import { api } from '$lib/api';
   import { saveMarkdownLocally } from '$lib/local-save';
-  import type { Job, TranscriptionAttempt, Workflow } from '$lib/types';
+  import type { ExportFormat, Job, TranscriptionAttempt, Workflow } from '$lib/types';
   export let jobs:Job[]=[];
   export let workflows:Workflow[]=[];
   export let refresh:()=>Promise<void>=async()=>{};
   export let notify:(type:'success'|'error',message:string)=>void=()=>{};
   let filter='all';
+  let exporting='';
   const workflowName=(id?:string)=>workflows.find((w)=>w.id===id)?.name??'Deleted workflow';
   const terminal=new Set(['done','error','cancelled','interrupted']);
   $: sorted=jobs.slice().sort((a,b)=>b.updatedAtMs-a.updatedAtMs);
@@ -14,7 +15,15 @@
   async function retry(id:string){try{await api.retryJob(id);await refresh();notify('success','Job queued for retry.');}catch(e){notify('error',e instanceof Error?e.message:String(e));}}
   async function cancel(id:string){try{await api.cancelJob(id);await refresh();notify('success','Cancellation requested.');}catch(e){notify('error',e instanceof Error?e.message:String(e));}}
   async function remove(id:string){if(!confirm('Delete this history record? Media files are not deleted.'))return;try{await api.deleteJob(id);await refresh();}catch(e){notify('error',e instanceof Error?e.message:String(e));}}
-  async function download(id:string){try{const result=await api.jobMarkdown(id);await saveMarkdownLocally(result.filename,result.blob);notify('success','Markdown saved.');}catch(e){notify('error',e instanceof Error?e.message:String(e));}}
+  async function exportResult(id:string,format:ExportFormat){
+    exporting=`${id}:${format}`;
+    try{
+      const result=await api.jobExport(id,format);
+      await saveMarkdownLocally(result.filename,result.blob);
+      notify('success',`${format.toUpperCase()} export saved.`);
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{exporting='';}
+  }
   const when=(ms:number)=>new Date(ms).toLocaleString();
   const size=(bytes:number)=>bytes<1024*1024?`${Math.max(1,Math.round(bytes/1024))} KB`:`${(bytes/1024/1024).toFixed(1)} MB`;
   const elapsed=(attempt:TranscriptionAttempt)=>{
@@ -39,6 +48,8 @@
           {#if job.archivePath}<div><span>Archive</span><code>{job.archivePath}</code></div>{/if}
         </div>
         {#if job.error}<div class="error-box"><strong>Processing error</strong><span>{job.error}</span></div>{/if}
+        {#if job.structuredProfileName}<div class="notice compact"><span class="status-pill done">AI STRUCTURED</span><span>{job.structuredProfileName} · <code>{job.structuredModel}</code></span></div>{/if}
+        {#if job.structuringError}<div class="notice warning compact"><strong>Transcript published without AI structure.</strong><span>{job.structuringError}</span></div>{/if}
         {#if (job.transcriptionAttempts??[]).length>0}
           <details class="attempt-details">
             <summary>Transcription attempts ({job.transcriptionAttempts.length})</summary>
@@ -56,7 +67,13 @@
         <div class="job-footer">
           <span class="muted small">{job.usedProviderName&&job.usedModel?`Run ${job.attempts} · used ${job.usedProviderName} / ${job.usedModel}`:`Run ${job.attempts} · model ${job.model}`}{job.language?` · ${job.language}`:' · auto language'}</span>
           <div class="row wrap">
-            {#if job.kind==='quick'&&job.status==='done'&&job.quick?.outputKind==='client'}<button class="btn primary" on:click={()=>download(job.id)}>Save Markdown</button>{/if}
+            {#if job.status==='done'&&job.markdownPublished}
+              <div class="export-actions" aria-label="Export result">
+                {#each ['md','txt','html','docx','odt','pdf'] as format}
+                  <button class="btn compact" disabled={!!exporting} on:click={()=>exportResult(job.id,format as ExportFormat)}>{exporting===`${job.id}:${format}`?'…':format.toUpperCase()}</button>
+                {/each}
+              </div>
+            {/if}
             {#if job.status==='error'||job.status==='interrupted'||job.status==='cancelled'}<button class="btn primary" on:click={()=>retry(job.id)}>Retry</button>{/if}
             {#if !terminal.has(job.status)}<button class="btn danger" on:click={()=>cancel(job.id)}>Cancel</button>{/if}
             {#if terminal.has(job.status)}<button class="btn ghost" on:click={()=>remove(job.id)}>Remove record</button>{/if}
