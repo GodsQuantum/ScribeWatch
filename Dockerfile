@@ -8,28 +8,43 @@ COPY frontend/ ./
 RUN npm run check && npm test && npm run build
 
 FROM rust:1.98.0-trixie@sha256:7f7a53a25a0319dd8284e279d529d45759cb384d59b14cc6806132910f45522e AS builder
+ARG TARGETARCH
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends musl-tools \
+ && rm -rf /var/lib/apt/lists/* \
+ && case "$TARGETARCH" in \
+      amd64) target=x86_64-unknown-linux-musl ;; \
+      arm64) target=aarch64-unknown-linux-musl ;; \
+      *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+ && rustup target add "$target" \
+ && printf '%s' "$target" >/tmp/rust-target
 WORKDIR /src
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY src ./src
-RUN cargo build --release --locked
+RUN target="$(cat /tmp/rust-target)" \
+ && cargo build --release --locked --target "$target" \
+ && mkdir -p /out \
+ && cp "target/$target/release/scribewatch" /out/scribewatch
 
-FROM debian:trixie-20260824-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132 AS runtime
-ENV DEBIAN_FRONTEND=noninteractive \
-    SCRIBEWATCH_HOST=0.0.0.0 \
+FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0 AS runtime
+ENV SCRIBEWATCH_HOST=0.0.0.0 \
     SCRIBEWATCH_PORT=3000 \
     SCRIBEWATCH_CONFIG_DIR=/config \
     SCRIBEWATCH_DATA_DIR=/data \
     SCRIBEWATCH_DIST_DIR=/app/frontend \
-    SCRIBEWATCH_ALLOWED_ROOTS=/media
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl \
- && rm -rf /var/lib/apt/lists/* \
- && groupadd --gid 1000 scribewatch \
- && useradd --uid 1000 --gid 1000 --home-dir /nonexistent --shell /usr/sbin/nologin scribewatch \
- && mkdir -p /app/frontend /config /data /media \
- && chown -R 1000:1000 /config /data /media
+    SCRIBEWATCH_ALLOWED_ROOTS=/media \
+    HOME=/tmp \
+    XDG_CACHE_HOME=/tmp/.cache
+RUN apk add --no-cache \
+      ca-certificates curl ffmpeg font-dejavu pandoc weasyprint \
+ && addgroup -S -g 1000 scribewatch \
+ && adduser -S -D -H -u 1000 -G scribewatch scribewatch \
+ && mkdir -p /app/frontend /config /data /media /tmp/.cache \
+ && chown -R 1000:1000 /config /data /media /tmp/.cache \
+ && fc-cache -f
 WORKDIR /app
-COPY --from=builder /src/target/release/scribewatch /app/scribewatch
+COPY --from=builder /out/scribewatch /app/scribewatch
 COPY --from=frontend /src/frontend/build /app/frontend
 USER 1000:1000
 EXPOSE 3000

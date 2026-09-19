@@ -4,7 +4,6 @@ use crate::{
     jobs,
     quick::{self, QuickOptions},
     state::AppState,
-    workflows::is_audio_candidate,
 };
 use axum::{
     Json,
@@ -94,6 +93,7 @@ pub async fn upload(
     let mut output_dir = None;
     let mut frontmatter = None;
     let mut paragraphs = None;
+    let mut structure_profile_id = None;
 
     loop {
         let field = match multipart.next_field().await {
@@ -115,9 +115,6 @@ pub async fn upload(
                 ));
             }
             let filename = field.file_name().unwrap_or("audio").to_owned();
-            if !is_audio_candidate(Path::new(&filename)) {
-                return Err(AppError::BadRequest("unsupported audio file".into()));
-            }
             let ext = Path::new(&filename)
                 .extension()
                 .and_then(|value| value.to_str())
@@ -188,6 +185,7 @@ pub async fn upload(
             "outputDir" => output_dir = Some(value),
             "frontmatter" => frontmatter = Some(value),
             "paragraphs" => paragraphs = Some(value),
+            "structureProfileId" => structure_profile_id = Some(value),
             _ => {}
         }
     }
@@ -210,6 +208,9 @@ pub async fn upload(
             output_dir,
             frontmatter: text_bool(frontmatter, true)?,
             paragraphs: text_bool(paragraphs, true)?,
+            structure_profile_id: structure_profile_id
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty()),
         })
     })();
     let options = match options_result {

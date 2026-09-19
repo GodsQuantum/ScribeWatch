@@ -3,8 +3,9 @@
   import { canSaveToDirectory, saveMarkdownLocally } from '$lib/local-save';
   import PathPicker from '$lib/components/PathPicker.svelte';
   import TranscriptionChainEditor from '$lib/components/TranscriptionChainEditor.svelte';
-  import type { Job, Provider, QuickOptions, TranscriptionRoute } from '$lib/types';
+  import type { Job, Provider, QuickOptions, StructureProfile, TranscriptionRoute } from '$lib/types';
   export let providers:Provider[]=[];
+  export let structureProfiles:StructureProfile[]=[];
   export let jobs:Job[]=[];
   export let refresh:()=>Promise<void>=async()=>{};
   export let notify:(type:'success'|'error',message:string)=>void=()=>{};
@@ -17,6 +18,7 @@
   let transcriptionChain:TranscriptionRoute[]=[{providerId:'',model:''}];
   let chainInitialized=false;
   let language='';
+  let structureProfileId='';
   let frontmatter=true;
   let paragraphs=true;
   let advanced=false;
@@ -46,7 +48,7 @@
       providerId:primary?.providerId, model:primary?.model, transcriptionChain,
       language:language.trim()||undefined,
       outputKind:outputMode==='server'?'server':'client', outputDir:outputMode==='server'?outputDir:undefined,
-      frontmatter, paragraphs
+      frontmatter, paragraphs, structureProfileId:structureProfileId||undefined
     };
     try{
       submitted=sourceMode==='computer'&&localFile
@@ -92,7 +94,10 @@
 
         <div class="quick-step"><span>02</span><div><strong>Transcription</strong><p>Pick an exact provider + model chain. Failed routes automatically fall through.</p></div></div>
         <TranscriptionChainEditor value={transcriptionChain} {providers} {notify} onchange={(routes)=>transcriptionChain=routes} />
-        <div class="field"><label for="quick-language">Language</label><input id="quick-language" class="input" bind:value={language} placeholder="auto, fr, en…" /></div>
+        <div class="grid two">
+          <div class="field"><label for="quick-language">Language</label><input id="quick-language" class="input" bind:value={language} placeholder="auto, fr, en…" /></div>
+          <div class="field"><label for="quick-structure">AI structure <span class="muted">optional</span></label><select id="quick-structure" class="select" bind:value={structureProfileId}><option value="">None — transcript only</option>{#each structureProfiles.filter((profile)=>!!profile.providerId) as profile}<option value={profile.id}>{profile.name}</option>{/each}</select><span class="help">Adds a structured view and always preserves the full transcript.</span></div>
+        </div>
         <button class="advanced-toggle" on:click={()=>advanced=!advanced} aria-expanded={advanced}>{advanced?'−':'+'} Advanced</button>
         {#if advanced}<div class="advanced-panel"><label class="check"><input type="checkbox" bind:checked={frontmatter} /> YAML / Obsidian properties</label><label class="check"><input type="checkbox" bind:checked={paragraphs} /> Readable deterministic paragraphs</label><span class="help">Uses Unicode sentence boundaries and length rules only. No LLM rewrites the transcript.</span></div>{/if}
 
@@ -114,11 +119,12 @@
         {:else if current.status==='error'||current.status==='interrupted'||current.status==='cancelled'}<div class="error-box"><strong>Transcription did not finish</strong><span>{current.error??current.status}</span></div>
         {:else if current.status==='done'}
           <div class="result-success"><span class="result-check">✓</span><h2>{current.quick?.resultName??'Markdown ready'}</h2><p>{current.originalName} was transcribed. Quick Transcribe never archives or deletes the original source.</p>
+            {#if current.structuringError}<div class="notice warning compact">Transcript succeeded; AI structuring failed: {current.structuringError}</div>{/if}
             {#if current.quick?.outputKind==='client'}<button class="btn primary" on:click={saveResult}>{localDirectoryAvailable?'Save Markdown…':'Download Markdown'}</button>
             {:else if current.markdownPath}<code class="result-path">{current.markdownPath}</code>{/if}
             <button class="btn ghost" on:click={reset}>Transcribe another</button>
           </div>
-        {:else}<div class="processing-state"><div class="pulse-ring"></div><strong>{current.status==='transcribing'?'Listening…':current.status==='publishing'?'Writing Markdown…':'Queued…'}</strong><span>{current.originalName}</span></div>{/if}
+        {:else}<div class="processing-state"><div class="pulse-ring"></div><strong>{current.status==='transcribing'?'Listening…':current.status==='structuring'?'Structuring with AI…':current.status==='publishing'?'Writing Markdown…':'Queued…'}</strong><span>{current.originalName}</span></div>{/if}
       </div>
     </aside>
   </div>

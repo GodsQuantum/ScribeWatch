@@ -22,7 +22,9 @@
 
 ---
 
-ScribeWatch turns recordings into **clean, titled Markdown notes** using your own OpenAI-compatible speech-to-text provider. Drop one voice memo into **Quick Transcribe**, or point a **Workflow** at a folder and let ScribeWatch handle new recordings automatically.
+ScribeWatch turns recordings into **clean, titled Markdown notes** using your own OpenAI-compatible speech-to-text provider. Drop one voice memo into **Quick Transcribe**, record directly in **Live Recorder**, or point a **Workflow** at a folder and let ScribeWatch handle new recordings automatically.
+
+The transcript remains canonical and deterministic. When a workflow needs more structure, an optional OpenAI-compatible LLM can add a reusable meeting, consultation, brainstorm or custom structured view **without replacing the original transcript**.
 
 It is especially useful as a **voice notes → Obsidian** bridge, but nothing is Obsidian-specific: any Markdown folder works.
 
@@ -34,7 +36,11 @@ It is especially useful as a **voice notes → Obsidian** bridge, but nothing is
 
 - **Voice notes become useful files** — readable `.md`, not another pile of forgotten recordings.
 - **Quick Transcribe** — drag in one audio file and get Markdown back immediately.
+- **Live Recorder** — record a browser microphone with device selection, timer and live level meter, then transcribe on Stop.
 - **Watch folders** — automatically process new recordings from a server, NAS or mounted sync folder.
+- **Content-based audio ingest** — FFprobe detects decodable audio streams instead of trusting a filename extension; FFmpeg normalizes every source before STT.
+- **Optional AI structure profiles** — reusable meeting, medical-documentation, brainstorm, interview and custom prompts can add a structured view after transcription.
+- **Multi-format export** — keep Markdown as the source and export completed notes as MD, TXT, HTML, DOCX, ODT or PDF.
 - **Obsidian-friendly by default** — clean filenames, H1 titles, YAML properties and tags.
 - **Bring your own transcription engine** — works with OpenAI-compatible STT endpoints such as Speaches/Whisper services.
 - **Resilient transcription chains** — mix providers and models in any order. If one route fails, ScribeWatch automatically tries the next — even another model from the same provider.
@@ -43,15 +49,16 @@ It is especially useful as a **voice notes → Obsidian** bridge, but nothing is
 - **Safe publication** — Markdown is written before workflow audio is archived, and existing notes are never silently overwritten.
 - **Small self-hosted stack** — Rust/Axum backend, SvelteKit UI, SQLite state, one container.
 
-## 🎙️ Two ways to use it
+## 🎙️ Three ways to use it
 
-| | **Quick Transcribe** | **Watch folders** |
-|---|---|---|
-| Best for | One voice memo right now | Recurring / automatic capture |
-| Input | Browser upload or server file | Watched server/NAS folder |
-| Output | Server folder or your computer | Markdown folder |
-| Original audio | Never moved | Archived only after Markdown succeeds |
-| Typical use | “I just recorded an idea” | Phone/sync folder → Obsidian automatically |
+| | **Quick Transcribe** | **Live Recorder** | **Watch folders** |
+|---|---|---|---|
+| Best for | One existing recording | Record now from a microphone | Recurring / automatic capture |
+| Input | Browser upload or server file | Browser microphone | Watched server/NAS folder |
+| Output | Server folder or your computer | Server folder or your computer | Markdown folder |
+| Original audio | Never moved | Temporary browser upload is cleaned after processing | Archived only after Markdown succeeds |
+| AI structure | Optional | Optional | Optional |
+| Typical use | “I just recorded an idea” | Meeting / consultation / brainstorm | Phone/sync folder → Obsidian automatically |
 
 <p align="center">
   <img src="docs/screenshots/quick-transcribe.png" width="49%" alt="ScribeWatch Quick Transcribe">
@@ -91,10 +98,11 @@ docker compose up -d
 
 Open **http://127.0.0.1:3000**, then:
 
-1. Add your transcription endpoint under **Providers**.
-2. Drop a recording into **Quick Transcribe** — or create a Workflow.
-3. For automation, choose **Watch folder → Markdown folder → Audio archive**.
-4. Point the Markdown folder at your Obsidian vault, synced notes folder, NAS, or any other Markdown destination.
+1. Add your transcription endpoint under **STT**.
+2. Use **Quick** for an existing recording, **Live** for a browser microphone, or create a **Workflow**.
+3. Optional: add an OpenAI-compatible LLM under **AI Profiles** and connect one or more structure profiles.
+4. For automation, choose **Watch folder → Markdown folder → Audio archive**.
+5. Point the Markdown folder at your Obsidian vault, synced notes folder, NAS, or any other Markdown destination.
 
 > By default ScribeWatch binds locally. If you expose it on a trusted LAN/VPN, change `SCRIBEWATCH_BIND_HOST` and use your normal firewall or authenticated reverse proxy policy.
 
@@ -129,6 +137,20 @@ By default ScribeWatch formats the transcript body into readable paragraphs **wi
 
 Disable **Readable deterministic paragraphs** in Quick Transcribe or a Workflow when you want the provider transcript body exactly as returned.
 
+### Optional AI structure profiles
+
+LLM processing is a **second, optional layer**. ScribeWatch always finishes STT first and keeps that transcript intact. When a structure profile is selected, the resulting note contains both:
+
+```text
+Audio → FFmpeg normalization → STT → canonical transcript
+                                      ├─ deterministic Markdown
+                                      └─ optional structure profile → Structured notes
+```
+
+Built-in profiles cover general structured notes, meetings/phone calls, medical-consultation documentation drafts, marketing brainstorms and interviews/research. They can be connected to any OpenAI-compatible chat-completions endpoint and edited for your deployment; custom profiles can be created from scratch.
+
+Long transcripts are processed in bounded evidence chunks before final synthesis. The system prompt treats transcript text as untrusted data, forbids invented facts, and requires uncertainty to remain explicit. If the LLM fails, **the job still succeeds with the canonical transcript** and records the structuring error separately.
+
 <p align="center">
   <img src="docs/screenshots/mobile-quick-transcribe.png" width="390" alt="ScribeWatch Quick Transcribe on mobile">
 </p>
@@ -162,6 +184,8 @@ Workflow audio is **never archived before Markdown publication succeeds**. Nativ
 - Quick Transcribe never moves or deletes the original source file.
 - Existing Markdown is never silently overwritten.
 - Interrupted work is recorded explicitly after restart instead of pretending it completed.
+- LLM structure is best-effort: it can never replace or invalidate a successful canonical transcript.
+- Document export neutralizes Markdown image targets and disables raw HTML before Pandoc conversion.
 - The example container runs non-root with a read-only root filesystem, dropped capabilities and `no-new-privileges`.
 
 See [`SECURITY.md`](.github/SECURITY.md).
@@ -181,13 +205,13 @@ See [`SECURITY.md`](.github/SECURITY.md).
 | `SCRIBEWATCH_MAX_UPLOAD_BYTES` | `2147483648` | Maximum streamed browser upload |
 | `SCRIBEWATCH_QUICK_RESULT_RETENTION_HOURS` | `24` | Client-result retention window |
 
-Supported audio candidates: `mp3`, `wav`, `m4a`, `flac`, `ogg`, `opus`, `aac`, `wma`, `aiff`, `aif`, `caf`, `webm`.
+Audio ingest is **content-based, not extension-based**. Stable Watch files and Quick uploads are probed with FFprobe; any file containing an audio stream that the bundled FFmpeg can decode is accepted, then normalized to mono 16 kHz PCM WAV before STT.
 
 ## 🧩 Client-computer folders
 
 Browsers cannot continuously watch arbitrary folders on another computer. ScribeWatch keeps that boundary explicit:
 
-- local audio enters through drag-and-drop or the browser file picker;
+- local audio enters through drag-and-drop, the browser file picker, or Live Recorder microphone capture;
 - completed Markdown can be written directly to a local folder when the browser supports the File System Access API in a secure context;
 - otherwise ScribeWatch downloads the `.md` normally.
 
@@ -197,6 +221,7 @@ No browser directory handle is sent to or stored by the ScribeWatch server.
 
 **Backend:** Rust 1.98 · Axum · Tokio · SQLite · notify
 **Frontend:** Svelte 5 · SvelteKit 2 · TypeScript
+**Media / exports:** FFmpeg + FFprobe · Pandoc · WeasyPrint
 
 ```bash
 cargo fmt --all -- --check
@@ -216,8 +241,11 @@ bash scripts/e2e-v02.sh
 - `POST /api/v1/quick/upload` — streamed browser upload
 - `POST /api/v1/quick/server` — allowed server-side audio file
 - `GET /api/v1/jobs/{id}/markdown` — completed client-output Markdown
+- `GET /api/v1/jobs/{id}/export/{format}` — MD/TXT/HTML/DOCX/ODT/PDF export
 - `GET|POST /api/v1/workflows` — watch-folder automation
 - `GET|POST /api/v1/providers` — OpenAI-compatible transcription providers
+- `GET|POST /api/v1/llm-providers` — optional OpenAI-compatible LLM providers
+- `GET|POST /api/v1/structure-profiles` — reusable LLM structure profiles
 - `GET /api/v1/jobs`, `GET /api/v1/events` — history and live state
 - `GET /api/v1/health`, `GET /api/v1/ready` — health/readiness
 

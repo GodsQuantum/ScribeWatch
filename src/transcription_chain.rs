@@ -408,6 +408,7 @@ mod tests {
             model: String::new(),
             transcription_chain,
             language: None,
+            structure_profile_id: None,
             markdown: MarkdownOptions::default(),
             enabled: true,
         }
@@ -543,6 +544,10 @@ mod tests {
             used_provider_id: None,
             used_provider_name: None,
             used_model: None,
+            structured_profile_id: None,
+            structured_profile_name: None,
+            structured_model: None,
+            structuring_error: None,
             original_name: "audio.m4a".into(),
             source_path: source.clone(),
             source_size: 5,

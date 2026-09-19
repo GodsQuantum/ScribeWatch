@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod browse;
 pub mod dashboard;
 pub mod events;
@@ -59,6 +60,20 @@ pub fn router() -> Router<AppState> {
             "/api/v1/providers",
             get(providers::list).post(providers::upsert),
         )
+        .route(
+            "/api/v1/llm-providers",
+            get(ai::list_providers).post(ai::upsert_provider),
+        )
+        .route("/api/v1/llm-providers/{id}", delete(ai::delete_provider))
+        .route("/api/v1/llm-providers/{id}/models", get(ai::models))
+        .route(
+            "/api/v1/structure-profiles",
+            get(ai::list_profiles).post(ai::upsert_profile),
+        )
+        .route(
+            "/api/v1/structure-profiles/{id}",
+            delete(ai::delete_profile),
+        )
         .route("/api/v1/providers/{id}", delete(providers::delete))
         .route("/api/v1/providers/{id}/models", get(providers::models))
         .route(
@@ -71,6 +86,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/jobs/{id}/retry", post(jobs::retry))
         .route("/api/v1/jobs/{id}/cancel", post(jobs::cancel))
         .route("/api/v1/jobs/{id}/markdown", get(jobs::markdown))
+        .route("/api/v1/jobs/{id}/export/{format}", get(jobs::export))
         .route("/api/v1/quick/server", post(quick::server))
         .route(
             "/api/v1/quick/upload",

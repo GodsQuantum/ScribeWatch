@@ -220,6 +220,14 @@ fn note_tags(custom: &[String]) -> Vec<String> {
 }
 
 pub fn render_note(context: &NoteContext<'_>, transcript: &str) -> Result<String> {
+    render_note_with_structure(context, transcript, None)
+}
+
+pub fn render_note_with_structure(
+    context: &NoteContext<'_>,
+    transcript: &str,
+    structured: Option<&str>,
+) -> Result<String> {
     let mut out = String::new();
     if context.frontmatter {
         out.push_str("---\n");
@@ -250,6 +258,11 @@ pub fn render_note(context: &NoteContext<'_>, transcript: &str) -> Result<String
     out.push_str("# ");
     out.push_str(context.title.trim());
     out.push_str("\n\n");
+    if let Some(structured) = structured.map(str::trim).filter(|value| !value.is_empty()) {
+        out.push_str("## Structured notes\n\n");
+        out.push_str(structured);
+        out.push_str("\n\n## Transcript\n\n");
+    }
     if context.paragraphs {
         out.push_str(&format_transcript(transcript));
     } else {
@@ -443,6 +456,29 @@ mod tests {
         assert!(note.contains("  - idée-rapide\n"));
         assert!(note.contains("source: \"memo \\\"test\\\".m4a\""));
         assert!(note.contains("# Acheter du lait demain.\n\nAcheter du lait demain.\n"));
+    }
+
+    #[test]
+    fn structured_note_never_replaces_the_canonical_transcript() {
+        let ctx = NoteContext {
+            title: "Titre",
+            source_name: "memo.wav",
+            workflow_name: None,
+            provider_name: "Provider",
+            model: "whisper",
+            language: Some("fr"),
+            tags: &[],
+            frontmatter: false,
+            paragraphs: true,
+            created_at: OffsetDateTime::from_unix_timestamp(1_789_501_200).unwrap(),
+        };
+        let transcript = "Phrase source une. Phrase source deux.";
+        let note =
+            render_note_with_structure(&ctx, transcript, Some("### Résumé\nUne vue structurée."))
+                .unwrap();
+        assert!(note.contains("## Structured notes\n\n### Résumé\nUne vue structurée."));
+        assert!(note.contains("## Transcript\n\nPhrase source une. Phrase source deux."));
+        assert_eq!(note.matches("Phrase source une.").count(), 1);
     }
 
     #[test]

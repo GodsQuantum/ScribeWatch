@@ -10,6 +10,27 @@ use serde_json::json;
 use std::path::Path;
 use tokio_util::sync::CancellationToken;
 
+fn tiny_wav() -> Vec<u8> {
+    const SAMPLE_RATE: u32 = 16_000;
+    const SAMPLES: u32 = 1_600;
+    const DATA_BYTES: u32 = SAMPLES * 2;
+    let mut bytes = Vec::with_capacity((44 + DATA_BYTES) as usize);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(36 + DATA_BYTES).to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&SAMPLE_RATE.to_le_bytes());
+    bytes.extend_from_slice(&(SAMPLE_RATE * 2).to_le_bytes());
+    bytes.extend_from_slice(&2u16.to_le_bytes());
+    bytes.extend_from_slice(&16u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&DATA_BYTES.to_le_bytes());
+    bytes.resize((44 + DATA_BYTES) as usize, 0);
+    bytes
+}
+
 fn config(root: &Path) -> Config {
     Config {
         host: "127.0.0.1".into(),
@@ -83,6 +104,7 @@ fn options(output_kind: QuickOutputKind, output_dir: Option<String>) -> QuickOpt
         output_dir,
         frontmatter: true,
         paragraphs: true,
+        structure_profile_id: None,
     }
 }
 
@@ -91,7 +113,7 @@ async fn server_quick_job_publishes_note_without_moving_source() {
     let temp = tempfile::tempdir().unwrap();
     let state = state(temp.path(), true).await;
     let source = temp.path().join("media/server.m4a");
-    std::fs::write(&source, b"audio").unwrap();
+    std::fs::write(&source, tiny_wav()).unwrap();
     let notes = temp.path().join("media/notes");
     let job = create_server_job(
         &state,
@@ -118,7 +140,7 @@ async fn uploaded_quick_job_cleans_staging_and_retains_client_markdown() {
     let temp = tempfile::tempdir().unwrap();
     let state = state(temp.path(), true).await;
     let staged = state.config.quick_upload_dir().join("upload.m4a");
-    std::fs::write(&staged, b"audio").unwrap();
+    std::fs::write(&staged, tiny_wav()).unwrap();
     let job = create_uploaded_job(
         &state,
         staged.clone(),
@@ -146,7 +168,7 @@ async fn failed_uploaded_quick_job_removes_staging() {
     let temp = tempfile::tempdir().unwrap();
     let state = state(temp.path(), false).await;
     let staged = state.config.quick_upload_dir().join("failure.m4a");
-    std::fs::write(&staged, b"audio").unwrap();
+    std::fs::write(&staged, tiny_wav()).unwrap();
     let job = create_uploaded_job(
         &state,
         staged.clone(),

@@ -1,6 +1,8 @@
 use crate::{
+    audio,
     domain::{JobKind, JobStatus, Workflow},
     jobs::{get_job, update_job},
+    llm,
     markdown::{self, NoteContext},
     state::AppState,
     transcription_chain,
@@ -59,19 +61,53 @@ async fn process_workflow_job(
         return finish_archive(state, &job.id, &workflow, &source, token).await;
     }
 
-    let success = transcription_chain::transcribe_job_chain(
+    let normalized =
+        audio::normalize_for_transcription(&source, &state.config.normalized_dir(), &job.id, token)
+            .await
+            .context("audio normalization")?;
+    let transcription = transcription_chain::transcribe_job_chain(
         state,
         &job.id,
-        &source,
+        &normalized,
         job.language.as_deref(),
         token,
     )
-    .await
-    .context("transcription")?;
+    .await;
+    audio::cleanup_normalized(&normalized);
+    let success = transcription.context("transcription")?;
     let transcript = success.transcript;
     if token.is_cancelled() {
         bail!("cancelled");
     }
+
+    let structured = if let Some(profile_id) = workflow.structure_profile_id.as_deref() {
+        update_job(state, &job.id, |job| {
+            job.status = JobStatus::Structuring;
+            job.structuring_error = None;
+        })?;
+        match llm::structure_transcript(state, profile_id, &transcript, token).await {
+            Ok(result) => {
+                let markdown = result.markdown;
+                update_job(state, &job.id, |job| {
+                    job.structured_profile_id = Some(result.profile_id);
+                    job.structured_profile_name = Some(result.profile_name);
+                    job.structured_model = Some(result.model);
+                    job.structuring_error = None;
+                })?;
+                Some(markdown)
+            }
+            Err(error) if token.is_cancelled() => return Err(error).context("structuring"),
+            Err(error) => {
+                update_job(state, &job.id, |job| {
+                    job.structuring_error = Some(error.to_string());
+                })?;
+                tracing::warn!(job_id = %job.id, %error, "LLM structuring failed; publishing canonical transcript");
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     update_job(state, &job.id, |job| job.status = JobStatus::Publishing)?;
     let output_dir = match workflow.output_dir.as_deref() {
@@ -91,7 +127,8 @@ async fn process_workflow_job(
         paragraphs: workflow.markdown.paragraphs,
         created_at: OffsetDateTime::now_utc(),
     };
-    let document = markdown::render_note(&context, &transcript)?;
+    let document =
+        markdown::render_note_with_structure(&context, &transcript, structured.as_deref())?;
     let publish_dir = output_dir.clone();
     let publish_title = title.clone();
     let markdown_path = tokio::task::spawn_blocking(move || {

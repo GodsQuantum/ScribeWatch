@@ -1,4 +1,5 @@
 use crate::{
+    audio,
     domain::{JobStatus, Workflow},
     jobs,
     state::AppState,
@@ -148,7 +149,7 @@ async fn try_process_path(
     token: &CancellationToken,
     attempted: &mut HashMap<PathBuf, (u64, i128)>,
 ) {
-    if token.is_cancelled() || !path.is_file() || !is_audio_candidate(path) {
+    if token.is_cancelled() || !path.is_file() || audio::is_staging_name(path) {
         return;
     }
     let Ok((size, mtime)) = stable_fingerprint(
@@ -162,6 +163,19 @@ async fn try_process_path(
     };
     if attempted.get(path).is_some_and(|fp| *fp == (size, mtime)) {
         return;
+    }
+    match audio::probe_audio(path, token).await {
+        Ok(true) => {}
+        Ok(false) => {
+            attempted.insert(path.to_path_buf(), (size, mtime));
+            return;
+        }
+        Err(error) => {
+            if !token.is_cancelled() {
+                tracing::warn!(path = %path.display(), %error, "audio probing failed");
+            }
+            return;
+        }
     }
     let path_text = path.to_string_lossy().into_owned();
     if state
@@ -234,48 +248,9 @@ fn fingerprint(meta: &std::fs::Metadata) -> (u64, i128) {
         .unwrap_or(0);
     (meta.len(), modified)
 }
-pub fn is_audio_candidate(path: &Path) -> bool {
-    let name = path
-        .file_name()
-        .and_then(|v| v.to_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-    if name.contains(".partial-") || name.ends_with(".uploading") {
-        return false;
-    }
-    matches!(
-        path.extension()
-            .and_then(|v| v.to_str())
-            .unwrap_or_default()
-            .to_ascii_lowercase()
-            .as_str(),
-        "mp3"
-            | "wav"
-            | "m4a"
-            | "flac"
-            | "ogg"
-            | "opus"
-            | "aac"
-            | "wma"
-            | "aiff"
-            | "aif"
-            | "caf"
-            | "webm"
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn audio_filter_is_explicit_and_ignores_staging() {
-        assert!(is_audio_candidate(Path::new("interview.m4a")));
-        assert!(is_audio_candidate(Path::new("voice.FLAC")));
-        assert!(!is_audio_candidate(Path::new("movie.mp4")));
-        assert!(!is_audio_candidate(Path::new("note.md")));
-        assert!(!is_audio_candidate(Path::new("clip.uploading")));
-    }
 
     #[tokio::test]
     async fn stable_file_detection_rejects_changes() {
@@ -336,6 +311,9 @@ pub async fn normalize_definition(state: &AppState, mut workflow: Workflow) -> R
         .map(str::trim)
         .filter(|value| !value.is_empty() && !value.eq_ignore_ascii_case("auto"))
         .map(str::to_owned);
+    workflow.structure_profile_id =
+        crate::llm::validate_profile_selection(state, workflow.structure_profile_id.as_deref())
+            .await?;
     if workflow.markdown.transcript_heading.trim().is_empty() {
         workflow.markdown.transcript_heading = "Transcript".into();
     }
@@ -418,6 +396,7 @@ mod validation_tests {
             model: String::new(),
             transcription_chain: Vec::new(),
             language: Some("auto".into()),
+            structure_profile_id: None,
             markdown: MarkdownOptions::default(),
             enabled: true,
         };
@@ -464,6 +443,7 @@ mod validation_tests {
             model: String::new(),
             transcription_chain: Vec::new(),
             language: None,
+            structure_profile_id: None,
             markdown: MarkdownOptions::default(),
             enabled: true,
         };
@@ -497,6 +477,7 @@ mod validation_tests {
             model: String::new(),
             transcription_chain: Vec::new(),
             language: None,
+            structure_profile_id: None,
             markdown: MarkdownOptions::default(),
             enabled: true,
         };

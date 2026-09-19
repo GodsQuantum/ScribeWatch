@@ -77,6 +77,10 @@ pub async fn create_job(
         used_provider_id: None,
         used_provider_name: None,
         used_model: None,
+        structured_profile_id: None,
+        structured_profile_name: None,
+        structured_model: None,
+        structuring_error: None,
         original_name,
         source_path,
         source_size,
@@ -294,6 +298,7 @@ mod tests {
             model: String::new(),
             transcription_chain: Vec::new(),
             language: None,
+            structure_profile_id: None,
             markdown: MarkdownOptions::default(),
             enabled: true,
         };
@@ -304,11 +309,30 @@ mod tests {
         state.workflows.write().await.push(workflow.clone());
         (state, workflow)
     }
+    fn tiny_wav() -> Vec<u8> {
+        const SAMPLE_RATE: u32 = 16_000;
+        const SAMPLES: u32 = 1_600;
+        const DATA_BYTES: u32 = SAMPLES * 2;
+        let mut bytes = Vec::with_capacity((44 + DATA_BYTES) as usize);
+        bytes.extend_from_slice(b"RIFF");
+        bytes.extend_from_slice(&(36 + DATA_BYTES).to_le_bytes());
+        bytes.extend_from_slice(b"WAVEfmt ");
+        bytes.extend_from_slice(&16u32.to_le_bytes());
+        bytes.extend_from_slice(&1u16.to_le_bytes());
+        bytes.extend_from_slice(&1u16.to_le_bytes());
+        bytes.extend_from_slice(&SAMPLE_RATE.to_le_bytes());
+        bytes.extend_from_slice(&(SAMPLE_RATE * 2).to_le_bytes());
+        bytes.extend_from_slice(&2u16.to_le_bytes());
+        bytes.extend_from_slice(&16u16.to_le_bytes());
+        bytes.extend_from_slice(b"data");
+        bytes.extend_from_slice(&DATA_BYTES.to_le_bytes());
+        bytes.resize((44 + DATA_BYTES) as usize, 0);
+        bytes
+    }
+
     async fn make_job(state: &AppState, workflow: &Workflow, name: &str) -> Job {
         let source = Path::new(&workflow.watch_dir).join(name);
-        tokio::fs::write(&source, b"fake audio bytes")
-            .await
-            .unwrap();
+        tokio::fs::write(&source, tiny_wav()).await.unwrap();
         let metadata = std::fs::metadata(&source).unwrap();
         let mtime = metadata
             .modified()

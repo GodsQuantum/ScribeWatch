@@ -51,6 +51,67 @@ impl From<&Provider> for ProviderView {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct LlmProvider {
+    pub id: String,
+    pub name: String,
+    pub chat_completions_url: String,
+    pub model: String,
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default = "default_llm_timeout")]
+    pub timeout_seconds: u64,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+fn default_llm_timeout() -> u64 {
+    180
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmProviderView {
+    pub id: String,
+    pub name: String,
+    pub chat_completions_url: String,
+    pub model: String,
+    pub timeout_seconds: u64,
+    pub enabled: bool,
+    pub has_api_key: bool,
+}
+
+impl From<&LlmProvider> for LlmProviderView {
+    fn from(p: &LlmProvider) -> Self {
+        Self {
+            id: p.id.clone(),
+            name: p.name.clone(),
+            chat_completions_url: p.chat_completions_url.clone(),
+            model: p.model.clone(),
+            timeout_seconds: p.timeout_seconds,
+            enabled: p.enabled,
+            has_api_key: !p.api_key.is_empty(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StructureProfile {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub prompt: String,
+    #[serde(default)]
+    pub provider_id: String,
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub built_in: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct TranscriptionRoute {
     pub provider_id: String,
     pub model: String,
@@ -126,6 +187,8 @@ pub struct Workflow {
     pub transcription_chain: Vec<TranscriptionRoute>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structure_profile_id: Option<String>,
     #[serde(default)]
     pub markdown: MarkdownOptions,
     #[serde(default = "default_true")]
@@ -167,6 +230,8 @@ pub struct QuickJobMeta {
     pub frontmatter: bool,
     #[serde(default = "default_true")]
     pub paragraphs: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structure_profile_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -175,6 +240,7 @@ pub enum JobStatus {
     #[default]
     Pending,
     Transcribing,
+    Structuring,
     Publishing,
     Archiving,
     Done,
@@ -187,7 +253,11 @@ impl JobStatus {
     pub fn is_active(&self) -> bool {
         matches!(
             self,
-            Self::Pending | Self::Transcribing | Self::Publishing | Self::Archiving
+            Self::Pending
+                | Self::Transcribing
+                | Self::Structuring
+                | Self::Publishing
+                | Self::Archiving
         )
     }
 }
@@ -213,6 +283,14 @@ pub struct Job {
     pub used_provider_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub used_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structured_profile_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structured_profile_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structured_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structuring_error: Option<String>,
     pub original_name: String,
     pub source_path: PathBuf,
     pub source_size: u64,
