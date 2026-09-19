@@ -36,6 +36,18 @@ test('workflow UI separates Watch, Markdown and Archive folders', async () => {
   for (const label of ['Watch folder','Markdown folder','Audio archive']) assert.ok(view.includes(label));
 });
 
+test('quick and workflow expose deterministic paragraph formatting', async () => {
+  const quick = await read('lib/views/QuickTranscribeView.svelte');
+  const workflows = await read('lib/views/WorkflowsView.svelte');
+  const api = await read('lib/api.ts');
+  const types = await read('lib/types.ts');
+  for (const view of [quick, workflows]) {
+    assert.ok(view.includes('Readable deterministic paragraphs'));
+  }
+  assert.ok(api.includes("form.append('paragraphs'"));
+  assert.ok(types.includes('paragraphs: boolean'));
+});
+
 test('product promise is visible on Home', async () => {
   const view = await read('lib/views/DashboardView.svelte');
   assert.ok(view.includes('Turn voice notes into Markdown before you forget them.'));

@@ -72,6 +72,7 @@ async fn process_quick_inner(
         language: job.language.as_deref(),
         tags: &[],
         frontmatter: meta.frontmatter,
+        paragraphs: meta.paragraphs,
         created_at: OffsetDateTime::now_utc(),
     };
     let document = markdown::render_note(&context, &transcript)?;

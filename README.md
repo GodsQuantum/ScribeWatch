@@ -39,6 +39,7 @@ It is especially useful as a **voice notes → Obsidian** bridge, but nothing is
 - **Bring your own transcription engine** — works with OpenAI-compatible STT endpoints such as Speaches/Whisper services.
 - **Resilient transcription chains** — mix providers and models in any order. If one route fails, ScribeWatch automatically tries the next — even another model from the same provider.
 - **No LLM required** — titles and Markdown formatting are deterministic; the transcript stays authoritative.
+- **Readable deterministic paragraphs** — Unicode sentence boundaries (UAX #29) plus fixed size limits make long transcripts readable without paraphrasing, summarizing or inventing headings.
 - **Safe publication** — Markdown is written before workflow audio is archived, and existing notes are never silently overwritten.
 - **Small self-hosted stack** — Rust/Axum backend, SvelteKit UI, SQLite state, one container.
 
@@ -84,7 +85,8 @@ cp .env.example .env
 cp compose.example.yaml compose.yaml
 mkdir -p config data watch notes archive
 
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 ```
 
 Open **http://127.0.0.1:3000**, then:
@@ -120,6 +122,12 @@ Remember to book the train tomorrow...
 ```
 
 ScribeWatch derives the title from the transcript, keeps Unicode-readable filenames, deduplicates tags and handles filename collisions as `Title (2).md`, `Title (3).md`, etc.
+
+### Deterministic transcript formatting
+
+By default ScribeWatch formats the transcript body into readable paragraphs **without an LLM**. Unicode sentence boundaries follow **Unicode Standard Annex #29** through Rust's `unicode-segmentation` crate; sentences are grouped with fixed sentence/word/character limits; punctuation-free STT falls back to fixed word-count blocks; and existing blank-line boundaries are preserved. **No word is rewritten, summarized or semantically reclassified.**
+
+Disable **Readable deterministic paragraphs** in Quick Transcribe or a Workflow when you want the provider transcript body exactly as returned.
 
 <p align="center">
   <img src="docs/screenshots/mobile-quick-transcribe.png" width="390" alt="ScribeWatch Quick Transcribe on mobile">

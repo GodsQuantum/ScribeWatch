@@ -2,16 +2,19 @@
 
 All notable ScribeWatch changes are documented here.
 
-## [Unreleased]
+## [0.3.0] - 2026-09-19
 
 ### Added
+- Optional deterministic transcript paragraphing using Unicode UAX #29 sentence boundaries.
+- Fixed-size word-block fallback for punctuation-free STT transcripts without rewriting content.
+- Quick Transcribe and Workflow controls for readable deterministic paragraphs, enabled by default.
 - Ordered provider + model fallback chains for Workflows and Quick Transcribe, including multiple models from the same provider.
 - Live model discovery per provider, per-route optional fallback timeouts, and durable per-route attempt history.
 - Jobs now record the provider/model that actually succeeded and expose fallback attempts in the UI.
 
 ### Changed
 - Transcription processing no longer inherits a provider-wide fixed request timeout; long audio waits by default unless a route explicitly defines a fallback timeout.
-- Legacy `providerId + model` workflow and Quick Transcribe payloads remain accepted during the v0.2.x migration window.
+- Legacy `providerId + model` workflow and Quick Transcribe payloads remain accepted for backward compatibility.
 
 ## [0.2.0] - 2026-09-16
 

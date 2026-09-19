@@ -18,6 +18,7 @@
   let chainInitialized=false;
   let language='';
   let frontmatter=true;
+  let paragraphs=true;
   let advanced=false;
   let picker:''|'source'|'output'='';
   let busy=false;
@@ -45,7 +46,7 @@
       providerId:primary?.providerId, model:primary?.model, transcriptionChain,
       language:language.trim()||undefined,
       outputKind:outputMode==='server'?'server':'client', outputDir:outputMode==='server'?outputDir:undefined,
-      frontmatter
+      frontmatter, paragraphs
     };
     try{
       submitted=sourceMode==='computer'&&localFile
@@ -93,7 +94,7 @@
         <TranscriptionChainEditor value={transcriptionChain} {providers} {notify} onchange={(routes)=>transcriptionChain=routes} />
         <div class="field"><label for="quick-language">Language</label><input id="quick-language" class="input" bind:value={language} placeholder="auto, fr, en…" /></div>
         <button class="advanced-toggle" on:click={()=>advanced=!advanced} aria-expanded={advanced}>{advanced?'−':'+'} Advanced</button>
-        {#if advanced}<div class="advanced-panel"><label class="check"><input type="checkbox" bind:checked={frontmatter} /> YAML / Obsidian properties</label></div>{/if}
+        {#if advanced}<div class="advanced-panel"><label class="check"><input type="checkbox" bind:checked={frontmatter} /> YAML / Obsidian properties</label><label class="check"><input type="checkbox" bind:checked={paragraphs} /> Readable deterministic paragraphs</label><span class="help">Uses Unicode sentence boundaries and length rules only. No LLM rewrites the transcript.</span></div>{/if}
 
         <div class="quick-step"><span>03</span><div><strong>Save the note</strong><p>Publish on the server or bring the Markdown back to this computer.</p></div></div>
         <div class="segmented source-tabs"><button class:active={outputMode==='computer'} on:click={()=>outputMode='computer'}>This computer</button><button class:active={outputMode==='server'} on:click={()=>outputMode='server'}>Server folder</button></div>

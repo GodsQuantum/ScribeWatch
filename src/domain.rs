@@ -87,6 +87,8 @@ pub struct TranscriptionAttempt {
 pub struct MarkdownOptions {
     #[serde(default = "default_true")]
     pub frontmatter: bool,
+    #[serde(default = "default_true")]
+    pub paragraphs: bool,
     #[serde(default = "default_heading")]
     pub transcript_heading: String,
 }
@@ -99,6 +101,7 @@ impl Default for MarkdownOptions {
     fn default() -> Self {
         Self {
             frontmatter: true,
+            paragraphs: true,
             transcript_heading: default_heading(),
         }
     }
@@ -162,6 +165,8 @@ pub struct QuickJobMeta {
     pub result_name: Option<String>,
     #[serde(default = "default_true")]
     pub frontmatter: bool,
+    #[serde(default = "default_true")]
+    pub paragraphs: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -259,6 +264,7 @@ mod tests {
         assert_eq!(workflow.output_dir, None);
         assert!(workflow.tags.is_empty());
         assert!(workflow.transcription_chain.is_empty());
+        assert!(workflow.markdown.paragraphs);
 
         let job_json = r#"{"id":"j","workflowId":"w","providerId":"p","originalName":"a.m4a","sourcePath":"/w/a.m4a","sourceSize":1,"sourceMtimeNs":1,"model":"m","status":"done","attempts":1,"markdownPublished":true,"createdAtMs":1,"updatedAtMs":1}"#;
         let job: Job = serde_json::from_str(job_json).unwrap();
