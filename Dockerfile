@@ -9,6 +9,8 @@ RUN npm run check && npm test && npm run build
 
 FROM rust:1.98.0-trixie@sha256:7f7a53a25a0319dd8284e279d529d45759cb384d59b14cc6806132910f45522e AS builder
 ARG TARGETARCH
+WORKDIR /src
+COPY rust-toolchain.toml ./
 RUN apt-get update \
  && apt-get install -y --no-install-recommends musl-tools \
  && rm -rf /var/lib/apt/lists/* \
@@ -19,8 +21,7 @@ RUN apt-get update \
     esac \
  && rustup target add "$target" \
  && printf '%s' "$target" >/tmp/rust-target
-WORKDIR /src
-COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 RUN target="$(cat /tmp/rust-target)" \
  && cargo build --release --locked --target "$target" \
