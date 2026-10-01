@@ -139,6 +139,42 @@ pub async fn delete(
     Ok(StatusCode::NO_CONTENT)
 }
 
+fn collect_model_ids(value: &Value) -> Vec<String> {
+    fn from_array(items: &[Value]) -> Vec<String> {
+        items
+            .iter()
+            .filter_map(|entry| {
+                entry.as_str().map(str::to_owned).or_else(|| {
+                    ["id", "name", "model"]
+                        .into_iter()
+                        .find_map(|key| entry.get(key).and_then(Value::as_str).map(str::to_owned))
+                })
+            })
+            .filter(|model| !model.trim().is_empty())
+            .collect()
+    }
+
+    if let Some(items) = value.as_array() {
+        return from_array(items);
+    }
+    for key in ["data", "models", "items"] {
+        if let Some(items) = value.get(key).and_then(Value::as_array) {
+            return from_array(items);
+        }
+    }
+    if let Some(result) = value.get("result") {
+        if let Some(items) = result.as_array() {
+            return from_array(items);
+        }
+        for key in ["data", "models", "items"] {
+            if let Some(items) = result.get(key).and_then(Value::as_array) {
+                return from_array(items);
+            }
+        }
+    }
+    Vec::new()
+}
+
 pub async fn models(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -176,15 +212,31 @@ pub async fn models(
     if !status.is_success() {
         return Err(AppError::Upstream(format!("HTTP {status}: {value}")));
     }
-    let mut models = value
-        .get("data")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|entry| entry.get("id").and_then(Value::as_str))
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
+    let mut models = collect_model_ids(&value);
+    if !provider.model.trim().is_empty() {
+        models.push(provider.model.trim().to_owned());
+    }
     models.sort();
     models.dedup();
     Ok(Json(ModelsResponse { models }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::collect_model_ids;
+    use serde_json::json;
+
+    #[test]
+    fn model_discovery_accepts_common_openai_compatible_shapes() {
+        assert_eq!(collect_model_ids(&json!({"data":[{"id":"a"}]})), vec!["a"]);
+        assert_eq!(
+            collect_model_ids(&json!({"models":["b",{"name":"c"}]})),
+            vec!["b", "c"]
+        );
+        assert_eq!(
+            collect_model_ids(&json!({"result":{"items":[{"model":"d"}]}})),
+            vec!["d"]
+        );
+        assert!(collect_model_ids(&json!({"data":[]})).is_empty());
+    }
 }

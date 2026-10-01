@@ -34,7 +34,7 @@
   let submitted:Job|undefined;
 
   let outputMode:'computer'|'server'='server';
-  let outputDir='';
+  let outputDir='/media/notes';
   let picker=false;
   let transcriptionChain:TranscriptionRoute[]=[{providerId:'',model:''}];
   let chainInitialized=false;
@@ -46,13 +46,14 @@
   const exportFormats:ExportFormat[]=['md','txt','html','docx','odt','pdf'];
 
   $: if(!chainInitialized&&providers.length){
-    transcriptionChain=[{providerId:providers.find((provider)=>provider.enabled)?.id??providers[0].id,model:''}];
+    const provider=providers.find((candidate)=>candidate.enabled)??providers[0];
+    transcriptionChain=[{providerId:provider.id,model:provider.model}];
     chainInitialized=true;
   }
   $: current=submitted ? (jobs.find((job)=>job.id===submitted?.id)??submitted) : undefined;
   $: chainReady=transcriptionChain.length>0&&transcriptionChain.every((route)=>!!route.providerId&&!!route.model);
   $: outputReady=outputMode==='computer'||!!outputDir;
-  $: canRecord=permissionState==='ready'&&devices.length>0&&chainReady&&outputReady&&!processing;
+  $: canRecord=chainReady&&outputReady&&!processing;
   $: localDirectoryAvailable=typeof window!=='undefined'&&canSaveToDirectory(window);
 
   const mimeCandidates=[
@@ -105,7 +106,10 @@
   }
 
   async function refreshMicrophones(){
-    if(!navigator.mediaDevices?.enumerateDevices)return;
+    if(!navigator.mediaDevices?.enumerateDevices){
+      mediaError='Microphone enumeration is unavailable on this browser origin. Use HTTPS or local HTTP mode at http://127.0.0.1:3052.';
+      return;
+    }
     const next=(await navigator.mediaDevices.enumerateDevices()).filter((device)=>device.kind==='audioinput');
     devices=next;
     if(!next.some((device)=>device.deviceId===selectedDeviceId)) selectedDeviceId=next[0]?.deviceId??'';
@@ -122,18 +126,13 @@
     return error.message||error.name;
   }
 
-  async function detectMicrophones(){
+  async function detectMicrophones():Promise<boolean>{
     mediaError='';
     secureContext=window.isSecureContext;
-    if(!secureContext){
-      permissionState='denied';
-      mediaError='Microphone access requires HTTPS (or localhost). Open ScribeWatch through its HTTPS address.';
-      return;
-    }
     if(!navigator.mediaDevices?.getUserMedia){
       permissionState='denied';
-      mediaError='Microphone capture is unavailable in this browser/context.';
-      return;
+      mediaError='Microphone capture is unavailable on this browser origin. Use HTTPS or local HTTP mode at http://127.0.0.1:3052.';
+      return false;
     }
     permissionState='requesting';
     try{
@@ -141,7 +140,14 @@
       for(const track of probe.getTracks())track.stop();
       permissionName='granted';
       await refreshMicrophones();
-      if(devices.length){permissionState='ready';mediaError='';}
+      if(devices.length){
+        permissionState='ready';
+        mediaError='';
+        return true;
+      }
+      permissionState='denied';
+      mediaError='No audio input device is currently visible to the browser.';
+      return false;
     }catch(error){
       permissionState='denied';
       mediaError=microphoneError(error);
@@ -150,6 +156,7 @@
         if(status)permissionName=status.state;
       }catch{/* Permissions API is optional */}
       notify('error',mediaError);
+      return false;
     }
   }
 
@@ -177,7 +184,16 @@
   }
 
   async function startRecording(){
-    if(!canRecord||recording)return;
+    if(recording||processing)return;
+    if(!chainReady){
+      notify('error','Choose a transcription provider and model first.');
+      return;
+    }
+    if(!outputReady){
+      notify('error','Choose where to save the recording result first.');
+      return;
+    }
+    if(permissionState!=='ready'&&!(await detectMicrophones()))return;
     try{
       stream=await acquireRecordingStream();
       mimeType=chooseMime();
@@ -247,12 +263,9 @@
 
   onMount(()=>{
     secureContext=window.isSecureContext;
-    if(!secureContext){
+    if(!navigator.mediaDevices?.getUserMedia){
       permissionState='denied';
-      mediaError='Microphone access requires HTTPS (or localhost). Open ScribeWatch through its HTTPS address.';
-    }else if(!navigator.mediaDevices?.getUserMedia){
-      permissionState='denied';
-      mediaError='Microphone capture is unavailable in this browser/context.';
+      mediaError='Microphone capture is unavailable on this browser origin. Use HTTPS or local HTTP mode at http://127.0.0.1:3052.';
     }else{
       void (async()=>{
         try{
@@ -301,8 +314,8 @@
     <span><strong>Permission</strong> {permissionName}</span>
     <span><strong>Devices</strong> {devices.length}</span>
     <span class="spacer"></span>
-    {#if secureContext&&permissionState!=='ready'}<button class="btn primary" on:click={detectMicrophones}>Enable microphone</button>{/if}
-    {#if secureContext}<button class="btn" on:click={refreshMicrophones}>Refresh microphones</button>{/if}
+    {#if permissionState!=='ready'}<button class="btn primary" on:click={detectMicrophones}>Enable microphone</button>{/if}
+    <button class="btn" on:click={refreshMicrophones}>Refresh microphones</button>
   </div>
 
   <div class="live-grid">
@@ -313,7 +326,7 @@
           <div class="live-wave" aria-hidden="true">
             {#each levels as level}<i style:height={`${Math.max(8,Math.round(level*76))}px`}></i>{/each}
           </div>
-          <button class="record-button" class:recording disabled={!canRecord&&!recording} on:click={()=>recording?stopRecording():startRecording()} aria-label={recording?'Stop recording':'Start recording'}>
+          <button class="record-button" class:recording disabled={processing&&!recording} on:click={()=>recording?stopRecording():startRecording()} aria-label={recording?'Stop recording':'Start recording'}>
             <span></span>
           </button>
           <strong>{recording?'Recording — press again to stop':processing?'Uploading recording…':permissionState==='requesting'?'Requesting microphone…':permissionState==='denied'?'Microphone unavailable':permissionState==='idle'?'Enable microphone':'Ready to record'}</strong>
