@@ -3,7 +3,7 @@
   import { canSaveToDirectory, saveMarkdownLocally } from '$lib/local-save';
   import PathPicker from '$lib/components/PathPicker.svelte';
   import TranscriptionChainEditor from '$lib/components/TranscriptionChainEditor.svelte';
-  import type { Job, Provider, QuickOptions, StructureProfile, TranscriptionRoute } from '$lib/types';
+  import type { ExportFormat, Job, Provider, QuickOptions, StructureProfile, TranscriptionRoute } from '$lib/types';
   export let providers:Provider[]=[];
   export let structureProfiles:StructureProfile[]=[];
   export let jobs:Job[]=[];
@@ -24,8 +24,10 @@
   let advanced=false;
   let picker:''|'source'|'output'='';
   let busy=false;
+  let exporting='';
   let submitted:Job|undefined;
   let drag=false;
+  const exportFormats:ExportFormat[]=['md','txt','html','docx','odt','pdf'];
 
   $: if(!chainInitialized&&providers.length){
     transcriptionChain=[{providerId:providers.find((provider)=>provider.enabled)?.id??providers[0].id,model:''}];
@@ -59,13 +61,15 @@
     }catch(e){notify('error',e instanceof Error?e.message:String(e));}
     finally{busy=false;}
   }
-  async function saveResult(){
+  async function exportResult(format:ExportFormat){
     if(!current||current.status!=='done')return;
+    exporting=format;
     try{
-      const result=await api.jobMarkdown(current.id);
+      const result=await api.jobExport(current.id,format);
       const method=await saveMarkdownLocally(result.filename,result.blob);
-      notify('success',method==='directory'?'Markdown saved to your folder.':'Markdown downloaded.');
+      notify('success',method==='directory'?format.toUpperCase()+' saved to your folder.':format.toUpperCase()+' downloaded.');
     }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{exporting='';}
   }
   function reset(){localFile=null;serverFile='';submitted=undefined;}
   const audioExtensions='mp3,wav,m4a,flac,ogg,opus,aac,wma,aiff,aif,caf,webm';
@@ -120,8 +124,15 @@
         {:else if current.status==='done'}
           <div class="result-success"><span class="result-check">✓</span><h2>{current.quick?.resultName??'Markdown ready'}</h2><p>{current.originalName} was transcribed. Quick Transcribe never archives or deletes the original source.</p>
             {#if current.structuringError}<div class="notice warning compact">Transcript succeeded; AI structuring failed: {current.structuringError}</div>{/if}
-            {#if current.quick?.outputKind==='client'}<button class="btn primary" on:click={saveResult}>{localDirectoryAvailable?'Save Markdown…':'Download Markdown'}</button>
-            {:else if current.markdownPath}<code class="result-path">{current.markdownPath}</code>{/if}
+            {#if current.quick?.outputKind==='server'&&current.markdownPath}<code class="result-path">{current.markdownPath}</code>{/if}
+            <div class="result-export-panel">
+              <strong>Export result</strong><span class="help">Download / save as</span>
+              <div class="export-actions">
+                {#each exportFormats as format}
+                  <button class="btn compact" class:primary={format==='pdf'} disabled={!!exporting} on:click={()=>exportResult(format)}>{exporting===format?'…':format.toUpperCase()}</button>
+                {/each}
+              </div>
+            </div>
             <button class="btn ghost" on:click={reset}>Transcribe another</button>
           </div>
         {:else}<div class="processing-state"><div class="pulse-ring"></div><strong>{current.status==='transcribing'?'Listening…':current.status==='structuring'?'Structuring with AI…':current.status==='publishing'?'Writing Markdown…':'Queued…'}</strong><span>{current.originalName}</span></div>{/if}

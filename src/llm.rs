@@ -81,6 +81,70 @@ If speaker roles are uncertain, say so rather than guessing. Keep clinically mea
             built_in: true,
         },
         StructureProfile {
+            id: "general-medical-consultation".into(),
+            name: "General medicine consultation draft".into(),
+            description: "Evidence-bound primary-care documentation with explicit source attribution and verification flags.".into(),
+            prompt: r#"Create a clinician-reviewable general-medicine consultation draft from the transcript. This is documentation support only, not medical advice, diagnosis, triage, or autonomous decision-making.
+Use only information explicitly present in the transcript. Do not complete customary medical fields from general knowledge. Never infer or invent a diagnosis, differential diagnosis, medication, dose, allergy, vital sign, examination finding, test, result, pregnancy status, risk factor, referral, treatment, coding, or follow-up.
+Distinguish patient-reported information from clinician-observed or clinician-stated information whenever the speaker role is evident. If attribution is uncertain, mark it as uncertain instead of guessing.
+Preserve clinically meaningful negations and uncertainty. Preserve names, dates, onset/duration, laterality, frequencies, doses, units, measurements and quoted numeric values exactly as heard; flag ambiguous values for verification rather than silently correcting them.
+Use only the following sections that are supported by the transcript:
+## Reason for encounter
+## History of present illness / symptoms
+Include chronology, severity, triggers, relieving/aggravating factors and associated symptoms only when explicitly stated.
+## Relevant medical / surgical / family / social history
+## Current medications / allergies
+Only items explicitly stated, including explicit absence or uncertainty.
+## Objective data / vital signs / examination
+Only measured or explicitly described findings.
+## Tests / results
+## Assessment explicitly stated during the encounter
+Never derive a diagnosis from symptoms or results.
+## Plan / prescriptions / investigations / referrals
+Only decisions explicitly stated by the clinician.
+## Safety-net / follow-up explicitly stated
+## Items to verify / ambiguities
+Collect uncertain speaker attribution, unclear names, doses, measurements, dates, contradictions or missing context that could materially affect the record.
+Keep the note concise and clinically readable. Do not add billing codes, recommendations, warnings or medical content that was not spoken. Write in the transcript's language."#.into(),
+            provider_id: String::new(),
+            model: String::new(),
+            built_in: true,
+        },
+        StructureProfile {
+            id: "dental-consultation".into(),
+            name: "Dental consultation draft".into(),
+            description: "Evidence-bound dental documentation covering oral findings, tooth-specific data, procedures and follow-up without inventing charting.".into(),
+            prompt: r#"Create a clinician-reviewable dental consultation draft from the transcript. This is documentation support only, not dental advice, diagnosis, treatment planning, or autonomous decision-making.
+Use only information explicitly present in the transcript. Never infer or invent a tooth number, tooth surface, diagnosis, caries, periodontal finding, mobility, occlusion, pulp status, radiographic finding, procedure, material, local anaesthetic, medication, dose, consent, complication, referral or treatment plan.
+Preserve tooth notation exactly as spoken or transcribed. Do not convert between FDI, Universal, Palmer or other numbering systems unless the transcript explicitly establishes the system. If a tooth identifier or surface is ambiguous, put it under Items to verify.
+Clearly distinguish patient-reported symptoms/history from clinician-observed findings and clinician-stated assessment. If the speaker role is uncertain, mark it as uncertain rather than guessing.
+Preserve clinically meaningful negations and uncertainty. Preserve dates, duration, laterality, tooth identifiers, surfaces, pocket depths, bleeding/mobility grades, doses, units and other measurements exactly; flag unclear values instead of silently correcting them.
+Use only the following sections that are supported by the transcript:
+## Reason for encounter / chief complaint
+## Dental symptom history
+Include onset, duration, location, pain characteristics, triggers, swelling, bleeding, trauma or functional impact only when stated.
+## Relevant medical history / medications / allergies
+## Relevant dental / oral history and habits
+## Extraoral / intraoral examination
+## Tooth-specific / periodontal findings
+Record only findings explicitly stated, preserving the original tooth notation and surfaces.
+## Imaging / tests / results
+## Assessment explicitly stated during the encounter
+Never derive a diagnosis from findings.
+## Procedures performed today
+Include site, procedure, anaesthesia, materials and complications only when explicitly documented.
+## Information / consent / refusal discussed
+Record only what the transcript explicitly shows was discussed or accepted/refused.
+## Plan / prescriptions / referrals
+## Post-operative instructions / follow-up explicitly stated
+## Items to verify / ambiguities
+Collect uncertain tooth notation, speaker attribution, unclear names, doses, measurements, dates, contradictions or missing context that could materially affect the record.
+Keep the note concise and suitable for clinician review. Do not invent odontogram entries, periodontal charting, codes, medical facts or recommendations. Write in the transcript's language."#.into(),
+            provider_id: String::new(),
+            model: String::new(),
+            built_in: true,
+        },
+        StructureProfile {
             id: "marketing-brainstorm".into(),
             name: "Marketing brainstorm".into(),
             description: "Turns ideation sessions into themes, hypotheses, experiments and next actions.".into(),
@@ -438,11 +502,28 @@ mod tests {
             .map(|profile| &profile.id)
             .collect::<std::collections::HashSet<_>>();
         assert_eq!(ids.len(), profiles.len());
-        assert!(
-            profiles
-                .iter()
-                .any(|profile| profile.id == "medical-consultation")
-        );
+        for id in [
+            "medical-consultation",
+            "general-medical-consultation",
+            "dental-consultation",
+        ] {
+            assert!(
+                profiles.iter().any(|profile| profile.id == id),
+                "missing {id}"
+            );
+        }
+        let general = profiles
+            .iter()
+            .find(|profile| profile.id == "general-medical-consultation")
+            .unwrap();
+        assert!(general.prompt.contains("Never derive a diagnosis"));
+        assert!(general.prompt.contains("Items to verify / ambiguities"));
+        let dental = profiles
+            .iter()
+            .find(|profile| profile.id == "dental-consultation")
+            .unwrap();
+        assert!(dental.prompt.contains("Do not convert between FDI"));
+        assert!(dental.prompt.contains("Never derive a diagnosis"));
         assert!(
             profiles
                 .iter()

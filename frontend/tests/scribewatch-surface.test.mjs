@@ -102,3 +102,29 @@ test('jobs expose all supported document exports', async () => {
   for (const format of ['md','txt','html','docx','odt','pdf']) assert.ok(jobs.includes(format));
   assert.ok(jobs.includes('api.jobExport'));
 });
+
+
+test('UI offers persistent English, French and Simplified Chinese localization', async () => {
+  const shell = await read('lib/components/AppShell.svelte');
+  const i18n = await read('lib/i18n.ts');
+  for (const token of ["value=\"en\"","value=\"fr\"","value=\"zh-CN\"",'Français','中文','scribewatch:locale','MutationObserver']) {
+    assert.ok(shell.includes(token) || i18n.includes(token), 'missing localization token ' + token);
+  }
+});
+
+test('live recorder diagnoses secure-context permissions and hot-plugged microphones', async () => {
+  const live = await read('lib/views/LiveRecordView.svelte');
+  for (const token of ['window.isSecureContext',"name:'microphone'",'devicechange','getSupportedConstraints','audioBitsPerSecond:64000','OverconstrainedError']) {
+    assert.ok(live.includes(token), 'missing microphone robustness behavior ' + token);
+  }
+});
+
+test('quick and live results expose every supported export format directly', async () => {
+  const quick = await read('lib/views/QuickTranscribeView.svelte');
+  const live = await read('lib/views/LiveRecordView.svelte');
+  for (const view of [quick, live]) {
+    for (const format of ['md','txt','html','docx','odt','pdf']) assert.ok(view.includes(format));
+    assert.ok(view.includes('api.jobExport'));
+    assert.ok(view.includes('Export result'));
+  }
+});

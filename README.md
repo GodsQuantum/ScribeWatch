@@ -36,11 +36,12 @@ It is especially useful as a **voice notes → Obsidian** bridge, but nothing is
 
 - **Voice notes become useful files** — readable `.md`, not another pile of forgotten recordings.
 - **Quick Transcribe** — drag in one audio file and get Markdown back immediately.
-- **Live Recorder** — record a browser microphone with device selection, timer and live level meter, then transcribe on Stop.
+- **Live Recorder** — record a browser microphone with secure-context/permission diagnostics, hot-plug device refresh, timer and live level meter, then transcribe on Stop.
 - **Watch folders** — automatically process new recordings from a server, NAS or mounted sync folder.
 - **Content-based audio ingest** — FFprobe detects decodable audio streams instead of trusting a filename extension; FFmpeg normalizes every source before STT.
 - **Optional AI structure profiles** — reusable meeting, medical-documentation, brainstorm, interview and custom prompts can add a structured view after transcription.
-- **Multi-format export** — keep Markdown as the source and export completed notes as MD, TXT, HTML, DOCX, ODT or PDF.
+- **Multi-format export** — export completed Quick, Live or historical jobs directly as MD, TXT, HTML, DOCX, ODT or PDF.
+- **Multilingual interface** — switch persistently between English, French and Simplified Chinese.
 - **Obsidian-friendly by default** — clean filenames, H1 titles, YAML properties and tags.
 - **Bring your own transcription engine** — works with OpenAI-compatible STT endpoints such as Speaches/Whisper services.
 - **Resilient transcription chains** — mix providers and models in any order. If one route fails, ScribeWatch automatically tries the next — even another model from the same provider.
@@ -98,6 +99,8 @@ docker compose up -d
 
 Open **http://127.0.0.1:3000**, then:
 
+> Live microphone capture is a browser secure-context feature. `localhost` is accepted for local use; remote/LAN clients should open ScribeWatch through **HTTPS**, otherwise browsers intentionally block `getUserMedia()`.
+
 1. Add your transcription endpoint under **STT**.
 2. Use **Quick** for an existing recording, **Live** for a browser microphone, or create a **Workflow**.
 3. Optional: add an OpenAI-compatible LLM under **AI Profiles** and connect one or more structure profiles.
@@ -147,7 +150,7 @@ Audio → FFmpeg normalization → STT → canonical transcript
                                       └─ optional structure profile → Structured notes
 ```
 
-Built-in profiles cover general structured notes, meetings/phone calls, medical-consultation documentation drafts, marketing brainstorms and interviews/research. They can be connected to any OpenAI-compatible chat-completions endpoint and edited for your deployment; custom profiles can be created from scratch.
+Built-in profiles cover general structured notes, meetings/phone calls, conservative medical documentation, dedicated general-medicine consultation drafts, dedicated dental consultation drafts, marketing brainstorms and interviews/research. Clinical profiles are documentation-only: they preserve uncertainty, distinguish reported from observed/stated information, and surface clinically material ambiguities for practitioner verification instead of inventing missing findings or diagnoses. They can be connected to any OpenAI-compatible chat-completions endpoint and edited for your deployment; custom profiles can be created from scratch.
 
 Long transcripts are processed in bounded evidence chunks before final synthesis. The system prompt treats transcript text as untrusted data, forbids invented facts, and requires uncertainty to remain explicit. If the LLM fails, **the job still succeeds with the canonical transcript** and records the structuring error separately.
 
