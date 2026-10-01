@@ -92,12 +92,16 @@
     analyser.smoothingTimeConstant=.72;
     audioContext.createMediaStreamSource(active).connect(analyser);
     const data=new Uint8Array(analyser.frequencyBinCount);
-    const tick=()=>{
-      analyser.getByteFrequencyData(data);
-      levels=Array.from({length:20},(_,index)=>Math.max(.07,(data[index%data.length]??0)/255));
+    let lastPaint=0;
+    const tick=(now:number)=>{
+      if(now-lastPaint>=50){
+        analyser.getByteFrequencyData(data);
+        levels=Array.from({length:20},(_,index)=>Math.max(.07,(data[index%data.length]??0)/255));
+        lastPaint=now;
+      }
       animationFrame=requestAnimationFrame(tick);
     };
-    tick();
+    animationFrame=requestAnimationFrame(tick);
   }
 
   async function refreshMicrophones(){

@@ -61,11 +61,18 @@ pub async fn normalize_for_transcription(
     source: &Path,
     normalized_dir: &Path,
     job_id: &str,
+    format: &str,
+    ffmpeg_threads: usize,
     token: &CancellationToken,
 ) -> Result<PathBuf> {
     std::fs::create_dir_all(normalized_dir)
         .with_context(|| format!("create {}", normalized_dir.display()))?;
-    let destination = normalized_dir.join(format!("{job_id}.wav"));
+    let extension = match format {
+        "wav" => "wav",
+        "flac" => "flac",
+        other => bail!("unsupported normalized audio format: {other}"),
+    };
+    let destination = normalized_dir.join(format!("{job_id}.{extension}"));
     let _ = std::fs::remove_file(&destination);
 
     let mut command = Command::new("ffmpeg");
@@ -84,10 +91,22 @@ pub async fn normalize_for_transcription(
         .arg("1")
         .arg("-ar")
         .arg("16000")
-        .arg("-c:a")
-        .arg("pcm_s16le")
-        .arg("--")
-        .arg(&destination);
+        .arg("-threads")
+        .arg(ffmpeg_threads.to_string());
+    match format {
+        "wav" => {
+            command.arg("-c:a").arg("pcm_s16le");
+        }
+        "flac" => {
+            command
+                .arg("-c:a")
+                .arg("flac")
+                .arg("-compression_level")
+                .arg("2");
+        }
+        _ => unreachable!("format validated above"),
+    }
+    command.arg("--").arg(&destination);
     let output = run_cancellable(command, token, "ffmpeg audio normalization").await?;
     if !output.status.success() {
         let _ = std::fs::remove_file(&destination);

@@ -264,6 +264,8 @@ mod tests {
             max_transcription_jobs: 1,
             max_upload_bytes: 2_147_483_648,
             quick_result_retention_hours: 24,
+            normalized_audio_format: "wav".into(),
+            ffmpeg_threads: 1,
         }
     }
 

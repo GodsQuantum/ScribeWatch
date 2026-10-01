@@ -207,8 +207,10 @@ See [`SECURITY.md`](.github/SECURITY.md).
 | `SCRIBEWATCH_MAX_TRANSCRIPTION_JOBS` | `2` | Concurrent transcription jobs |
 | `SCRIBEWATCH_MAX_UPLOAD_BYTES` | `2147483648` | Maximum streamed browser upload |
 | `SCRIBEWATCH_QUICK_RESULT_RETENTION_HOURS` | `24` | Client-result retention window |
+| `SCRIBEWATCH_NORMALIZED_AUDIO_FORMAT` | `wav` | Normalized STT payload: `wav` for maximum compatibility or lossless `flac` to reduce transfer/storage size |
+| `SCRIBEWATCH_FFMPEG_THREADS` | `1` | FFmpeg normalization thread cap per job; keep low when multiple transcription jobs run concurrently |
 
-Audio ingest is **content-based, not extension-based**. Stable Watch files and Quick uploads are probed with FFprobe; any file containing an audio stream that the bundled FFmpeg can decode is accepted, then normalized to mono 16 kHz PCM WAV before STT.
+Audio ingest is **content-based, not extension-based**. Stable Watch files and Quick uploads are probed with FFprobe; any file containing an audio stream that the bundled FFmpeg can decode is accepted, then normalized to mono 16 kHz audio before STT. WAV is the compatibility default; lossless FLAC is available for deployments that want a smaller normalized payload.
 
 ## 🧩 Client-computer folders
 
