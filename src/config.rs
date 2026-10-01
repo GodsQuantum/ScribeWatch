@@ -35,6 +35,14 @@ pub struct Config {
         default_value_t = 24
     )]
     pub quick_result_retention_hours: u64,
+    #[arg(
+        long,
+        env = "SCRIBEWATCH_NORMALIZED_AUDIO_FORMAT",
+        default_value = "wav"
+    )]
+    pub normalized_audio_format: String,
+    #[arg(long, env = "SCRIBEWATCH_FFMPEG_THREADS", default_value_t = 1)]
+    pub ffmpeg_threads: usize,
 }
 
 impl Config {
@@ -49,6 +57,13 @@ impl Config {
         std::fs::create_dir_all(self.quick_result_dir())?;
         reset_ephemeral_dir(&self.normalized_dir())?;
         reset_ephemeral_dir(&self.export_dir())?;
+        self.normalized_audio_format = self.normalized_audio_format.trim().to_ascii_lowercase();
+        if !matches!(self.normalized_audio_format.as_str(), "wav" | "flac") {
+            bail!("SCRIBEWATCH_NORMALIZED_AUDIO_FORMAT must be wav or flac");
+        }
+        if !(1..=32).contains(&self.ffmpeg_threads) {
+            bail!("SCRIBEWATCH_FFMPEG_THREADS must be between 1 and 32");
+        }
         if self.allowed_roots.is_empty() {
             bail!("SCRIBEWATCH_ALLOWED_ROOTS must contain at least one existing directory");
         }
@@ -211,6 +226,8 @@ mod tests {
             max_transcription_jobs: 1,
             max_upload_bytes: 2_147_483_648,
             quick_result_retention_hours: 24,
+            normalized_audio_format: "wav".into(),
+            ffmpeg_threads: 1,
         }
     }
 

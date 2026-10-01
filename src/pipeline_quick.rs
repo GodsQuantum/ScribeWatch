@@ -50,10 +50,16 @@ async fn process_quick_inner(
     if token.is_cancelled() {
         bail!("cancelled");
     }
-    let normalized =
-        audio::normalize_for_transcription(source, &state.config.normalized_dir(), &job.id, token)
-            .await
-            .context("audio normalization")?;
+    let normalized = audio::normalize_for_transcription(
+        source,
+        &state.config.normalized_dir(),
+        &job.id,
+        &state.config.normalized_audio_format,
+        state.config.ffmpeg_threads,
+        token,
+    )
+    .await
+    .context("audio normalization")?;
     let transcription = transcription_chain::transcribe_job_chain(
         state,
         &job.id,

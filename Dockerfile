@@ -38,7 +38,7 @@ ENV SCRIBEWATCH_HOST=0.0.0.0 \
     HOME=/tmp \
     XDG_CACHE_HOME=/tmp/.cache
 RUN apk add --no-cache \
-      ca-certificates curl ffmpeg font-dejavu pandoc weasyprint py3-pip \
+      ca-certificates curl ffmpeg font-dejavu font-noto-cjk pandoc weasyprint py3-pip \
  && pip install --break-system-packages --no-cache-dir --upgrade "weasyprint==70.0" \
  && apk del py3-pip \
  && weasyprint --version | grep -F "70.0" \
