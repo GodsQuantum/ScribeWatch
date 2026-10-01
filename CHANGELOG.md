@@ -2,6 +2,12 @@
 
 All notable ScribeWatch changes are documented here.
 
+## [0.5.1] - 2026-10-01
+
+### Changed
+- Completes French and Simplified Chinese coverage across provider, workflow, AI-profile, path-picker and advanced Live Recorder copy.
+- Localizes built-in structure-profile names while preserving their stable backend IDs.
+
 ## [0.5.0] - 2026-10-01
 
 ### Added
