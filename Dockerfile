@@ -28,7 +28,7 @@ RUN target="$(cat /tmp/rust-target)" \
  && mkdir -p /out \
  && cp "target/$target/release/scribewatch" /out/scribewatch
 
-FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0 AS runtime
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS runtime
 ENV SCRIBEWATCH_HOST=0.0.0.0 \
     SCRIBEWATCH_PORT=3000 \
     SCRIBEWATCH_CONFIG_DIR=/config \
@@ -38,7 +38,10 @@ ENV SCRIBEWATCH_HOST=0.0.0.0 \
     HOME=/tmp \
     XDG_CACHE_HOME=/tmp/.cache
 RUN apk add --no-cache \
-      ca-certificates curl ffmpeg font-dejavu pandoc weasyprint \
+      ca-certificates curl ffmpeg font-dejavu pandoc weasyprint py3-pip \
+ && pip install --break-system-packages --no-cache-dir --upgrade "weasyprint==70.0" \
+ && apk del py3-pip \
+ && weasyprint --version | grep -F "70.0" \
  && addgroup -S -g 1000 scribewatch \
  && adduser -S -D -H -u 1000 -G scribewatch scribewatch \
  && mkdir -p /app/frontend /config /data /media /tmp/.cache \

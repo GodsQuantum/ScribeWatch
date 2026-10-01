@@ -4,7 +4,7 @@
   import { canSaveToDirectory, saveMarkdownLocally } from '$lib/local-save';
   import PathPicker from '$lib/components/PathPicker.svelte';
   import TranscriptionChainEditor from '$lib/components/TranscriptionChainEditor.svelte';
-  import type { Job, Provider, QuickOptions, StructureProfile, TranscriptionRoute } from '$lib/types';
+  import type { ExportFormat, Job, Provider, QuickOptions, StructureProfile, TranscriptionRoute } from '$lib/types';
 
   export let providers:Provider[]=[];
   export let structureProfiles:StructureProfile[]=[];
@@ -15,8 +15,13 @@
   let devices:MediaDeviceInfo[]=[];
   let selectedDeviceId='';
   let permissionState:'idle'|'requesting'|'ready'|'denied'='idle';
+  let permissionName:'granted'|'prompt'|'denied'|'unknown'='unknown';
+  let secureContext=true;
+  let mediaError='';
+  let permissionStatus:PermissionStatus|undefined;
   let recording=false;
   let processing=false;
+  let exporting='';
   let elapsed=0;
   let timer:ReturnType<typeof setInterval>|undefined;
   let recorder:MediaRecorder|undefined;
@@ -38,6 +43,8 @@
   let frontmatter=true;
   let paragraphs=true;
 
+  const exportFormats:ExportFormat[]=['md','txt','html','docx','odt','pdf'];
+
   $: if(!chainInitialized&&providers.length){
     transcriptionChain=[{providerId:providers.find((provider)=>provider.enabled)?.id??providers[0].id,model:''}];
     chainInitialized=true;
@@ -45,7 +52,7 @@
   $: current=submitted ? (jobs.find((job)=>job.id===submitted?.id)??submitted) : undefined;
   $: chainReady=transcriptionChain.length>0&&transcriptionChain.every((route)=>!!route.providerId&&!!route.model);
   $: outputReady=outputMode==='computer'||!!outputDir;
-  $: canRecord=permissionState==='ready'&&chainReady&&outputReady&&!processing;
+  $: canRecord=permissionState==='ready'&&devices.length>0&&chainReady&&outputReady&&!processing;
   $: localDirectoryAvailable=typeof window!=='undefined'&&canSaveToDirectory(window);
 
   const mimeCandidates=[
@@ -92,36 +99,87 @@
     };
     tick();
   }
+
+  async function refreshMicrophones(){
+    if(!navigator.mediaDevices?.enumerateDevices)return;
+    const next=(await navigator.mediaDevices.enumerateDevices()).filter((device)=>device.kind==='audioinput');
+    devices=next;
+    if(!next.some((device)=>device.deviceId===selectedDeviceId)) selectedDeviceId=next[0]?.deviceId??'';
+    if(permissionName==='granted') permissionState=next.length?'ready':'denied';
+    if(permissionName==='granted'&&!next.length) mediaError='No audio input device is currently visible to the browser.';
+  }
+
+  function microphoneError(error:unknown){
+    if(!(error instanceof DOMException))return error instanceof Error?error.message:String(error);
+    if(error.name==='NotAllowedError')return 'Microphone permission is blocked. Allow it in the browser site permissions, then retry.';
+    if(error.name==='NotFoundError')return 'No audio input device is currently visible to the browser.';
+    if(error.name==='NotReadableError')return 'The microphone exists but the browser cannot read it. Close other exclusive audio users and retry.';
+    if(error.name==='OverconstrainedError')return 'The selected microphone is no longer available. Refresh the device list and retry.';
+    return error.message||error.name;
+  }
+
   async function detectMicrophones(){
+    mediaError='';
+    secureContext=window.isSecureContext;
+    if(!secureContext){
+      permissionState='denied';
+      mediaError='Microphone access requires HTTPS (or localhost). Open ScribeWatch through its HTTPS address.';
+      return;
+    }
     if(!navigator.mediaDevices?.getUserMedia){
       permissionState='denied';
-      notify('error','Microphone capture is unavailable in this browser/context.');
+      mediaError='Microphone capture is unavailable in this browser/context.';
       return;
     }
     permissionState='requesting';
     try{
       const probe=await navigator.mediaDevices.getUserMedia({audio:true});
       for(const track of probe.getTracks())track.stop();
-      devices=(await navigator.mediaDevices.enumerateDevices()).filter((device)=>device.kind==='audioinput');
-      selectedDeviceId=selectedDeviceId||devices[0]?.deviceId||'';
-      permissionState='ready';
-    }catch(e){
+      permissionName='granted';
+      await refreshMicrophones();
+      if(devices.length){permissionState='ready';mediaError='';}
+    }catch(error){
       permissionState='denied';
-      notify('error',e instanceof Error?e.message:'Microphone permission denied.');
+      mediaError=microphoneError(error);
+      try{
+        const status=await (navigator.permissions as any)?.query?.({name:'microphone'});
+        if(status)permissionName=status.state;
+      }catch{/* Permissions API is optional */}
+      notify('error',mediaError);
     }
   }
+
+  function captureConstraints(includeSelected=true):MediaTrackConstraints{
+    const supported=navigator.mediaDevices?.getSupportedConstraints?.()??{};
+    const constraints:MediaTrackConstraints={};
+    if(supported.echoCancellation)constraints.echoCancellation={ideal:true};
+    if(supported.noiseSuppression)constraints.noiseSuppression={ideal:true};
+    if(supported.autoGainControl)constraints.autoGainControl={ideal:true};
+    if(supported.channelCount)constraints.channelCount={ideal:1};
+    if(includeSelected&&selectedDeviceId)constraints.deviceId={exact:selectedDeviceId};
+    return constraints;
+  }
+
+  async function acquireRecordingStream(){
+    try{
+      return await navigator.mediaDevices.getUserMedia({audio:captureConstraints(true)});
+    }catch(error){
+      const retryable=error instanceof DOMException&&selectedDeviceId&&['NotFoundError','OverconstrainedError'].includes(error.name);
+      if(!retryable)throw error;
+      await refreshMicrophones();
+      notify('error','The selected microphone changed; retrying with the current default input.');
+      return navigator.mediaDevices.getUserMedia({audio:captureConstraints(false)});
+    }
+  }
+
   async function startRecording(){
     if(!canRecord||recording)return;
-    const constraints:MediaTrackConstraints={
-      echoCancellation:{ideal:true},
-      noiseSuppression:{ideal:true},
-      autoGainControl:{ideal:true}
-    };
-    if(selectedDeviceId)constraints.deviceId={exact:selectedDeviceId};
     try{
-      stream=await navigator.mediaDevices.getUserMedia({audio:constraints});
+      stream=await acquireRecordingStream();
       mimeType=chooseMime();
-      recorder=mimeType?new MediaRecorder(stream,{mimeType}):new MediaRecorder(stream);
+      const options:MediaRecorderOptions={audioBitsPerSecond:64000};
+      if(mimeType)options.mimeType=mimeType;
+      recorder=new MediaRecorder(stream,options);
       mimeType=recorder.mimeType||mimeType||'audio/webm';
       chunks=[];
       recorder.ondataavailable=(event)=>{if(event.data.size>0)chunks.push(event.data);};
@@ -129,10 +187,15 @@
       attachMeter(stream);
       elapsed=0;
       timer=setInterval(()=>elapsed+=1,1000);
-      recorder.start(1000);
+      recorder.start(5000);
       recording=true;
       submitted=undefined;
-    }catch(e){stopStream();notify('error',e instanceof Error?e.message:String(e));}
+      mediaError='';
+    }catch(error){
+      stopStream();
+      mediaError=microphoneError(error);
+      notify('error',mediaError);
+    }
   }
   function stopRecording(){
     if(!recording||!recorder)return;
@@ -166,19 +229,48 @@
     }catch(e){notify('error',e instanceof Error?e.message:String(e));}
     finally{processing=false;chunks=[];}
   }
-  async function saveResult(){
+  async function exportResult(format:ExportFormat){
     if(!current||current.status!=='done')return;
+    exporting=format;
     try{
-      const result=await api.jobExport(current.id,'md');
-      const method=await saveMarkdownLocally(result.filename,result.blob);
-      notify('success',method==='directory'?'Markdown saved to your folder.':'Markdown downloaded.');
+      const result=await api.jobExport(current.id,format);
+      await saveMarkdownLocally(result.filename,result.blob);
+      notify('success',`${format.toUpperCase()} export saved.`);
     }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{exporting='';}
   }
   const duration=(seconds:number)=>`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
 
-  onMount(()=>{void detectMicrophones();});
+  onMount(()=>{
+    secureContext=window.isSecureContext;
+    if(!secureContext){
+      permissionState='denied';
+      mediaError='Microphone access requires HTTPS (or localhost). Open ScribeWatch through its HTTPS address.';
+    }else if(!navigator.mediaDevices?.getUserMedia){
+      permissionState='denied';
+      mediaError='Microphone capture is unavailable in this browser/context.';
+    }else{
+      void (async()=>{
+        try{
+          permissionStatus=await (navigator.permissions as any)?.query?.({name:'microphone'});
+          if(permissionStatus){
+            permissionName=permissionStatus.state as typeof permissionName;
+            permissionStatus.onchange=()=>{
+              permissionName=permissionStatus?.state as typeof permissionName;
+              if(permissionName==='granted')void refreshMicrophones();
+              if(permissionName==='denied'){permissionState='denied';mediaError='Microphone permission is blocked. Allow it in the browser site permissions, then retry.';}
+            };
+          }
+        }catch{/* Some browsers do not expose microphone via Permissions API. */}
+        if(permissionName==='granted'){await refreshMicrophones();if(devices.length)permissionState='ready';}
+      })();
+      navigator.mediaDevices.addEventListener?.('devicechange',refreshMicrophones);
+    }
+  });
   onDestroy(()=>{
     stopTimer();
+    if(permissionStatus)permissionStatus.onchange=null;
+    navigator.mediaDevices?.removeEventListener?.('devicechange',refreshMicrophones);
     const activeRecorder=recorder;
     if(activeRecorder&&activeRecorder.state!=='inactive'){
       activeRecorder.onstop=null;
@@ -198,6 +290,16 @@
   </div>
 
   {#if providers.length===0}<div class="notice warning">Add a transcription provider first.</div>{/if}
+  {#if mediaError}<div class="notice warning microphone-warning"><strong>Microphone</strong><span>{mediaError}</span></div>{/if}
+
+  <div class="microphone-diagnostics" aria-label="Microphone diagnostics">
+    <span><strong>Secure context</strong> {secureContext?'yes':'no'}</span>
+    <span><strong>Permission</strong> {permissionName}</span>
+    <span><strong>Devices</strong> {devices.length}</span>
+    <span class="spacer"></span>
+    {#if secureContext&&permissionState!=='ready'}<button class="btn primary" on:click={detectMicrophones}>Enable microphone</button>{/if}
+    {#if secureContext}<button class="btn" on:click={refreshMicrophones}>Refresh microphones</button>{/if}
+  </div>
 
   <div class="live-grid">
     <section class="card recorder-card">
@@ -207,10 +309,10 @@
           <div class="live-wave" aria-hidden="true">
             {#each levels as level}<i style:height={`${Math.max(8,Math.round(level*76))}px`}></i>{/each}
           </div>
-          <button class="record-button" class:recording disabled={!canRecord&& !recording} on:click={()=>recording?stopRecording():startRecording()} aria-label={recording?'Stop recording':'Start recording'}>
+          <button class="record-button" class:recording disabled={!canRecord&&!recording} on:click={()=>recording?stopRecording():startRecording()} aria-label={recording?'Stop recording':'Start recording'}>
             <span></span>
           </button>
-          <strong>{recording?'Recording — press again to stop':processing?'Uploading recording…':permissionState==='requesting'?'Requesting microphone…':permissionState==='denied'?'Microphone unavailable':'Ready to record'}</strong>
+          <strong>{recording?'Recording — press again to stop':processing?'Uploading recording…':permissionState==='requesting'?'Requesting microphone…':permissionState==='denied'?'Microphone unavailable':permissionState==='idle'?'Enable microphone':'Ready to record'}</strong>
           <span class="muted small">{recording?'Your audio stays in this browser until you stop.':'The recording is uploaded only after Stop, then the temporary audio is deleted after processing.'}</span>
         </div>
 
@@ -218,13 +320,12 @@
           <div class="field">
             <label for="live-microphone">Microphone</label>
             <select id="live-microphone" class="select" bind:value={selectedDeviceId} disabled={recording||permissionState!=='ready'}>
-              {#each devices as device}<option value={device.deviceId}>{device.label||'Microphone'}</option>{/each}
+              {#if devices.length===0}<option value="">No audio input device is currently visible to the browser.</option>{/if}
+              {#each devices as device,index}<option value={device.deviceId}>{device.label||`Microphone ${index+1}`}</option>{/each}
             </select>
           </div>
           <div class="field"><label for="live-language">Language</label><input id="live-language" class="input" bind:value={language} placeholder="auto, fr, en…" /></div>
         </div>
-
-        {#if permissionState==='denied'}<button class="btn" on:click={detectMicrophones}>Request microphone again</button>{/if}
 
         <TranscriptionChainEditor value={transcriptionChain} {providers} {notify} onchange={(routes)=>transcriptionChain=routes} />
 
@@ -260,8 +361,15 @@
         {:else if current.status==='done'}
           <div class="result-success"><span class="result-check">✓</span><h2>{current.quick?.resultName??'Note ready'}</h2>
             {#if current.structuringError}<div class="notice warning compact">Transcript succeeded; AI structuring failed: {current.structuringError}</div>{/if}
-            {#if current.quick?.outputKind==='client'}<button class="btn primary" on:click={saveResult}>{localDirectoryAvailable?'Save Markdown…':'Download Markdown'}</button>
-            {:else if current.markdownPath}<code class="result-path">{current.markdownPath}</code>{/if}
+            {#if current.quick?.outputKind==='server'&&current.markdownPath}<code class="result-path">{current.markdownPath}</code>{/if}
+            <div class="result-export-panel">
+              <strong>Export result</strong><span class="help">Download / save as</span>
+              <div class="export-actions">
+                {#each exportFormats as format}
+                  <button class="btn compact" class:primary={format==='pdf'} disabled={!!exporting} on:click={()=>exportResult(format)}>{exporting===format?'…':format.toUpperCase()}</button>
+                {/each}
+              </div>
+            </div>
           </div>
         {:else}
           <div class="processing-state"><div class="pulse-ring"></div><strong>{current.status==='transcribing'?'Transcribing…':current.status==='structuring'?'Structuring with AI…':current.status==='publishing'?'Writing Markdown…':'Queued…'}</strong></div>

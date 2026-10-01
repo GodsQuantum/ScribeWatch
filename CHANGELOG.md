@@ -2,6 +2,24 @@
 
 All notable ScribeWatch changes are documented here.
 
+## [0.5.0] - 2026-10-01
+
+### Added
+- Persistent multilingual UI selector with English, French and Simplified Chinese.
+- Browser microphone diagnostics for secure-context, permission and visible-device state, plus hot-plug refresh and stale-device fallback.
+- Direct MD, TXT, HTML, DOCX, ODT and PDF export controls in Quick Transcribe and Live Recorder results.
+- Separate built-in documentation profiles for general-medicine consultations and dental consultations, with explicit source attribution and an Items to verify section.
+
+### Changed
+- Live Recorder now requests microphone access from an explicit user action when permission is not already granted, watches device changes, applies only browser-supported speech constraints, and reduces MediaRecorder event overhead with larger chunks.
+- Speech capture falls back to the current default input if a previously selected device disappears.
+- Runtime base is upgraded to Alpine 3.24 (including FFmpeg 8.1.x), while the PDF engine is pinned to WeasyPrint 70.0 over Alpine's package baseline because 70.0 is the current security release.
+
+### Safety
+- Medical and dental prompts remain documentation-only: they must not infer diagnoses, treatments, findings, medication, measurements, tooth numbers/surfaces or consent that are absent from the transcript.
+- Dental tooth notation is preserved as spoken; ScribeWatch does not silently convert between FDI, Universal, Palmer or other systems.
+- Ambiguous clinically material values are surfaced for clinician verification rather than silently repaired.
+
 ## [0.4.0] - 2026-09-19
 
 ### Added
