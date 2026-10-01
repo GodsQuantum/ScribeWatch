@@ -37,14 +37,16 @@
   }
   function modelOptions(route:TranscriptionRoute) {
     const reported=modelsByProvider[route.providerId]??[];
-    return [...new Set([...(route.model?[route.model]:[]),...reported])];
+    const saved=providers.find((provider)=>provider.id===route.providerId)?.model??'';
+    return [...new Set([...(route.model?[route.model]:[]),...(saved?[saved]:[]),...reported])];
   }
   function update(index:number, patch:Partial<TranscriptionRoute>) {
     onchange(updateRoute(value,index,patch));
   }
   function providerChanged(index:number, event:Event) {
     const providerId=(event.currentTarget as HTMLSelectElement).value;
-    update(index,{providerId,model:''});
+    const model=providers.find((provider)=>provider.id===providerId)?.model??'';
+    update(index,{providerId,model});
     void discover(providerId,true);
   }
   function modelChanged(index:number, event:Event) {

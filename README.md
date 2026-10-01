@@ -99,7 +99,7 @@ docker compose up -d
 
 Open **http://127.0.0.1:3000**, then:
 
-> Live microphone capture is a browser secure-context feature. `localhost` is accepted for local use; remote/LAN clients should open ScribeWatch through **HTTPS**, otherwise browsers intentionally block `getUserMedia()`.
+> Live microphone capture is a browser secure-context feature. `localhost` / `127.0.0.1` is accepted for local use; remote/LAN clients should open ScribeWatch through **HTTPS**. For a Linux workstation that should use the Cloud9 instance over plain local HTTP, run `scripts/install-local-loopback-linux.sh`; it exposes the remote instance on `http://127.0.0.1:3052` through `systemd-socket-proxyd` so browser microphone APIs remain available without TLS on the workstation.
 
 1. Add your transcription endpoint under **STT**.
 2. Use **Quick** for an existing recording, **Live** for a browser microphone, or create a **Workflow**.
