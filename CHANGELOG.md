@@ -2,6 +2,11 @@
 
 All notable ScribeWatch changes are documented here.
 
+## [0.5.2] - 2026-10-01
+
+### Security
+- Updates the transitive frontend serializer devalue from 5.9.1 to 5.9.4, matching the Dependabot security fix.
+
 ## [0.5.1] - 2026-10-01
 
 ### Changed
