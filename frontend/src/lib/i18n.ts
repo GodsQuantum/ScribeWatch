@@ -92,6 +92,78 @@ const dictionaries: Record<Exclude<Locale, 'en'>, Record<string, string>> = {
   }
 };
 
+
+const supplemental: Record<Exclude<Locale, 'en'>, Record<string, string>> = {
+  fr: {
+    '← Back':'← Retour','Add':'Ajouter','Optional Obsidian tags. Comma or Enter adds a tag.':'Tags Obsidian facultatifs. Virgule ou Entrée ajoute un tag.',
+    'Model discovery unavailable.':'Découverte des modèles indisponible.','+ Add fallback':'+ Ajouter une route de secours',
+    'Any OpenAI-compatible audio transcription endpoint can be local or remote. ScribeWatch stores secrets server-side.':'Tout endpoint de transcription audio compatible OpenAI peut être local ou distant. ScribeWatch conserve les secrets côté serveur.',
+    '+ Add provider':'+ Ajouter un fournisseur','No providers configured.':'Aucun fournisseur configuré.',
+    'Use the complete OpenAI-compatible transcription endpoint. Nothing is hardcoded to a specific service.':'Utilisez l’endpoint complet de transcription compatible OpenAI. Aucun service n’est codé en dur.',
+    'The stored value is never returned to this browser.':'La valeur enregistrée n’est jamais renvoyée à ce navigateur.',
+    'Model discovery timeout (seconds)':'Délai de découverte des modèles (secondes)',
+    'This only bounds model discovery. Transcription has no provider-wide processing timeout; optional fallback timeouts are configured per route.':'Cela limite uniquement la découverte des modèles. La transcription n’a pas de délai global par fournisseur ; les délais de secours facultatifs se règlent par route.',
+    'Models reported by provider':'Modèles annoncés par le fournisseur',
+    'Watch audio continuously, publish the note where you keep knowledge, then archive the source only after publication succeeds.':'Surveillez l’audio en continu, publiez la note dans votre espace de connaissances, puis archivez la source uniquement après publication réussie.',
+    '+ Add workflow':'+ Ajouter une automatisation','Create a transcription provider before enabling a workflow.':'Créez un fournisseur de transcription avant d’activer une automatisation.','No workflows yet.':'Aucune automatisation pour le moment.',
+    'Empty or “auto” lets the provider detect it.':'Vide ou « auto » laisse le fournisseur détecter la langue.',
+    'Runs after transcription. Failure never blocks the canonical transcript or source archiving.':'S’exécute après la transcription. Un échec ne bloque jamais la transcription canonique ni l’archivage de la source.',
+    'Any stable file containing an FFmpeg-decodable audio stream is detected by content, regardless of extension, then normalized before STT.':'Tout fichier stable contenant un flux audio décodable par FFmpeg est détecté par son contenu, quelle que soit son extension, puis normalisé avant le STT.',
+    'Point this at an Obsidian vault folder, or leave empty to publish beside the audio.':'Choisissez un dossier de coffre Obsidian, ou laissez vide pour publier à côté de l’audio.',
+    'The source moves here only after the Markdown note is safely published.':'La source n’est déplacée ici qu’après publication sûre de la note.',
+    'Obsidian / Markdown':'Obsidian / Markdown','Every note gets a transcript-derived title. YAML properties stay optional.':'Chaque note reçoit un titre dérivé de la transcription. Les propriétés YAML restent facultatives.',
+    'Add YAML properties':'Ajouter les propriétés YAML','Groups the transcript with Unicode sentence boundaries and length rules; it never rewrites the words.':'Regroupe la transcription selon les limites de phrases Unicode et des règles de longueur ; les mots ne sont jamais réécrits.',
+    'Watch this folder continuously':'Surveiller ce dossier en continu',
+    'Audio → canonical transcript → optional LLM structure → Markdown with both views.':'Audio → transcription canonique → structure LLM facultative → document contenant les deux vues.',
+    'If the LLM fails, ScribeWatch still publishes the transcript.':'Si le LLM échoue, ScribeWatch publie quand même la transcription.',
+    '+ Provider':'+ Fournisseur','No LLM provider configured.':'Aucun fournisseur LLM configuré.','Chat completions URL':'URL Chat Completions','Timeout (seconds)':'Délai (secondes)',
+    '+ Custom profile':'+ Profil personnalisé','Built-in template':'Modèle intégré','Editable for your deployment, but protected from deletion.':'Modifiable pour votre déploiement, mais protégé contre la suppression.',
+    'Description':'Description','LLM provider':'Fournisseur LLM','Not connected':'Non connecté',
+    'ScribeWatch adds its own immutable anti-hallucination / prompt-injection system instruction before this profile.':'ScribeWatch ajoute avant ce profil sa propre instruction système immuable contre les hallucinations et l’injection de prompt.',
+    'The profile creates an additional structured view. The complete transcript remains in the same Markdown file.':'Le profil crée une vue structurée supplémentaire. La transcription complète reste dans le même document.',
+    'Browser security requires the final local save to remain an explicit action.':'La sécurité du navigateur impose que l’enregistrement local final reste une action explicite.',
+    'Stop once. ScribeWatch uploads the completed browser recording, normalizes it with FFmpeg, transcribes it, and optionally structures it.':'À l’arrêt, ScribeWatch envoie l’enregistrement terminé, le normalise avec FFmpeg, le transcrit puis le structure éventuellement.',
+    'Promise':'État','bytes':'octets','Markdown':'Markdown',
+    'General medicine consultation draft':'Compte rendu de consultation de médecine générale','Dental consultation draft':'Compte rendu de consultation dentaire',
+    'Medical consultation draft':'Compte rendu de consultation médicale','General structured note':'Note structurée générale','Meeting minutes':'Compte rendu de réunion','Interview / research':'Entretien / recherche','Marketing brainstorm':'Brainstorming marketing',
+    '✦ Quick Transcribe':'✦ Transcription rapide','✓ No LLM required':'✓ Aucun LLM requis','✓ OpenAI-compatible':'✓ Compatible OpenAI','✓ Original audio stays safe':'✓ Audio original préservé'
+  },
+  'zh-CN': {
+    '← Back':'← 返回','Add':'添加','Optional Obsidian tags. Comma or Enter adds a tag.':'可选 Obsidian 标签。输入逗号或按 Enter 添加标签。',
+    'Model discovery unavailable.':'无法发现模型。','+ Add fallback':'+ 添加备用线路',
+    'Any OpenAI-compatible audio transcription endpoint can be local or remote. ScribeWatch stores secrets server-side.':'任何兼容 OpenAI 的音频转写端点都可以是本地或远程的。ScribeWatch 将密钥保存在服务器端。',
+    '+ Add provider':'+ 添加服务商','No providers configured.':'尚未配置服务商。',
+    'Use the complete OpenAI-compatible transcription endpoint. Nothing is hardcoded to a specific service.':'请使用完整的 OpenAI 兼容转写端点；ScribeWatch 不绑定任何特定服务。',
+    'The stored value is never returned to this browser.':'保存的密钥不会返回给此浏览器。',
+    'Model discovery timeout (seconds)':'模型发现超时（秒）',
+    'This only bounds model discovery. Transcription has no provider-wide processing timeout; optional fallback timeouts are configured per route.':'此设置仅限制模型发现。转写没有服务商级处理超时；可选备用超时按线路配置。',
+    'Models reported by provider':'服务商返回的模型',
+    'Watch audio continuously, publish the note where you keep knowledge, then archive the source only after publication succeeds.':'持续监视音频，将笔记发布到知识库，并仅在发布成功后归档源文件。',
+    '+ Add workflow':'+ 添加工作流','Create a transcription provider before enabling a workflow.':'启用工作流前请先创建转写服务商。','No workflows yet.':'尚无工作流。',
+    'Empty or “auto” lets the provider detect it.':'留空或使用“auto”让服务商自动检测语言。',
+    'Runs after transcription. Failure never blocks the canonical transcript or source archiving.':'在转写后运行。失败不会阻止权威转写或源文件归档。',
+    'Any stable file containing an FFmpeg-decodable audio stream is detected by content, regardless of extension, then normalized before STT.':'任何包含 FFmpeg 可解码音频流的稳定文件都会按内容识别，不受扩展名影响，并在 STT 前标准化。',
+    'Point this at an Obsidian vault folder, or leave empty to publish beside the audio.':'选择 Obsidian 库文件夹，或留空以发布到音频旁边。',
+    'The source moves here only after the Markdown note is safely published.':'只有文档安全发布后，源文件才会移动到这里。',
+    'Obsidian / Markdown':'Obsidian / Markdown','Every note gets a transcript-derived title. YAML properties stay optional.':'每条笔记都会获得由转写生成的标题；YAML 属性仍为可选。',
+    'Add YAML properties':'添加 YAML 属性','Groups the transcript with Unicode sentence boundaries and length rules; it never rewrites the words.':'按 Unicode 句子边界和长度规则对转写分组；绝不改写原词。',
+    'Watch this folder continuously':'持续监视此文件夹',
+    'Audio → canonical transcript → optional LLM structure → Markdown with both views.':'音频 → 权威转写 → 可选 LLM 结构化 → 同时保留两种视图的文档。',
+    'If the LLM fails, ScribeWatch still publishes the transcript.':'即使 LLM 失败，ScribeWatch 仍会发布转写。',
+    '+ Provider':'+ 服务商','No LLM provider configured.':'尚未配置 LLM 服务商。','Chat completions URL':'Chat Completions URL','Timeout (seconds)':'超时（秒）',
+    '+ Custom profile':'+ 自定义配置','Built-in template':'内置模板','Editable for your deployment, but protected from deletion.':'可针对部署进行编辑，但受保护不能删除。',
+    'Description':'说明','LLM provider':'LLM 服务商','Not connected':'未连接',
+    'ScribeWatch adds its own immutable anti-hallucination / prompt-injection system instruction before this profile.':'ScribeWatch 会在此配置前加入不可修改的防幻觉与防提示注入系统指令。',
+    'The profile creates an additional structured view. The complete transcript remains in the same Markdown file.':'该配置会生成额外的结构化视图；完整转写仍保留在同一文档中。',
+    'Browser security requires the final local save to remain an explicit action.':'浏览器安全机制要求最终本地保存必须由用户明确触发。',
+    'Stop once. ScribeWatch uploads the completed browser recording, normalizes it with FFmpeg, transcribes it, and optionally structures it.':'停止后，ScribeWatch 会上传完整录音，使用 FFmpeg 标准化、转写，并可选择结构化。',
+    'Promise':'状态','bytes':'字节','Markdown':'Markdown',
+    'General medicine consultation draft':'全科医学就诊记录草稿','Dental consultation draft':'牙科就诊记录草稿',
+    'Medical consultation draft':'医疗就诊记录草稿','General structured note':'通用结构化笔记','Meeting minutes':'会议纪要','Interview / research':'访谈 / 研究','Marketing brainstorm':'营销头脑风暴',
+    '✦ Quick Transcribe':'✦ 快速转写','✓ No LLM required':'✓ 无需 LLM','✓ OpenAI-compatible':'✓ 兼容 OpenAI','✓ Original audio stays safe':'✓ 保留原始音频'
+  }
+};
+
 function detectedLocale(): Locale {
   if (typeof window === 'undefined') return 'en';
   const stored = window.localStorage.getItem('scribewatch:locale');
@@ -118,7 +190,7 @@ export function setLocale(value: Locale) {
 
 export function t(value: Locale, source: string) {
   if (value === 'en') return source;
-  return dictionaries[value][source] ?? source;
+  return supplemental[value][source] ?? dictionaries[value][source] ?? source;
 }
 
 function translatedText(source: string, value: Locale) {
