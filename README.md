@@ -104,8 +104,8 @@ Open **http://127.0.0.1:3000**, then:
 1. Add your transcription endpoint under **STT**.
 2. Use **Quick** for an existing recording, **Live** for a browser microphone, or create a **Workflow**.
 3. Optional: add an OpenAI-compatible LLM under **AI Profiles** and connect one or more structure profiles.
-4. For automation, choose **Watch folder → Markdown folder → Audio archive**.
-5. Point the Markdown folder at your Obsidian vault, synced notes folder, NAS, or any other Markdown destination.
+4. For automation, choose **Watch folder → Markdown folder → Audio archive**. Watch folders are recursive.
+5. Leave **Markdown folder** empty to publish each note beside its source audio, even in nested subfolders. **Audio archive** may live inside the Watch folder; that entire archive subtree is always excluded from watching.
 
 > By default ScribeWatch binds locally. If you expose it on a trusted LAN/VPN, change `SCRIBEWATCH_BIND_HOST` and use your normal firewall or authenticated reverse proxy policy.
 
@@ -177,7 +177,7 @@ Voice recorder / sync / NAS
        Audio archive
 ```
 
-Workflow audio is **never archived before Markdown publication succeeds**. Native filesystem events are backed by periodic reconciliation, which also helps with network-mounted folders where events may be missed.
+Workflow audio is **never archived before Markdown publication succeeds**. Watch folders are recursive, and both native filesystem events and periodic reconciliation cover nested subfolders. When **Markdown folder** is empty, the note is published in the exact directory containing the detected source audio. The configured **Audio archive** subtree is ignored before audio probing, so an archive such as `Watch/Vocaux` can safely live inside the watched tree without being re-ingested.
 
 ## 🔒 Safety by design
 
