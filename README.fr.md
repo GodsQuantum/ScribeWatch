@@ -103,8 +103,8 @@ Ouvrez **http://127.0.0.1:3000**, puis :
 1. Ajoutez votre moteur de transcription dans **STT**.
 2. Utilisez **Quick** pour un fichier existant, **Live** pour un micro navigateur, ou créez un **Workflow**.
 3. Optionnel : ajoutez un LLM compatible OpenAI dans **AI Profiles** puis reliez un ou plusieurs profils de structure.
-4. Pour automatiser : choisissez **Watch folder → Markdown folder → Audio archive**.
-5. Pointez le dossier Markdown vers votre vault Obsidian, dossier synchronisé, NAS ou autre destination Markdown.
+4. Pour automatiser : choisissez **Watch folder → Markdown folder → Audio archive**. Le dossier surveillé est parcouru récursivement.
+5. Laissez **Markdown folder** vide pour publier chaque note à côté de son audio source, y compris dans les sous-dossiers. **Audio archive** peut être placé dans le Watch folder : toute son arborescence est alors toujours exclue de la surveillance.
 
 > Par défaut ScribeWatch reste lié à la machine locale. Pour un accès LAN/VPN, modifiez `SCRIBEWATCH_BIND_HOST` et utilisez votre politique habituelle de firewall/reverse proxy authentifié.
 
@@ -176,7 +176,7 @@ Dictaphone / synchro / NAS
        Audio archive
 ```
 
-L’audio n’est **jamais archivé avant la publication réussie du Markdown**. Les événements filesystem natifs sont complétés par une réconciliation périodique, utile notamment avec certains dossiers réseau.
+L’audio n’est **jamais archivé avant la publication réussie du Markdown**. Les Watch folders sont récursifs : les événements filesystem natifs et la réconciliation périodique couvrent aussi les sous-dossiers. Quand **Markdown folder** est vide, la note est publiée dans le dossier exact contenant l’audio détecté. Toute l’arborescence configurée comme **Audio archive** est ignorée avant même le sondage audio ; une archive telle que `Watch/Vocaux` peut donc vivre dans l’arborescence surveillée sans être réingérée.
 
 ## 🔒 Sécurité par conception
 
