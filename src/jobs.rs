@@ -388,6 +388,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn empty_output_directory_publishes_beside_nested_source() {
+        let temp = tempfile::tempdir().unwrap();
+        let (state, workflow) = setup(temp.path(), success_provider().await).await;
+        let nested = Path::new(&workflow.watch_dir)
+            .join("cabinet")
+            .join("patients");
+        std::fs::create_dir_all(&nested).unwrap();
+        let source = nested.join("memo.m4a");
+        tokio::fs::write(&source, tiny_wav()).await.unwrap();
+        let metadata = std::fs::metadata(&source).unwrap();
+        let mtime = metadata
+            .modified()
+            .unwrap()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as i128;
+        let job = create_job(&state, &workflow, source.clone(), metadata.len(), mtime)
+            .await
+            .unwrap();
+
+        process_job(&state, &job.id, &CancellationToken::new())
+            .await
+            .unwrap();
+
+        assert!(nested.join("hello from provider.md").is_file());
+        assert!(
+            !Path::new(&workflow.watch_dir)
+                .join("hello from provider.md")
+                .exists()
+        );
+        assert!(!source.exists());
+        assert!(Path::new(&workflow.archive_dir).join("memo.m4a").is_file());
+    }
+
+    #[tokio::test]
     async fn configured_output_directory_receives_note() {
         let temp = tempfile::tempdir().unwrap();
         let (state, mut workflow) = setup(temp.path(), success_provider().await).await;

@@ -118,7 +118,11 @@ async fn process_workflow_job(
     update_job(state, &job.id, |job| job.status = JobStatus::Publishing)?;
     let output_dir = match workflow.output_dir.as_deref() {
         Some(path) => state.config.resolve_allowed_dir(Path::new(path))?,
-        None => watch_dir,
+        None => state.config.resolve_allowed_dir(
+            source
+                .parent()
+                .ok_or_else(|| anyhow!("source audio has no parent directory"))?,
+        )?,
     };
     let title = markdown::derive_title(&transcript, &job.original_name);
     let context = NoteContext {

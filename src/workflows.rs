@@ -114,7 +114,7 @@ async fn watch_workflow(
         .ok();
     if let Some(error) = watcher
         .as_mut()
-        .and_then(|w| w.watch(&watch_dir, RecursiveMode::NonRecursive).err())
+        .and_then(|w| w.watch(&watch_dir, RecursiveMode::Recursive).err())
     {
         tracing::warn!(%error, "native watcher unavailable; periodic reconciliation remains active");
         watcher = None;
@@ -129,12 +129,10 @@ async fn watch_workflow(
                 try_process_path(&state, &workflow, &path, &token, &mut attempted).await;
             }
             _ = interval.tick() => {
-                let mut entries = match tokio::fs::read_dir(&watch_dir).await {
-                    Ok(entries) => entries,
-                    Err(error) => { tracing::warn!(%error, "workflow scan failed"); continue; }
-                };
-                while let Ok(Some(entry)) = entries.next_entry().await {
-                    try_process_path(&state, &workflow, &entry.path(), &token, &mut attempted).await;
+                if let Err(error) =
+                    scan_tree(&state, &workflow, &watch_dir, &token, &mut attempted).await
+                {
+                    tracing::warn!(%error, "workflow scan failed");
                 }
             }
         }
@@ -142,6 +140,49 @@ async fn watch_workflow(
     drop(watcher);
     Ok(())
 }
+
+async fn scan_tree(
+    state: &AppState,
+    workflow: &Workflow,
+    root: &Path,
+    token: &CancellationToken,
+    attempted: &mut HashMap<PathBuf, (u64, i128)>,
+) -> Result<()> {
+    let archive_dir = Path::new(&workflow.archive_dir);
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        if token.is_cancelled() {
+            break;
+        }
+        if dir.starts_with(archive_dir) {
+            continue;
+        }
+        let mut entries = tokio::fs::read_dir(&dir).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            if token.is_cancelled() {
+                break;
+            }
+            let path = entry.path();
+            if path.starts_with(archive_dir) {
+                continue;
+            }
+            let file_type = match entry.file_type().await {
+                Ok(file_type) => file_type,
+                Err(error) => {
+                    tracing::warn!(path = %path.display(), %error, "workflow entry metadata failed");
+                    continue;
+                }
+            };
+            if file_type.is_dir() {
+                pending.push(path);
+            } else if file_type.is_file() {
+                try_process_path(state, workflow, &path, token, attempted).await;
+            }
+        }
+    }
+    Ok(())
+}
+
 async fn try_process_path(
     state: &AppState,
     workflow: &Workflow,
@@ -149,7 +190,20 @@ async fn try_process_path(
     token: &CancellationToken,
     attempted: &mut HashMap<PathBuf, (u64, i128)>,
 ) {
-    if token.is_cancelled() || !path.is_file() || audio::is_staging_name(path) {
+    if token.is_cancelled()
+        || path.starts_with(Path::new(&workflow.archive_dir))
+        || !path.is_file()
+        || audio::is_staging_name(path)
+    {
+        return;
+    }
+    let Ok(metadata) = tokio::fs::metadata(path).await else {
+        return;
+    };
+    if attempted
+        .get(path)
+        .is_some_and(|fp| *fp == fingerprint(&metadata))
+    {
         return;
     }
     let Ok((size, mtime)) = stable_fingerprint(
@@ -289,8 +343,8 @@ pub async fn normalize_definition(state: &AppState, mut workflow: Workflow) -> R
         .filter(|value| !value.is_empty())
         .map(|value| state.config.resolve_allowed_dir(Path::new(value)))
         .transpose()?;
-    if archive == watch || archive.starts_with(&watch) {
-        anyhow::bail!("archive directory must be outside the watch directory");
+    if archive == watch {
+        anyhow::bail!("archive directory must not be the watch directory itself");
     }
     let providers = state.providers.read().await.clone();
     let chain = crate::transcription_chain::normalize_workflow_chain(&workflow, &providers)?;
@@ -337,11 +391,7 @@ pub async fn scan_once(state: &AppState, workflow_id: &str) -> Result<()> {
         .resolve_allowed_dir(Path::new(&workflow.watch_dir))?;
     let token = CancellationToken::new();
     let mut attempted = HashMap::new();
-    let mut entries = tokio::fs::read_dir(watch_dir).await?;
-    while let Some(entry) = entries.next_entry().await? {
-        try_process_path(state, &workflow, &entry.path(), &token, &mut attempted).await;
-    }
-    Ok(())
+    scan_tree(state, &workflow, &watch_dir, &token, &mut attempted).await
 }
 
 #[cfg(test)]
@@ -368,6 +418,68 @@ mod validation_tests {
             normalized_audio_format: "wav".into(),
             ffmpeg_threads: 1,
         }
+    }
+
+    fn tiny_wav() -> Vec<u8> {
+        const SAMPLE_RATE: u32 = 16_000;
+        const SAMPLES: u32 = 1_600;
+        const DATA_BYTES: u32 = SAMPLES * 2;
+        let mut bytes = Vec::with_capacity((44 + DATA_BYTES) as usize);
+        bytes.extend_from_slice(b"RIFF");
+        bytes.extend_from_slice(&(36 + DATA_BYTES).to_le_bytes());
+        bytes.extend_from_slice(b"WAVEfmt ");
+        bytes.extend_from_slice(&16u32.to_le_bytes());
+        bytes.extend_from_slice(&1u16.to_le_bytes());
+        bytes.extend_from_slice(&1u16.to_le_bytes());
+        bytes.extend_from_slice(&SAMPLE_RATE.to_le_bytes());
+        bytes.extend_from_slice(&(SAMPLE_RATE * 2).to_le_bytes());
+        bytes.extend_from_slice(&2u16.to_le_bytes());
+        bytes.extend_from_slice(&16u16.to_le_bytes());
+        bytes.extend_from_slice(b"data");
+        bytes.extend_from_slice(&DATA_BYTES.to_le_bytes());
+        bytes.resize((44 + DATA_BYTES) as usize, 0);
+        bytes
+    }
+
+    #[tokio::test]
+    async fn unchanged_attempted_path_skips_stability_delay() {
+        let temp = tempfile::tempdir().unwrap();
+        let watch = temp.path().join("watch");
+        let archive = watch.join("Vocaux");
+        std::fs::create_dir_all(&archive).unwrap();
+        let path = watch.join("already-seen.txt");
+        std::fs::write(&path, b"not audio").unwrap();
+        let state = AppState::load(config(temp.path())).await.unwrap();
+        let workflow = Workflow {
+            id: "workflow".into(),
+            name: "Workflow".into(),
+            watch_dir: watch.to_string_lossy().into_owned(),
+            output_dir: None,
+            archive_dir: archive.to_string_lossy().into_owned(),
+            tags: Vec::new(),
+            provider_id: String::new(),
+            model: String::new(),
+            transcription_chain: Vec::new(),
+            language: None,
+            structure_profile_id: None,
+            markdown: MarkdownOptions::default(),
+            enabled: true,
+        };
+        let metadata = std::fs::metadata(&path).unwrap();
+        let mut attempted = HashMap::from([(path.clone(), fingerprint(&metadata))]);
+
+        tokio::time::timeout(
+            Duration::from_millis(100),
+            try_process_path(
+                &state,
+                &workflow,
+                &path,
+                &CancellationToken::new(),
+                &mut attempted,
+            ),
+        )
+        .await
+        .expect("unchanged attempted file should skip stability wait");
     }
 
     #[tokio::test]
@@ -413,6 +525,60 @@ mod validation_tests {
             std::fs::canonicalize(&archive).unwrap()
         );
     }
+    #[tokio::test]
+    async fn scan_once_recurses_and_skips_nested_archive_tree() {
+        let temp = tempfile::tempdir().unwrap();
+        let watch = temp.path().join("watch");
+        let nested = watch.join("cabinet").join("patients");
+        let archive = watch.join("Vocaux");
+        let archived_nested = archive.join("old");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::create_dir_all(&archived_nested).unwrap();
+        std::fs::write(nested.join("fresh.wav"), tiny_wav()).unwrap();
+        std::fs::write(archived_nested.join("archived.wav"), tiny_wav()).unwrap();
+
+        let state = AppState::load(config(temp.path())).await.unwrap();
+        state.providers.write().await.push(Provider {
+            id: "provider".into(),
+            name: "Provider".into(),
+            transcription_url: "http://127.0.0.1:1/v1/audio/transcriptions".into(),
+            model: "model".into(),
+            api_key: String::new(),
+            timeout_seconds: 1,
+            enabled: true,
+        });
+        let workflow = Workflow {
+            id: "workflow".into(),
+            name: "Workflow".into(),
+            watch_dir: watch.to_string_lossy().into_owned(),
+            output_dir: None,
+            archive_dir: archive.to_string_lossy().into_owned(),
+            tags: Vec::new(),
+            provider_id: "provider".into(),
+            model: "model".into(),
+            transcription_chain: Vec::new(),
+            language: None,
+            structure_profile_id: None,
+            markdown: MarkdownOptions::default(),
+            enabled: true,
+        };
+        state.workflows.write().await.push(workflow);
+
+        scan_once(&state, "workflow").await.unwrap();
+
+        let sources: Vec<PathBuf> = state
+            .jobs
+            .iter()
+            .map(|entry| entry.value().source_path.clone())
+            .collect();
+        assert_eq!(sources.len(), 1);
+        assert_eq!(
+            sources[0],
+            std::fs::canonicalize(nested.join("fresh.wav")).unwrap()
+        );
+        assert!(!sources.iter().any(|path| path.starts_with(&archive)));
+    }
+
     #[cfg(unix)]
     #[tokio::test]
     async fn workflow_rejects_output_symlink_escape() {
@@ -453,7 +619,7 @@ mod validation_tests {
     }
 
     #[tokio::test]
-    async fn workflow_rejects_archive_inside_watch_tree() {
+    async fn workflow_allows_archive_inside_watch_tree() {
         let temp = tempfile::tempdir().unwrap();
         let watch = temp.path().join("watch");
         let archive = watch.join("archive");
@@ -483,6 +649,10 @@ mod validation_tests {
             markdown: MarkdownOptions::default(),
             enabled: true,
         };
-        assert!(normalize_definition(&state, workflow).await.is_err());
+        let validated = normalize_definition(&state, workflow).await.unwrap();
+        assert_eq!(
+            PathBuf::from(validated.archive_dir),
+            std::fs::canonicalize(&archive).unwrap()
+        );
     }
 }
