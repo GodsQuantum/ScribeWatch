@@ -1,15 +1,17 @@
 use crate::{
-    domain::{Job, JobKind, JobStatus, QuickOutputKind},
+    domain::{Job, JobKind, JobStatus, QuickOutputKind, QuickSourceKind},
     error::{AppError, AppResult},
     export as document_export, jobs,
     state::AppState,
 };
 use axum::{
     Json,
+    body::Body,
     extract::{Path, State},
     http::{HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
+use tokio_util::io::ReaderStream;
 
 pub async fn list(State(state): State<AppState>) -> Json<Vec<Job>> {
     let mut jobs = state
@@ -70,6 +72,55 @@ fn rfc5987(value: &str) -> String {
         }
     }
     out
+}
+
+pub async fn audio(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> AppResult<Response> {
+    let job = jobs::get_job(&state, &id)
+        .map_err(|_| AppError::NotFound("job not found".into()))?;
+    let quick = job
+        .quick
+        .as_ref()
+        .ok_or_else(|| AppError::Conflict("job has no LIVE audio".into()))?;
+    let live = quick
+        .live
+        .as_ref()
+        .ok_or_else(|| AppError::Conflict("job has no LIVE audio".into()))?;
+    if job.kind != JobKind::Quick || quick.source_kind != QuickSourceKind::Live {
+        return Err(AppError::Conflict("job has no LIVE audio".into()));
+    }
+
+    let root = std::fs::canonicalize(state.config.live_source_dir()).map_err(AppError::from)?;
+    let path = std::fs::canonicalize(&job.source_path)
+        .map_err(|_| AppError::NotFound("LIVE audio expired or is missing".into()))?;
+    if !path.starts_with(&root) || !path.is_file() {
+        return Err(AppError::Forbidden("invalid LIVE audio path".into()));
+    }
+    let file = tokio::fs::File::open(&path).await.map_err(AppError::from)?;
+    let len = file.metadata().await.map_err(AppError::from)?.len();
+    let stream = ReaderStream::new(file);
+    let disposition = format!(
+        "attachment; filename=\"live.m4a\"; filename*=UTF-8''{}",
+        rfc5987(&live.audio_result_name)
+    );
+    let mut response = Response::new(Body::from_stream(stream));
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("audio/mp4"),
+    );
+    response.headers_mut().insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&disposition)
+            .map_err(|_| AppError::Internal(anyhow::anyhow!("invalid audio filename")))?,
+    );
+    response.headers_mut().insert(
+        header::CONTENT_LENGTH,
+        HeaderValue::from_str(&len.to_string())
+            .map_err(|_| AppError::Internal(anyhow::anyhow!("invalid audio length")))?,
+    );
+    Ok(response)
 }
 
 pub async fn markdown(
