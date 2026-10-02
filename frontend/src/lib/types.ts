@@ -2,7 +2,7 @@ export type JobStatus =
   | 'pending' | 'transcribing' | 'structuring' | 'publishing' | 'archiving'
   | 'done' | 'error' | 'cancelled' | 'interrupted';
 export type JobKind = 'workflow' | 'quick';
-export type QuickSourceKind = 'server' | 'upload';
+export type QuickSourceKind = 'server' | 'upload' | 'live';
 export type QuickOutputKind = 'server' | 'client';
 
 export interface TranscriptionRoute {
@@ -97,6 +97,13 @@ export interface Workflow {
   enabled: boolean;
 }
 
+export interface LiveJobMeta {
+  sessionId: string;
+  startedAtMs: number;
+  audioResultName: string;
+  interruptionGapsMs: number[];
+}
+
 export interface QuickJobMeta {
   sourceKind: QuickSourceKind;
   outputKind: QuickOutputKind;
@@ -105,6 +112,7 @@ export interface QuickJobMeta {
   frontmatter: boolean;
   paragraphs: boolean;
   structureProfileId?: string;
+  live?: LiveJobMeta;
 }
 
 export interface Job {
@@ -148,6 +156,28 @@ export interface QuickOptions {
   frontmatter: boolean;
   paragraphs: boolean;
   structureProfileId?: string;
+}
+
+export type LiveAudioRetention =
+  | { mode: 'none' }
+  | { mode: 'server'; directory: string }
+  | { mode: 'client' };
+
+export interface LiveUploadSegment {
+  id: number;
+  mimeType: string;
+  startedAtMs: number;
+  endedAtMs?: number;
+  gapMsBefore?: number;
+}
+
+export interface LiveUploadManifest {
+  schemaVersion: 1;
+  sessionId: string;
+  startedAtMs: number;
+  segments: LiveUploadSegment[];
+  retention: LiveAudioRetention;
+  options: QuickOptions;
 }
 
 export type ExportFormat = 'md'|'txt'|'html'|'docx'|'odt'|'pdf';
