@@ -87,6 +87,7 @@ test('live recorder negotiates browser media and reuses the quick pipeline', asy
     assert.ok(live.includes(token), 'missing live recorder behavior ' + token);
   }
   assert.ok(live.includes('activeRecorder.onstop=null'), 'navigation must not upload an unfinished recording');
+  for (const token of ['Local microphone mode…','buildLocalProxyInstaller','Linux','Windows','macOS']) assert.ok(live.includes(token), 'missing local proxy installer UI ' + token);
 });
 
 test('AI structure stays optional and preserves canonical transcript semantics', async () => {

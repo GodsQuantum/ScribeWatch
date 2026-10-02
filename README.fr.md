@@ -98,6 +98,8 @@ docker compose up -d
 
 Ouvrez **http://127.0.0.1:3000**, puis :
 
+> La capture micro du navigateur exige un contexte sécurisé. `localhost` / `127.0.0.1` convient en local ; pour les clients distants, utilisez normalement **HTTPS**. Si un poste accède au ScribeWatch du NAS en HTTP local, ouvrez **Live → Mode microphone local…** pour générer un installateur préconfiguré **Linux, Windows ou macOS**. Il n’installe pas une seconde instance de ScribeWatch : seulement un proxy TCP limité à `127.0.0.1` vers l’instance du NAS, puis ouvre `http://127.0.0.1:3052`. Linux utilise un socket systemd utilisateur, Windows `netsh interface portproxy`, et macOS un LaunchAgent utilisateur. Chaque installateur accepte aussi `--uninstall`. Le navigateur ne pouvant pas exécuter silencieusement un installateur système, il faut lancer une fois le fichier téléchargé.
+
 1. Ajoutez votre moteur de transcription dans **STT**.
 2. Utilisez **Quick** pour un fichier existant, **Live** pour un micro navigateur, ou créez un **Workflow**.
 3. Optionnel : ajoutez un LLM compatible OpenAI dans **AI Profiles** puis reliez un ou plusieurs profils de structure.
