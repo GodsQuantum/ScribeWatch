@@ -461,7 +461,7 @@
       : `${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
   }
   function formatBytes(bytes:number|undefined){
-    if(bytes===undefined)return '���';
+    if(bytes===undefined)return '—';
     if(bytes<1024)return `${bytes} B`;
     if(bytes<1024*1024)return `${(bytes/1024).toFixed(1)} KB`;
     if(bytes<1024*1024*1024)return `${(bytes/1024/1024).toFixed(1)} MB`;
@@ -545,13 +545,13 @@
     <span><strong>Secure context</strong> {secureContext?'yes':'no'}</span>
     <span><strong>Permission</strong> {permissionName}</span>
     <span><strong>Devices</strong> {devices.length}</span>
-    <span><strong>Recovery</strong> {persistenceState==='persistent'?'Persistent':persistenceState==='best-effort'?'Best effort':persistenceState==='unsupported'?'Unavailable':'Checking���'}</span>
+    <span><strong>Recovery</strong> {persistenceState==='persistent'?'Persistent':persistenceState==='best-effort'?'Best effort':persistenceState==='unsupported'?'Unavailable':'Checking…'}</span>
     <span><strong>Protected</strong> {formatBytes(protectedBytes)}</span>
     {#if storageQuota!==undefined}<span><strong>Browser storage</strong> {formatBytes(storageUsage)} / {formatBytes(storageQuota)}</span>{/if}
     <span class="spacer"></span>
     {#if permissionState!=='ready'}<button class="btn primary" on:click={detectMicrophones}>Enable microphone</button>{/if}
     <button class="btn" on:click={refreshMicrophones}>Refresh microphones</button>
-    <button class="btn" class:primary={!secureContext} on:click={()=>localProxyPanel=!localProxyPanel}>Local microphone mode���</button>
+    <button class="btn" class:primary={!secureContext} on:click={()=>localProxyPanel=!localProxyPanel}>Local microphone mode…</button>
   </div>
 
   {#if localProxyPanel}
@@ -571,7 +571,7 @@
           <div class="field"><label for="proxy-local-port">Local port</label><input id="proxy-local-port" class="input mono" type="number" min="1" max="65535" bind:value={localProxyPort} /></div>
         </div>
         <div class="local-proxy-install-row">
-          <button class="btn primary" disabled={!localProxyHost.trim()} on:click={downloadLocalProxyInstaller}><span>Download installer</span> �� {localProxyPlatform==='macos'?'macOS':localProxyPlatform==='windows'?'Windows':'Linux'}</button>
+          <button class="btn primary" disabled={!localProxyHost.trim()} on:click={downloadLocalProxyInstaller}><span>Download installer</span> · {localProxyPlatform==='macos'?'macOS':localProxyPlatform==='windows'?'Windows':'Linux'}</button>
           <span class="help">{localProxyPlatform==='windows'?'Run the downloaded .cmd once; Windows will request administrator approval.':localProxyPlatform==='macos'?'Run once in Terminal; it installs a per-user LaunchAgent.':'Run once with bash; it installs a per-user systemd socket.'}</span>
         </div>
       </div>
@@ -585,7 +585,7 @@
         <div class="recovery-tabs">
           {#each recoveries as session}
             <button class:active={session.id===selectedRecoveryId} on:click={()=>prepareRecoveryPlayback(session.id)}>
-              {new Date(session.startedAtMs).toLocaleString()} �� {duration(recoveryDuration(session))}
+              {new Date(session.startedAtMs).toLocaleString()} · {duration(recoveryDuration(session))}
             </button>
           {/each}
         </div>
@@ -634,7 +634,7 @@
           <button class="record-button" class:recording disabled={processing&&!recording||(!recording&&!canRecord)} on:click={()=>recording?stopRecording():startRecording()} aria-label={recording?'Stop recording':'Start recording'}>
             <span></span>
           </button>
-          <strong>{recording?'Recording ��� press again to stop':processing?'Finalizing recording���':permissionState==='requesting'?'Requesting microphone���':permissionState==='denied'?'Microphone unavailable':permissionState==='idle'?'Enable microphone':'Ready to record'}</strong>
+          <strong>{recording?'Recording — press again to stop':processing?'Finalizing recording…':permissionState==='requesting'?'Requesting microphone…':permissionState==='denied'?'Microphone unavailable':permissionState==='idle'?'Enable microphone':'Ready to record'}</strong>
           <span class="muted small">{recording?`Audio is being checkpointed locally. ${formatBytes(protectedBytes)} is already protected.`:'Browser-delivered audio is stored progressively for crash/reload recovery before the final server upload.'}</span>
         </div>
 
@@ -646,7 +646,7 @@
               {#each devices as device,index}<option value={device.deviceId}>{device.label||`Microphone ${index+1}`}</option>{/each}
             </select>
           </div>
-          <div class="field"><label for="live-language">Language</label><input id="live-language" class="input" bind:value={language} placeholder="auto, fr, en���" disabled={recording}/></div>
+          <div class="field"><label for="live-language">Language</label><input id="live-language" class="input" bind:value={language} placeholder="auto, fr, en…" disabled={recording}/></div>
         </div>
 
         <TranscriptionChainEditor value={transcriptionChain} {providers} {notify} onchange={(routes)=>transcriptionChain=routes} />
@@ -654,7 +654,7 @@
         <div class="field">
           <label for="live-structure">AI structure <span class="muted">optional</span></label>
           <select id="live-structure" class="select" bind:value={structureProfileId} disabled={recording}>
-            <option value="">None ��� deterministic transcript only</option>
+            <option value="">None — deterministic transcript only</option>
             {#each structureProfiles.filter((profile)=>!!profile.providerId) as profile}<option value={profile.id}>{profile.name}</option>{/each}
           </select>
           <span class="help">The profile creates an additional structured view. The complete transcript remains in the same Markdown file.</span>
@@ -666,7 +666,7 @@
           {#if outputMode==='server'}
             <div class="field"><label for="live-output">Markdown destination</label><div class="path-control"><input id="live-output" class="input mono" value={outputDir} readonly placeholder="Choose a folder" /><button class="btn" disabled={recording} on:click={()=>picker=true}>Browse</button></div></div>
           {:else}
-            <div class="client-output-note"><span>���</span><div><strong>{localDirectoryAvailable?'Save into a local folder after transcription':'Download the result after transcription'}</strong><p>Browser security requires the final local save to remain an explicit action.</p></div></div>
+            <div class="client-output-note"><span>⌁</span><div><strong>{localDirectoryAvailable?'Save into a local folder after transcription':'Download the result after transcription'}</strong><p>Browser security requires the final local save to remain an explicit action.</p></div></div>
           {/if}
           <div class="row wrap"><label class="check"><input type="checkbox" bind:checked={frontmatter} disabled={recording}/> YAML properties</label><label class="check"><input type="checkbox" bind:checked={paragraphs} disabled={recording}/> Readable deterministic paragraphs</label></div>
         </div>
@@ -697,21 +697,21 @@
         {:else if current.status==='error'||current.status==='interrupted'||current.status==='cancelled'}
           <div class="error-box"><strong>Processing did not finish</strong><span>{current.error??current.status}</span>{#if current.quick?.sourceKind==='live'}<button class="btn compact" on:click={()=>api.retryJob(current.id).then(refresh).catch((e)=>notify('error',String(e)))}>Retry</button>{/if}</div>
         {:else if current.status==='done'}
-          <div class="result-success"><span class="result-check">���</span><h2>{current.quick?.resultName??'Note ready'}</h2>
+          <div class="result-success"><span class="result-check">✓</span><h2>{current.quick?.resultName??'Note ready'}</h2>
             {#if current.structuringError}<div class="notice warning compact">Transcript succeeded; AI structuring failed: {current.structuringError}</div>{/if}
             {#if current.quick?.outputKind==='server'&&current.markdownPath}<code class="result-path">{current.markdownPath}</code>{/if}
-            {#if current.quick?.sourceKind==='live'}<button class="btn compact" on:click={saveFinalAudio}>Save final audio���</button>{/if}
+            {#if current.quick?.sourceKind==='live'}<button class="btn compact" on:click={saveFinalAudio}>Save final audio…</button>{/if}
             <div class="result-export-panel">
               <strong>Export result</strong><span class="help">Download / save as</span>
               <div class="export-actions">
                 {#each exportFormats as format}
-                  <button class="btn compact" class:primary={format==='pdf'} disabled={!!exporting} on:click={()=>exportResult(format)}>{exporting===format?'���':format.toUpperCase()}</button>
+                  <button class="btn compact" class:primary={format==='pdf'} disabled={!!exporting} on:click={()=>exportResult(format)}>{exporting===format?'…':format.toUpperCase()}</button>
                 {/each}
               </div>
             </div>
           </div>
         {:else}
-          <div class="processing-state"><div class="pulse-ring"></div><strong>{current.status==='transcribing'?'Transcribing���':current.status==='structuring'?'Structuring with AI���':current.status==='publishing'?'Writing Markdown���':'Queued���'}</strong></div>
+          <div class="processing-state"><div class="pulse-ring"></div><strong>{current.status==='transcribing'?'Transcribing…':current.status==='structuring'?'Structuring with AI…':current.status==='publishing'?'Writing Markdown…':'Queued…'}</strong></div>
         {/if}
       </div>
     </aside>
