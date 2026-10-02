@@ -130,7 +130,15 @@ const supplemental: Record<Exclude<Locale, 'en'>, Record<string, string>> = {
     'Promise':'État','bytes':'octets','Markdown':'Markdown',
     'General medicine consultation draft':'Compte rendu de consultation de médecine générale','Dental consultation draft':'Compte rendu de consultation dentaire',
     'Medical consultation draft':'Compte rendu de consultation médicale','General structured note':'Note structurée générale','Meeting minutes':'Compte rendu de réunion','Interview / research':'Entretien / recherche','Marketing brainstorm':'Brainstorming marketing',
-    '✦ Quick Transcribe':'✦ Transcription rapide','✓ No LLM required':'✓ Aucun LLM requis','✓ OpenAI-compatible':'✓ Compatible OpenAI','✓ Original audio stays safe':'✓ Audio original préservé'
+    '✦ Quick Transcribe':'✦ Transcription rapide','✓ No LLM required':'✓ Aucun LLM requis','✓ OpenAI-compatible':'✓ Compatible OpenAI','✓ Original audio stays safe':'✓ Audio original préservé',
+    'Local microphone mode…':'Mode microphone local…','Install local microphone mode':'Installer le mode microphone local','Close':'Fermer','Download installer':'Télécharger l’installateur',
+    'NAS hostname / IPv4':'Nom d’hôte NAS / IPv4','ScribeWatch HTTP port':'Port HTTP ScribeWatch','Local port':'Port local','Client operating system':'Système du poste client',
+    'This does not install another ScribeWatch. It creates a localhost-only proxy on this computer to the existing ScribeWatch HTTP service on your NAS, then you use':'Cela n’installe pas une autre instance de ScribeWatch. Un proxy uniquement localhost est créé sur cet ordinateur vers le service HTTP ScribeWatch déjà présent sur le NAS ; utilisez ensuite',
+    'You opened ScribeWatch through HTTPS. Enter the NAS local hostname or IPv4 address and its plain HTTP ScribeWatch port below; do not enter the public HTTPS reverse-proxy address.':'Vous avez ouvert ScribeWatch via HTTPS. Indiquez ci-dessous le nom local ou l’IPv4 du NAS et le port HTTP direct de ScribeWatch ; n’utilisez pas l’adresse HTTPS publique du reverse proxy.',
+    'Run the downloaded .cmd once; Windows will request administrator approval.':'Exécutez une fois le fichier .cmd téléchargé ; Windows demandera une autorisation administrateur.',
+    'Run once in Terminal with':'Exécutez une fois dans Terminal avec','It installs a per-user LaunchAgent.':'Un LaunchAgent utilisateur sera installé.','Run once with':'Exécutez une fois avec','It installs a per-user systemd socket.':'Un socket systemd utilisateur sera installé.',
+    'The generated installer is specific to the NAS address above, binds only to 127.0.0.1, persists across logins, opens the local URL after installation, and supports':'L’installateur généré est spécifique à l’adresse NAS ci-dessus, écoute uniquement sur 127.0.0.1, persiste entre les connexions, ouvre l’URL locale après installation et accepte',
+    'Local microphone installer downloaded. Run it once on this computer.':'Installateur du mode microphone local téléchargé. Exécutez-le une fois sur cet ordinateur.'
   },
   'zh-CN': {
     '← Back':'← 返回','Add':'添加','Optional Obsidian tags. Comma or Enter adds a tag.':'可选 Obsidian 标签。输入逗号或按 Enter 添加标签。',
