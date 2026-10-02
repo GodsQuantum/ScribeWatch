@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { api } from '$lib/api';
   import { canSaveToDirectory, saveMarkdownLocally } from '$lib/local-save';
+  import { buildLocalProxyInstaller, detectLocalProxyPlatform, inferLocalProxyTarget, localProxyFilename, type LocalProxyPlatform } from '$lib/local-loopback-installer';
   import PathPicker from '$lib/components/PathPicker.svelte';
   import TranscriptionChainEditor from '$lib/components/TranscriptionChainEditor.svelte';
   import type { ExportFormat, Job, Provider, QuickOptions, StructureProfile, TranscriptionRoute } from '$lib/types';
@@ -42,6 +43,12 @@
   let structureProfileId='';
   let frontmatter=true;
   let paragraphs=true;
+  let localProxyPanel=false;
+  let localProxyPlatform:LocalProxyPlatform='linux';
+  let localProxyHost='';
+  let localProxyTargetPort=3052;
+  let localProxyPort=3052;
+  let localProxyNeedsTarget=false;
 
   const exportFormats:ExportFormat[]=['md','txt','html','docx','odt','pdf'];
 
@@ -259,10 +266,32 @@
     }catch(e){notify('error',e instanceof Error?e.message:String(e));}
     finally{exporting='';}
   }
+  function downloadLocalProxyInstaller(){
+    try{
+      const source=buildLocalProxyInstaller(localProxyPlatform,localProxyHost,Number(localProxyTargetPort),Number(localProxyPort));
+      const blob=new Blob([source],{type:'text/plain;charset=utf-8'});
+      const url=URL.createObjectURL(blob);
+      const anchor=document.createElement('a');
+      anchor.href=url;
+      anchor.download=localProxyFilename(localProxyPlatform);
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      notify('success','Local microphone installer downloaded. Run it once on this computer.');
+    }catch(error){
+      notify('error',error instanceof Error?error.message:String(error));
+    }
+  }
   const duration=(seconds:number)=>`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
 
   onMount(()=>{
     secureContext=window.isSecureContext;
+    localProxyPlatform=detectLocalProxyPlatform(navigator as Navigator & {userAgentData?:{platform?:string}});
+    const inferredTarget=inferLocalProxyTarget(window.location);
+    localProxyHost=inferredTarget.host;
+    localProxyTargetPort=inferredTarget.port;
+    localProxyNeedsTarget=!inferredTarget.host;
     if(!navigator.mediaDevices?.getUserMedia){
       permissionState='denied';
       mediaError='Microphone capture is unavailable on this browser origin. Use HTTPS or local HTTP mode at http://127.0.0.1:3052.';
@@ -316,7 +345,38 @@
     <span class="spacer"></span>
     {#if permissionState!=='ready'}<button class="btn primary" on:click={detectMicrophones}>Enable microphone</button>{/if}
     <button class="btn" on:click={refreshMicrophones}>Refresh microphones</button>
+    <button class="btn" class:primary={!secureContext} on:click={()=>localProxyPanel=!localProxyPanel}>Local microphone mode…</button>
   </div>
+
+  {#if localProxyPanel}
+    <section class="card local-proxy-card">
+      <div class="card-header"><strong>Install local microphone mode</strong><button class="btn compact" on:click={()=>localProxyPanel=false}>Close</button></div>
+      <div class="card-body stack">
+        <p class="muted">This does not install another ScribeWatch. It creates a localhost-only proxy on this computer to the existing ScribeWatch HTTP service on your NAS, then you use <code>http://127.0.0.1:{localProxyPort}</code>.</p>
+        <div class="segmented local-proxy-platforms" aria-label="Client operating system">
+          <button class:active={localProxyPlatform==='linux'} on:click={()=>localProxyPlatform='linux'}>Linux</button>
+          <button class:active={localProxyPlatform==='windows'} on:click={()=>localProxyPlatform='windows'}>Windows</button>
+          <button class:active={localProxyPlatform==='macos'} on:click={()=>localProxyPlatform='macos'}>macOS</button>
+        </div>
+        {#if localProxyNeedsTarget}<div class="notice warning compact">You opened ScribeWatch through HTTPS. Enter the NAS local hostname or IPv4 address and its plain HTTP ScribeWatch port below; do not enter the public HTTPS reverse-proxy address.</div>{/if}
+        <div class="grid three local-proxy-fields">
+          <div class="field"><label for="proxy-host">NAS hostname / IPv4</label><input id="proxy-host" class="input mono" bind:value={localProxyHost} placeholder="192.168.1.217 or nas.local" /></div>
+          <div class="field"><label for="proxy-target-port">ScribeWatch HTTP port</label><input id="proxy-target-port" class="input mono" type="number" min="1" max="65535" bind:value={localProxyTargetPort} /></div>
+          <div class="field"><label for="proxy-local-port">Local port</label><input id="proxy-local-port" class="input mono" type="number" min="1" max="65535" bind:value={localProxyPort} /></div>
+        </div>
+        <div class="local-proxy-install-row">
+          <button class="btn primary" disabled={!localProxyHost.trim()} on:click={downloadLocalProxyInstaller}><span>Download installer</span> · {localProxyPlatform==='macos'?'macOS':localProxyPlatform==='windows'?'Windows':'Linux'}</button>
+          <span class="help">
+            {#if localProxyPlatform==='windows'}Run the downloaded .cmd once; Windows will request administrator approval.
+            {:else if localProxyPlatform==='macos'}Run once in Terminal with <code>zsh ~/Downloads/{localProxyFilename('macos')}</code>. It installs a per-user LaunchAgent.
+            {:else}Run once with <code>bash ~/Downloads/{localProxyFilename('linux')}</code>. It installs a per-user systemd socket.
+            {/if}
+          </span>
+        </div>
+        <p class="help">The generated installer is specific to the NAS address above, binds only to 127.0.0.1, persists across logins, opens the local URL after installation, and supports <code>--uninstall</code> to remove itself.</p>
+      </div>
+    </section>
+  {/if}
 
   <div class="live-grid">
     <section class="card recorder-card">
