@@ -54,13 +54,13 @@
 </script>
 
 <svelte:head>
-  <title>ScribeWatch ��� Audio to structured notes</title>
+  <title>ScribeWatch — Audio to structured notes</title>
   <meta name="description" content="Self-hosted audio transcription, browser recording and optional AI-structured notes with a canonical transcript."/>
   <meta name="theme-color" content="#09100f"/>
 </svelte:head>
 <AppShell {active} onnav={nav}>
   {#if initialError}<div class="page"><div class="notice danger"><strong>Cannot reach ScribeWatch.</strong><span>{initialError}</span><button class="btn" on:click={()=>loadAll(true)}>Retry</button></div></div>
-  {:else if loading}<div class="page"><div class="empty loading-state">Loading ScribeWatch���</div></div>
+  {:else if loading}<div class="page"><div class="empty loading-state">Loading ScribeWatch…</div></div>
   {:else if active==='home'}<DashboardView {stats} {jobs} {workflows} onnav={nav}/>
   {:else if active==='quick'}<QuickTranscribeView {providers} {structureProfiles} {jobs} refresh={refreshJobs} {notify}/>
   {:else if active==='live'}<LiveRecordView {providers} {structureProfiles} {jobs} refresh={refreshJobs} {notify}/>
