@@ -88,7 +88,7 @@ test('live recorder uses durable controller recovery and dedicated LIVE upload',
   }
   assert.ok(!live.includes('let chunks:Blob[]'), 'LIVE audio must not accumulate in an in-memory chunk array');
   assert.ok(!live.includes('activeRecorder.onstop=null'), 'view destruction must not stop controller-owned recording');
-  for (const token of ['Local microphone mode���','buildLocalProxyInstaller','Linux','Windows','macOS']) assert.ok(live.includes(token), 'missing local proxy installer UI ' + token);
+  for (const token of ['Local microphone mode…','buildLocalProxyInstaller','Linux','Windows','macOS']) assert.ok(live.includes(token), 'missing local proxy installer UI ' + token);
 });
 
 test('AI structure stays optional and preserves canonical transcript semantics', async () => {
@@ -109,7 +109,7 @@ test('jobs expose all supported document exports', async () => {
 test('UI offers persistent English, French and Simplified Chinese localization', async () => {
   const shell = await read('lib/components/AppShell.svelte');
   const i18n = await read('lib/i18n.ts');
-  for (const token of ["value=\"en\"","value=\"fr\"","value=\"zh-CN\"",'Fran��ais','������','scribewatch:locale','MutationObserver']) {
+  for (const token of ["value=\"en\"","value=\"fr\"","value=\"zh-CN\"",'Français','中文','scribewatch:locale','MutationObserver']) {
     assert.ok(shell.includes(token) || i18n.includes(token), 'missing localization token ' + token);
   }
 });
