@@ -37,6 +37,12 @@ pub struct Config {
     pub quick_result_retention_hours: u64,
     #[arg(
         long,
+        env = "SCRIBEWATCH_QUICK_SOURCE_RETENTION_HOURS",
+        default_value_t = 24
+    )]
+    pub quick_source_retention_hours: u64,
+    #[arg(
+        long,
         env = "SCRIBEWATCH_NORMALIZED_AUDIO_FORMAT",
         default_value = "wav"
     )]
@@ -55,6 +61,8 @@ impl Config {
         self.data_dir = std::fs::canonicalize(&self.data_dir)?;
         std::fs::create_dir_all(self.quick_upload_dir())?;
         std::fs::create_dir_all(self.quick_result_dir())?;
+        std::fs::create_dir_all(self.live_staging_dir())?;
+        std::fs::create_dir_all(self.live_source_dir())?;
         reset_ephemeral_dir(&self.normalized_dir())?;
         reset_ephemeral_dir(&self.export_dir())?;
         self.normalized_audio_format = self.normalized_audio_format.trim().to_ascii_lowercase();
@@ -89,6 +97,14 @@ impl Config {
 
     pub fn quick_result_dir(&self) -> PathBuf {
         self.data_dir.join("quick-results")
+    }
+
+    pub fn live_staging_dir(&self) -> PathBuf {
+        self.data_dir.join("live-staging")
+    }
+
+    pub fn live_source_dir(&self) -> PathBuf {
+        self.data_dir.join("live-sources")
     }
 
     pub fn normalized_dir(&self) -> PathBuf {
@@ -226,6 +242,7 @@ mod tests {
             max_transcription_jobs: 1,
             max_upload_bytes: 2_147_483_648,
             quick_result_retention_hours: 24,
+            quick_source_retention_hours: 24,
             normalized_audio_format: "wav".into(),
             ffmpeg_threads: 1,
         }
@@ -241,8 +258,11 @@ mod tests {
         config.init().unwrap();
         assert!(config.quick_upload_dir().is_dir());
         assert!(config.quick_result_dir().is_dir());
+        assert!(config.live_staging_dir().is_dir());
+        assert!(config.live_source_dir().is_dir());
         assert_eq!(config.max_upload_bytes, 2_147_483_648);
         assert_eq!(config.quick_result_retention_hours, 24);
+        assert_eq!(config.quick_source_retention_hours, 24);
     }
 
     #[cfg(unix)]

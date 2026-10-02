@@ -44,6 +44,7 @@ fn config(root: &Path) -> Config {
         max_transcription_jobs: 1,
         max_upload_bytes: 1024 * 1024,
         quick_result_retention_hours: 24,
+        quick_source_retention_hours: 24,
         normalized_audio_format: "wav".into(),
         ffmpeg_threads: 1,
     }
@@ -138,7 +139,7 @@ async fn server_quick_job_publishes_note_without_moving_source() {
 }
 
 #[tokio::test]
-async fn uploaded_quick_job_cleans_staging_and_retains_client_markdown() {
+async fn uploaded_quick_job_retains_source_and_client_markdown() {
     let temp = tempfile::tempdir().unwrap();
     let state = state(temp.path(), true).await;
     let staged = state.config.quick_upload_dir().join("upload.m4a");
@@ -156,7 +157,7 @@ async fn uploaded_quick_job_cleans_staging_and_retains_client_markdown() {
         .unwrap();
     let finished = crate::jobs::get_job(&state, &job.id).unwrap();
     assert_eq!(finished.status, JobStatus::Done);
-    assert!(!staged.exists());
+    assert!(staged.exists());
     assert!(finished.markdown_path.as_ref().unwrap().is_file());
     assert_eq!(
         finished.quick.as_ref().unwrap().result_name.as_deref(),
@@ -166,7 +167,7 @@ async fn uploaded_quick_job_cleans_staging_and_retains_client_markdown() {
 }
 
 #[tokio::test]
-async fn failed_uploaded_quick_job_removes_staging() {
+async fn failed_uploaded_quick_job_retains_source_for_retry() {
     let temp = tempfile::tempdir().unwrap();
     let state = state(temp.path(), false).await;
     let staged = state.config.quick_upload_dir().join("failure.m4a");
@@ -184,5 +185,155 @@ async fn failed_uploaded_quick_job_removes_staging() {
             .await
             .is_err()
     );
+    assert!(staged.exists());
+}
+
+#[tokio::test]
+async fn restart_interrupted_quick_job_keeps_source_during_cleanup() {
+    let temp = tempfile::tempdir().unwrap();
+    let state = state(temp.path(), true).await;
+    let staged = state.config.quick_upload_dir().join("restart.m4a");
+    std::fs::write(&staged, tiny_wav()).unwrap();
+    let job = create_uploaded_job(
+        &state,
+        staged.clone(),
+        "restart.m4a".into(),
+        options(QuickOutputKind::Client, None),
+    )
+    .await
+    .unwrap();
+    drop(state);
+
+    let restarted = AppState::load(config(temp.path())).await.unwrap();
+    let restored = crate::jobs::get_job(&restarted, &job.id).unwrap();
+    assert_eq!(restored.status, JobStatus::Interrupted);
+    cleanup_stale(&restarted).unwrap();
+    assert!(staged.exists());
+}
+
+#[tokio::test]
+async fn expired_terminal_upload_becomes_cleanup_eligible() {
+    let temp = tempfile::tempdir().unwrap();
+    let state = state(temp.path(), true).await;
+    let staged = state.config.quick_upload_dir().join("expired.m4a");
+    std::fs::write(&staged, tiny_wav()).unwrap();
+    let job = create_uploaded_job(
+        &state,
+        staged.clone(),
+        "expired.m4a".into(),
+        options(QuickOutputKind::Client, None),
+    )
+    .await
+    .unwrap();
+    let mut expired = crate::jobs::get_job(&state, &job.id).unwrap();
+    expired.status = JobStatus::Done;
+    expired.updated_at_ms = 0;
+    state.jobs.insert(expired.id.clone(), expired.clone());
+    crate::jobs::persist_job(&state, &expired).unwrap();
+
+    cleanup_stale(&state).unwrap();
     assert!(!staged.exists());
+}
+
+#[tokio::test]
+async fn deleted_upload_job_becomes_cleanup_eligible() {
+    let temp = tempfile::tempdir().unwrap();
+    let state = state(temp.path(), true).await;
+    let staged = state.config.quick_upload_dir().join("deleted.m4a");
+    std::fs::write(&staged, tiny_wav()).unwrap();
+    let job = create_uploaded_job(
+        &state,
+        staged.clone(),
+        "deleted.m4a".into(),
+        options(QuickOutputKind::Client, None),
+    )
+    .await
+    .unwrap();
+    state.jobs.remove(&job.id);
+    state.db.delete("job", &job.id).unwrap();
+
+    cleanup_stale(&state).unwrap();
+    assert!(!staged.exists());
+}
+
+
+#[tokio::test]
+async fn expired_terminal_live_source_becomes_cleanup_eligible() {
+    use crate::domain::LiveJobMeta;
+    let temp = tempfile::tempdir().unwrap();
+    let state = state(temp.path(), true).await;
+    let session = uuid::Uuid::new_v4().to_string();
+    let source = state.config.live_source_dir().join(format!("{session}.m4a"));
+    std::fs::write(&source, tiny_wav()).unwrap();
+    let job = create_live_job(
+        &state,
+        source.clone(),
+        "consultation.m4a".into(),
+        LiveJobMeta {
+            session_id: session,
+            started_at_ms: 1_700_000_000_000,
+            audio_result_name: "consultation.m4a".into(),
+            interruption_gaps_ms: Vec::new(),
+        },
+        options(QuickOutputKind::Client, None),
+    )
+    .await
+    .unwrap();
+    let mut expired = crate::jobs::get_job(&state, &job.id).unwrap();
+    expired.status = JobStatus::Done;
+    expired.updated_at_ms = 0;
+    state.jobs.insert(expired.id.clone(), expired.clone());
+    crate::jobs::persist_job(&state, &expired).unwrap();
+
+    let stats = cleanup_stale(&state).unwrap();
+    assert_eq!(stats.live_sources_removed, 1);
+    assert!(!source.exists());
+}
+
+#[tokio::test]
+async fn referenced_live_source_is_preserved_within_retention_window() {
+    use crate::domain::LiveJobMeta;
+    let temp = tempfile::tempdir().unwrap();
+    let state = state(temp.path(), true).await;
+    let session = uuid::Uuid::new_v4().to_string();
+    let source = state.config.live_source_dir().join(format!("{session}.m4a"));
+    std::fs::write(&source, tiny_wav()).unwrap();
+    let job = create_live_job(
+        &state,
+        source.clone(),
+        "consultation.m4a".into(),
+        LiveJobMeta {
+            session_id: session,
+            started_at_ms: 1_700_000_000_000,
+            audio_result_name: "consultation.m4a".into(),
+            interruption_gaps_ms: Vec::new(),
+        },
+        options(QuickOutputKind::Client, None),
+    )
+    .await
+    .unwrap();
+    let mut done = crate::jobs::get_job(&state, &job.id).unwrap();
+    done.status = JobStatus::Done;
+    state.jobs.insert(done.id.clone(), done.clone());
+    crate::jobs::persist_job(&state, &done).unwrap();
+
+    cleanup_stale(&state).unwrap();
+    assert!(source.exists());
+}
+
+#[tokio::test]
+async fn stale_live_staging_directory_is_removed() {
+    let temp = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(temp.path().join("media/notes")).unwrap();
+    let mut cfg = config(temp.path());
+    cfg.quick_source_retention_hours = 0;
+    let state = AppState::load(cfg).await.unwrap();
+    let staging = state.config.live_staging_dir().join("orphan");
+    std::fs::create_dir_all(&staging).unwrap();
+    std::fs::write(staging.join("segment.media"), tiny_wav()).unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+
+    let stats = cleanup_stale(&state).unwrap();
+    assert_eq!(stats.live_staging_dirs_removed, 1);
+    assert!(!staging.exists());
 }
