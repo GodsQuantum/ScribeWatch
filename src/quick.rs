@@ -1,7 +1,8 @@
 use crate::{
     audio,
     domain::{
-        Job, JobKind, JobStatus, QuickJobMeta, QuickOutputKind, QuickSourceKind, TranscriptionRoute,
+        Job, JobKind, JobStatus, LiveJobMeta, QuickJobMeta, QuickOutputKind, QuickSourceKind,
+        TranscriptionRoute,
     },
     jobs::{now_ms, persist_job},
     llm,
@@ -55,6 +56,7 @@ async fn normalized_job(
     source_path: PathBuf,
     original_name: String,
     source_kind: QuickSourceKind,
+    live: Option<LiveJobMeta>,
     mut options: QuickOptions,
 ) -> Result<Job> {
     if !audio::probe_audio(&source_path, &tokio_util::sync::CancellationToken::new()).await? {
@@ -110,6 +112,7 @@ async fn normalized_job(
             frontmatter: options.frontmatter,
             paragraphs: options.paragraphs,
             structure_profile_id: options.structure_profile_id.clone(),
+            live,
         }),
         provider_id: primary.provider_id.clone(),
         transcription_chain,
@@ -157,6 +160,7 @@ pub async fn create_server_job(
         source,
         original_name,
         QuickSourceKind::Server,
+        None,
         options,
     )
     .await
@@ -178,6 +182,41 @@ pub async fn create_uploaded_job(
         staged,
         original_name,
         QuickSourceKind::Upload,
+        None,
+        options,
+    )
+    .await
+}
+
+pub fn find_live_job_by_session(state: &AppState, session_id: &str) -> Option<Job> {
+    state.jobs.iter().find_map(|entry| {
+        let job = entry.value();
+        job.quick
+            .as_ref()
+            .and_then(|quick| quick.live.as_ref())
+            .filter(|live| live.session_id == session_id)
+            .map(|_| job.clone())
+    })
+}
+
+pub async fn create_live_job(
+    state: &AppState,
+    source_path: PathBuf,
+    original_name: String,
+    live: LiveJobMeta,
+    options: QuickOptions,
+) -> Result<Job> {
+    let root = std::fs::canonicalize(state.config.live_source_dir())?;
+    let source = std::fs::canonicalize(&source_path)?;
+    if !source.starts_with(&root) || !source.is_file() {
+        bail!("LIVE source is outside the LIVE source directory");
+    }
+    normalized_job(
+        state,
+        source,
+        original_name,
+        QuickSourceKind::Live,
+        Some(live),
         options,
     )
     .await
@@ -186,19 +225,33 @@ pub async fn create_uploaded_job(
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct CleanupStats {
     pub uploads_removed: usize,
+    pub live_sources_removed: usize,
+    pub live_staging_dirs_removed: usize,
     pub results_removed: usize,
 }
 pub fn cleanup_stale(state: &AppState) -> Result<CleanupStats> {
-    let keep_uploads = state
-        .jobs
-        .iter()
-        .filter(|entry| entry.status.is_active())
-        .filter_map(|entry| {
-            let quick = entry.quick.as_ref()?;
-            (quick.source_kind == QuickSourceKind::Upload).then(|| entry.source_path.clone())
-        })
-        .collect::<HashSet<_>>();
+    let now_ms = now_ms();
+    let source_retention_ms = (state.config.quick_source_retention_hours as u128)
+        .saturating_mul(3_600_000);
+    let protected = |kind: QuickSourceKind| {
+        state
+            .jobs
+            .iter()
+            .filter_map(|entry| {
+                let quick = entry.quick.as_ref()?;
+                if quick.source_kind != kind {
+                    return None;
+                }
+                let age_ms = now_ms.saturating_sub(entry.updated_at_ms);
+                (entry.status.is_active() || age_ms <= source_retention_ms)
+                    .then(|| entry.source_path.clone())
+            })
+            .collect::<HashSet<_>>()
+    };
+    let keep_uploads = protected(QuickSourceKind::Upload);
+    let keep_live = protected(QuickSourceKind::Live);
     let mut stats = CleanupStats::default();
+
     for entry in std::fs::read_dir(state.config.quick_upload_dir())? {
         let path = entry?.path();
         if path.is_file() && !keep_uploads.contains(&path) {
@@ -206,20 +259,46 @@ pub fn cleanup_stale(state: &AppState) -> Result<CleanupStats> {
             stats.uploads_removed += 1;
         }
     }
-    let retention = Duration::from_secs(
+    for entry in std::fs::read_dir(state.config.live_source_dir())? {
+        let path = entry?.path();
+        if path.is_file() && !keep_live.contains(&path) {
+            std::fs::remove_file(path)?;
+            stats.live_sources_removed += 1;
+        }
+    }
+
+    let source_retention = Duration::from_secs(
+        state
+            .config
+            .quick_source_retention_hours
+            .saturating_mul(3600),
+    );
+    let now = SystemTime::now();
+    for entry in std::fs::read_dir(state.config.live_staging_dir())? {
+        let path = entry?.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let modified = std::fs::metadata(&path)?.modified().unwrap_or(now);
+        if now.duration_since(modified).unwrap_or_default() > source_retention {
+            std::fs::remove_dir_all(path)?;
+            stats.live_staging_dirs_removed += 1;
+        }
+    }
+
+    let result_retention = Duration::from_secs(
         state
             .config
             .quick_result_retention_hours
             .saturating_mul(3600),
     );
-    let now = SystemTime::now();
     for entry in std::fs::read_dir(state.config.quick_result_dir())? {
         let path = entry?.path();
         if !path.is_file() {
             continue;
         }
         let modified = std::fs::metadata(&path)?.modified().unwrap_or(now);
-        if now.duration_since(modified).unwrap_or_default() > retention {
+        if now.duration_since(modified).unwrap_or_default() > result_retention {
             std::fs::remove_file(path)?;
             stats.results_removed += 1;
         }
