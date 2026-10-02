@@ -7,6 +7,7 @@ pub mod error;
 pub mod export;
 pub mod jobs;
 pub mod llm;
+pub mod live;
 pub mod markdown;
 pub mod pipeline;
 mod pipeline_quick;

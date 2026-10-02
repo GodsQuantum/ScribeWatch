@@ -208,6 +208,7 @@ pub enum JobKind {
 pub enum QuickSourceKind {
     Server,
     Upload,
+    Live,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -215,6 +216,16 @@ pub enum QuickSourceKind {
 pub enum QuickOutputKind {
     Server,
     Client,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveJobMeta {
+    pub session_id: String,
+    pub started_at_ms: u128,
+    pub audio_result_name: String,
+    #[serde(default)]
+    pub interruption_gaps_ms: Vec<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -232,6 +243,8 @@ pub struct QuickJobMeta {
     pub paragraphs: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub structure_profile_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live: Option<LiveJobMeta>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -353,6 +366,35 @@ mod tests {
         assert!(job.transcription_attempts.is_empty());
         assert!(job.used_provider_id.is_none());
         assert!(job.used_model.is_none());
+    }
+
+    #[test]
+    fn quick_live_metadata_round_trips_and_old_quick_defaults_to_none() {
+        let meta = QuickJobMeta {
+            source_kind: QuickSourceKind::Live,
+            output_kind: QuickOutputKind::Client,
+            output_dir: None,
+            result_name: None,
+            frontmatter: true,
+            paragraphs: true,
+            structure_profile_id: None,
+            live: Some(LiveJobMeta {
+                session_id: "550e8400-e29b-41d4-a716-446655440000".into(),
+                started_at_ms: 1_700_000_000_000,
+                audio_result_name: "live.m4a".into(),
+                interruption_gaps_ms: vec![250],
+            }),
+        };
+        let json = serde_json::to_string(&meta).unwrap();
+        let restored: QuickJobMeta = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.source_kind, QuickSourceKind::Live);
+        assert_eq!(restored.live.unwrap().interruption_gaps_ms, vec![250]);
+
+        let old: QuickJobMeta = serde_json::from_str(
+            r#"{"sourceKind":"upload","outputKind":"client","frontmatter":true,"paragraphs":true}"#,
+        )
+        .unwrap();
+        assert!(old.live.is_none());
     }
 
     #[test]

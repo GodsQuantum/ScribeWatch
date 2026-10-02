@@ -3,6 +3,7 @@ pub mod browse;
 pub mod dashboard;
 pub mod events;
 pub mod jobs;
+pub mod live;
 pub mod providers;
 pub mod quick;
 pub mod workflows;
@@ -87,6 +88,11 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/jobs/{id}/cancel", post(jobs::cancel))
         .route("/api/v1/jobs/{id}/markdown", get(jobs::markdown))
         .route("/api/v1/jobs/{id}/export/{format}", get(jobs::export))
+        .route("/api/v1/jobs/{id}/audio", get(jobs::audio))
+        .route(
+            "/api/v1/live/upload",
+            post(live::upload).layer(axum::extract::DefaultBodyLimit::disable()),
+        )
         .route("/api/v1/quick/server", post(quick::server))
         .route(
             "/api/v1/quick/upload",

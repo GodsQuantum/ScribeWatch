@@ -31,13 +31,16 @@ pub(crate) async fn process_quick_job(
             }
             path
         }
+        QuickSourceKind::Live => {
+            let root = std::fs::canonicalize(state.config.live_source_dir())?;
+            let path = std::fs::canonicalize(&job.source_path)?;
+            if !path.starts_with(&root) || !path.is_file() {
+                bail!("LIVE audio source is unavailable");
+            }
+            path
+        }
     };
-    let transient = meta.source_kind == QuickSourceKind::Upload;
-    let result = process_quick_inner(state, job, &meta, &source, token).await;
-    if transient {
-        let _ = std::fs::remove_file(&source);
-    }
-    result
+    process_quick_inner(state, job, &meta, &source, token).await
 }
 
 async fn process_quick_inner(
