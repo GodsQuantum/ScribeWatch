@@ -48,6 +48,7 @@ impl AppState {
             if job.status.is_active() {
                 job.status = JobStatus::Interrupted;
                 job.error = Some("ScribeWatch restarted before this job completed".into());
+                job.updated_at_ms = crate::jobs::now_ms();
                 db.upsert("job", &job.id, &job)?;
             }
             jobs.insert(job.id.clone(), job);

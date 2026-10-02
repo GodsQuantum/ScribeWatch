@@ -2,7 +2,7 @@ use crate::domain::Provider;
 use futures_util::TryStreamExt;
 use reqwest::{Client, multipart};
 use serde_json::Value;
-use std::path::Path;
+use std::{path::Path, time::Duration};
 use thiserror::Error;
 use tokio::fs::File;
 use tokio_util::{io::ReaderStream, sync::CancellationToken};
@@ -13,6 +13,8 @@ pub enum TranscriptionError {
     Cancelled,
     #[error("transcription request failed: {0}")]
     Http(#[from] reqwest::Error),
+    #[error("transcription request timeout after {0}s")]
+    Timeout(u64),
     #[error("transcription response is invalid: {0}")]
     Invalid(String),
     #[error(transparent)]
@@ -51,18 +53,34 @@ pub async fn transcribe(
         form = form.text("language", language.to_owned());
     }
 
-    let mut request = client.post(&provider.transcription_url).multipart(form);
+    let mut request = client
+        .post(&provider.transcription_url)
+        .multipart(form)
+        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)));
     if !provider.api_key.trim().is_empty() {
         request = request.bearer_auth(&provider.api_key);
     }
 
+    let timeout_seconds = provider.timeout_seconds.max(1);
     let response = tokio::select! {
-        response = request.send() => response?,
+        response = request.send() => match response {
+            Ok(response) => response,
+            Err(error) if error.is_timeout() => {
+                return Err(TranscriptionError::Timeout(timeout_seconds));
+            }
+            Err(error) => return Err(TranscriptionError::Http(error)),
+        },
         _ = token.cancelled() => return Err(TranscriptionError::Cancelled),
     };
     let status = response.status();
     let bytes = tokio::select! {
-        bytes = response.bytes() => bytes?,
+        bytes = response.bytes() => match bytes {
+            Ok(bytes) => bytes,
+            Err(error) if error.is_timeout() => {
+                return Err(TranscriptionError::Timeout(timeout_seconds));
+            }
+            Err(error) => return Err(TranscriptionError::Http(error)),
+        },
         _ = token.cancelled() => return Err(TranscriptionError::Cancelled),
     };
     let value: Value = serde_json::from_slice(&bytes)

@@ -516,6 +516,7 @@ mod tests {
             max_transcription_jobs: 1,
             max_upload_bytes: 2_147_483_648,
             quick_result_retention_hours: 24,
+            quick_source_retention_hours: 24,
             normalized_audio_format: "wav".into(),
             ffmpeg_threads: 1,
         }
@@ -656,15 +657,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn provider_timeout_fails_a_hung_route() {
+        let temp = tempfile::tempdir().unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let p = test_provider(
+            "hung",
+            mock_provider(StatusCode::OK, "too late", 1500, calls.clone()).await,
+            true,
+        );
+        let (state, job, source) =
+            state_with_job(temp.path(), vec![p], vec![route("hung", "m1")]).await;
+
+        let result =
+            transcribe_job_chain(&state, &job.id, &source, None, &CancellationToken::new()).await;
+        assert!(result.is_err());
+        let saved = get_job(&state, &job.id).unwrap();
+        assert_eq!(saved.transcription_attempts.len(), 1);
+        assert_eq!(
+            saved.transcription_attempts[0].outcome,
+            crate::domain::TranscriptionAttemptOutcome::Failed
+        );
+        assert!(
+            saved.transcription_attempts[0]
+                .error
+                .as_deref()
+                .unwrap_or_default()
+                .to_ascii_lowercase()
+                .contains("timeout")
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
     async fn route_timeout_falls_through() {
         let temp = tempfile::tempdir().unwrap();
         let slow = Arc::new(AtomicUsize::new(0));
         let fast = Arc::new(AtomicUsize::new(0));
-        let p1 = test_provider(
+        let mut p1 = test_provider(
             "slow",
             mock_provider(StatusCode::OK, "too late", 1500, slow.clone()).await,
             true,
         );
+        p1.timeout_seconds = 5;
         let p2 = test_provider(
             "fast",
             mock_provider(StatusCode::OK, "fast", 0, fast.clone()).await,
