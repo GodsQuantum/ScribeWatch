@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>La voix entre. Le Markdown sort. Automatiquement.</strong><br>
-  Transcription auto-hébergée de notes vocales pour Obsidian, dossiers Markdown et workflows audio automatisés.
+  Transcription auto-h��berg��e de notes vocales pour Obsidian, dossiers Markdown et workflows audio automatis��s.
 </p>
 
 <p align="center">
@@ -18,72 +18,72 @@
   <img alt="Compatible Obsidian" src="https://img.shields.io/badge/Obsidian-friendly-7c3aed">
 </p>
 
-<p align="center">🇬🇧 <a href="README.md">English README</a></p>
+<p align="center">�������� <a href="README.md">English README</a></p>
 
 ---
 
-ScribeWatch transforme vos enregistrements en **notes Markdown propres et titrées** avec votre propre moteur speech-to-text compatible OpenAI. Déposez une note vocale dans **Quick Transcribe**, enregistrez directement dans **Live Recorder**, ou pointez un **Workflow** vers un dossier et laissez ScribeWatch traiter automatiquement les nouveaux audios.
+ScribeWatch transforme vos enregistrements en **notes Markdown propres et titr��es** avec votre propre moteur speech-to-text compatible OpenAI. D��posez une note vocale dans **Quick Transcribe**, enregistrez directement dans **Live Recorder**, ou pointez un **Workflow** vers un dossier et laissez ScribeWatch traiter automatiquement les nouveaux audios.
 
-Le transcript reste canonique et déterministe. Pour les usages qui demandent davantage de structure, un LLM compatible OpenAI peut ajouter après transcription une vue structurée réutilisable — réunion, consultation, brainstorm ou profil personnalisé — **sans jamais remplacer le transcript original**.
+Le transcript reste canonique et d��terministe. Pour les usages qui demandent davantage de structure, un LLM compatible OpenAI peut ajouter apr��s transcription une vue structur��e r��utilisable ��� r��union, consultation, brainstorm ou profil personnalis�� ��� **sans jamais remplacer le transcript original**.
 
-Le cas d’usage naturel est **notes vocales → Obsidian**, mais rien n’est verrouillé à Obsidian : n’importe quel dossier Markdown fonctionne.
+Le cas d���usage naturel est **notes vocales ��� Obsidian**, mais rien n���est verrouill�� �� Obsidian : n���importe quel dossier Markdown fonctionne.
 
 <p align="center">
   <img src="docs/screenshots/home-quick-transcribe.png" width="100%" alt="Tableau de bord ScribeWatch et Quick Transcribe">
 </p>
 
-## ✨ Pourquoi ScribeWatch ?
+## ��� Pourquoi ScribeWatch ?
 
-- **Les notes vocales deviennent de vrais fichiers utiles** — du `.md` lisible plutôt qu’une pile d’enregistrements oubliés.
-- **Quick Transcribe** — glissez un fichier audio et récupérez immédiatement du Markdown.
-- **Live Recorder** — enregistrez un micro détecté par le navigateur, avec choix du périphérique, compteur et niveau audio, puis transcrivez au Stop.
-- **Watch folders** — automatisez les nouveaux enregistrements d’un serveur, NAS ou dossier synchronisé.
-- **Ingestion audio par contenu** — FFprobe détecte une piste audio décodable au lieu de faire confiance à l’extension ; FFmpeg normalise ensuite la source avant STT.
-- **Profils de structure IA optionnels** — réunion, documentation de consultation médicale, brainstorm, interview et prompts personnalisés peuvent ajouter une vue structurée après transcription.
-- **Exports multi-formats** — le Markdown reste la source ; une note terminée peut être exportée en MD, TXT, HTML, DOCX, ODT ou PDF.
-- **Prêt pour Obsidian** — noms propres, titre H1, propriétés YAML et tags.
-- **Votre moteur de transcription** — endpoint STT compatible OpenAI, notamment Speaches/Whisper.
-- **Chaînes de fallback résilientes** — mélangez providers et modèles dans l’ordre voulu. Si une route échoue, ScribeWatch essaie automatiquement la suivante — y compris un autre modèle du même provider.
-- **Aucun LLM obligatoire** — titres et formatage sont déterministes ; la transcription reste la source de vérité.
-- **Paragraphes lisibles et déterministes** — limites de phrases Unicode (UAX #29) et règles fixes de longueur rendent les longs transcripts lisibles sans paraphrase, résumé ni titres inventés.
-- **Publication sûre** — le Markdown est publié avant l’archivage de l’audio, sans écraser une note existante.
-- **Petite stack auto-hébergée** — backend Rust/Axum, UI SvelteKit, SQLite, un conteneur.
+- **Les notes vocales deviennent de vrais fichiers utiles** ��� du `.md` lisible plut��t qu���une pile d���enregistrements oubli��s.
+- **Quick Transcribe** ��� glissez un fichier audio et r��cup��rez imm��diatement du Markdown.
+- **Live Recorder** ��� enregistrez un micro navigateur avec checkpoints OPFS progressifs, r��cup��ration apr��s crash/rechargement, **Continuer** apr��s interruption, ��coute avec r��glette de l���audio r��cup��r�� et conservation facultative du M4A final c��t�� serveur ou client.
+- **Watch folders** ��� automatisez les nouveaux enregistrements d���un serveur, NAS ou dossier synchronis��.
+- **Ingestion audio par contenu** ��� FFprobe d��tecte une piste audio d��codable au lieu de faire confiance �� l���extension ; FFmpeg normalise ensuite la source avant STT.
+- **Profils de structure IA optionnels** ��� r��union, documentation de consultation m��dicale, brainstorm, interview et prompts personnalis��s peuvent ajouter une vue structur��e apr��s transcription.
+- **Exports multi-formats** ��� le Markdown reste la source ; une note termin��e peut ��tre export��e en MD, TXT, HTML, DOCX, ODT ou PDF.
+- **Pr��t pour Obsidian** ��� noms propres, titre H1, propri��t��s YAML et tags.
+- **Votre moteur de transcription** ��� endpoint STT compatible OpenAI, notamment Speaches/Whisper.
+- **Cha��nes de fallback r��silientes** ��� m��langez providers et mod��les dans l���ordre voulu. Si une route ��choue, ScribeWatch essaie automatiquement la suivante ��� y compris un autre mod��le du m��me provider.
+- **Aucun LLM obligatoire** ��� titres et formatage sont d��terministes ; la transcription reste la source de v��rit��.
+- **Paragraphes lisibles et d��terministes** ��� limites de phrases Unicode (UAX #29) et r��gles fixes de longueur rendent les longs transcripts lisibles sans paraphrase, r��sum�� ni titres invent��s.
+- **Publication s��re** ��� le Markdown est publi�� avant l���archivage de l���audio, sans ��craser une note existante.
+- **Petite stack auto-h��berg��e** ��� backend Rust/Axum, UI SvelteKit, SQLite, un conteneur.
 
-## 🎙️ Trois façons de l’utiliser
+## ������� Trois fa��ons de l���utiliser
 
 | | **Quick Transcribe** | **Live Recorder** | **Watch folders** |
 |---|---|---|---|
-| Idéal pour | Un enregistrement existant | Enregistrer maintenant au micro | Une capture récurrente / automatique |
-| Entrée | Upload navigateur ou fichier serveur | Micro du navigateur | Dossier serveur/NAS surveillé |
+| Id��al pour | Un enregistrement existant | Enregistrer maintenant au micro | Une capture r��currente / automatique |
+| Entr��e | Upload navigateur ou fichier serveur | Micro du navigateur | Dossier serveur/NAS surveill�� |
 | Sortie | Dossier serveur ou votre ordinateur | Dossier serveur ou votre ordinateur | Dossier Markdown |
-| Audio original | Jamais déplacé | Upload temporaire nettoyé après traitement | Archivé après réussite du Markdown |
+| Audio original | Jamais d��plac�� | Checkpoints navigateur r��cup��rables ; source serveur accept��e conserv��e 24 h pour Retry ; copie M4A permanente facultative | Archiv�� apr��s r��ussite du Markdown |
 | Structure IA | Optionnelle | Optionnelle | Optionnelle |
-| Exemple | « Je viens d’enregistrer une idée » | Réunion / consultation / brainstorm | Téléphone/synchro → Obsidian automatiquement |
+| Exemple | �� Je viens d���enregistrer une id��e �� | R��union / consultation / brainstorm | T��l��phone/synchro ��� Obsidian automatiquement |
 
 <p align="center">
   <img src="docs/screenshots/quick-transcribe.png" width="49%" alt="Quick Transcribe dans ScribeWatch">
-  <img src="docs/screenshots/workflow-folders.png" width="49%" alt="Dossiers d’un workflow ScribeWatch">
+  <img src="docs/screenshots/workflow-folders.png" width="49%" alt="Dossiers d���un workflow ScribeWatch">
 </p>
 
-## 🔁 Fallbacks provider + modèle
+## ���� Fallbacks provider + mod��le
 
-Chaque route de transcription est un couple explicite **provider + modèle**. ScribeWatch aspire la liste des modèles exposés par chaque provider configuré : vous choisissez donc exactement la chaîne voulue, y compris plusieurs modèles d’un même provider.
+Chaque route de transcription est un couple explicite **provider + mod��le**. ScribeWatch aspire la liste des mod��les expos��s par chaque provider configur�� : vous choisissez donc exactement la cha��ne voulue, y compris plusieurs mod��les d���un m��me provider.
 
 ```text
 Speaches / whisper-large-v3
-          ↓ échec
+          ��� ��chec
 Speaches / distil-whisper-large-v3
-          ↓ échec
+          ��� ��chec
 OpenAI / gpt-4o-transcribe
-          ↓
+          ���
 Markdown
 ```
 
-Il n’y a **aucun timeout de traitement par défaut**, ce qui évite de pénaliser les longs enregistrements. Chaque route peut cependant définir son propre délai de fallback (`Jamais`, 10/30/60 minutes ou personnalisé). Une panne réseau, erreur provider, rate limit ou réponse invalide peut passer à la route suivante ; une annulation utilisateur stoppe toute la chaîne. L’historique conserve chaque tentative et le provider/modèle réellement utilisé.
+Chaque provider poss��de un timeout de requ��te r��ellement appliqu��, tandis que chaque route peut d��finir un d��lai de fallback ind��pendant et ��ventuellement plus court (`Jamais`, 10/30/60 minutes ou personnalis��). Une panne r��seau, timeout/erreur provider, rate limit ou r��ponse invalide peut passer �� la route suivante ; une annulation utilisateur stoppe toute la cha��ne. L���historique conserve chaque tentative et le provider/mod��le r��ellement utilis��.
 
-## 🚀 Installation rapide
+## ���� Installation rapide
 
-Prérequis : Docker Engine + Compose et un endpoint de transcription compatible OpenAI.
+Pr��requis : Docker Engine + Compose et un endpoint de transcription compatible OpenAI.
 
 ```bash
 git clone https://github.com/GodsQuantum/ScribeWatch.git
@@ -98,23 +98,33 @@ docker compose up -d
 
 Ouvrez **http://127.0.0.1:3000**, puis :
 
-> La capture micro du navigateur exige un contexte sécurisé. `localhost` / `127.0.0.1` convient en local ; pour les clients distants, utilisez normalement **HTTPS**. Si un poste accède au ScribeWatch du NAS en HTTP local, ouvrez **Live → Mode microphone local…** pour générer un installateur préconfiguré **Linux, Windows ou macOS**. Il n’installe pas une seconde instance de ScribeWatch : seulement un proxy TCP limité à `127.0.0.1` vers l’instance du NAS, puis ouvre `http://127.0.0.1:3052`. Linux utilise un socket systemd utilisateur, Windows `netsh interface portproxy`, et macOS un LaunchAgent utilisateur. Chaque installateur accepte aussi `--uninstall`. Le navigateur ne pouvant pas exécuter silencieusement un installateur système, il faut lancer une fois le fichier téléchargé.
+> La capture micro du navigateur exige un contexte s��curis��. `localhost` / `127.0.0.1` convient en local ; pour les clients distants, utilisez normalement **HTTPS**. Si un poste acc��de au ScribeWatch du NAS en HTTP local, ouvrez **Live ��� Mode microphone local���** pour g��n��rer un installateur pr��configur�� **Linux, Windows ou macOS**. Il n���installe pas une seconde instance de ScribeWatch : seulement un proxy TCP limit�� �� `127.0.0.1` vers l���instance du NAS, puis ouvre `http://127.0.0.1:3052`. Linux utilise un socket systemd utilisateur, Windows `netsh interface portproxy`, et macOS un LaunchAgent utilisateur. Chaque installateur accepte aussi `--uninstall`. Le navigateur ne pouvant pas ex��cuter silencieusement un installateur syst��me, il faut lancer une fois le fichier t��l��charg��.
+
+### Enregistrements LIVE longs et r��cup��ration apr��s crash
+
+Pendant un LIVE, chaque tranche audio remise par MediaRecorder est ��crite progressivement dans l���**Origin Private File System (OPFS)** du navigateur au lieu de conserver toute la consultation en RAM JavaScript. ScribeWatch demande un stockage navigateur persistant lorsqu���il est disponible, force un checkpoint suppl��mentaire quand la page devient cach��e et utilise un Screen Wake Lock lorsque le navigateur le permet.
+
+Apr��s un crash ou un rechargement, la session inachev��e r��appara��t. Vous pouvez **��couter et d��placer la r��glette** dans le dernier segment sauvegard��, lancer **��couter les 30 derni��res secondes**, puis **Continuer**. Continuer d��marre un nouveau segment MediaRecorder dans la m��me session logique ; le trou d���interruption estim�� est conserv�� comme m��tadonn��e et aucun faux silence n���est invent��.
+
+Au Stop/finalisation, les segments termin��s sont envoy��s en streaming vers Cloud9 puis FFmpeg produit un seul M4A AAC mono canonique dans l���ordre du manifeste. L���audio final peut ��tre conserv�� en **aucune copie permanente**, dans un **dossier serveur choisi**, ou dans un **dossier choisi sur cet ordinateur**. La r��cup��ration locale n���est supprim��e qu���apr��s acceptation durable par le serveur et, si demand��, r��ussite de la copie locale.
+
+Les sources Quick/LIVE accept��es restent disponibles **24 heures par d��faut**, y compris pour les jobs Error/Interrupted/Cancelled, afin qu���un Retry apr��s ��chec STT ou red��marrage de ScribeWatch dispose toujours du vrai fichier source. Cette fonction am��liore fortement la r��silience aux pertes d���enregistrement ; elle ne constitue **pas** �� elle seule une certification de dossier m��dical ni une conformit�� r��glementaire sant��.
 
 1. Ajoutez votre moteur de transcription dans **STT**.
-2. Utilisez **Quick** pour un fichier existant, **Live** pour un micro navigateur, ou créez un **Workflow**.
+2. Utilisez **Quick** pour un fichier existant, **Live** pour un micro navigateur, ou cr��ez un **Workflow**.
 3. Optionnel : ajoutez un LLM compatible OpenAI dans **AI Profiles** puis reliez un ou plusieurs profils de structure.
-4. Pour automatiser : choisissez **Watch folder → Markdown folder → Audio archive**. Le dossier surveillé est parcouru récursivement.
-5. Laissez **Markdown folder** vide pour publier chaque note à côté de son audio source, y compris dans les sous-dossiers. **Audio archive** peut être placé dans le Watch folder : toute son arborescence est alors toujours exclue de la surveillance.
+4. Pour automatiser : choisissez **Watch folder ��� Markdown folder ��� Audio archive**. Le dossier surveill�� est parcouru r��cursivement.
+5. Laissez **Markdown folder** vide pour publier chaque note �� c��t�� de son audio source, y compris dans les sous-dossiers. **Audio archive** peut ��tre plac�� dans le Watch folder : toute son arborescence est alors toujours exclue de la surveillance.
 
-> Par défaut ScribeWatch reste lié à la machine locale. Pour un accès LAN/VPN, modifiez `SCRIBEWATCH_BIND_HOST` et utilisez votre politique habituelle de firewall/reverse proxy authentifié.
+> Par d��faut ScribeWatch reste li�� �� la machine locale. Pour un acc��s LAN/VPN, modifiez `SCRIBEWATCH_BIND_HOST` et utilisez votre politique habituelle de firewall/reverse proxy authentifi��.
 
-## 🧠 Pensé pour Obsidian — sans dépendre d’Obsidian
+## ���� Pens�� pour Obsidian ��� sans d��pendre d���Obsidian
 
 Une transcription peut devenir :
 
 ```markdown
 ---
-title: "Penser à réserver le train demain"
+title: "Penser �� r��server le train demain"
 created: 2026-09-16T08:42:00Z
 tags:
   - voice-note
@@ -126,104 +136,106 @@ model: "whisper-large-v3"
 language: "fr"
 ---
 
-# Penser à réserver le train demain
+# Penser �� r��server le train demain
 
-Penser à réserver le train demain...
+Penser �� r��server le train demain...
 ```
 
-ScribeWatch dérive le titre de la transcription, conserve des noms Unicode lisibles, déduplique les tags et transforme les collisions en `Titre (2).md`, `Titre (3).md`, etc.
+ScribeWatch d��rive le titre de la transcription, conserve des noms Unicode lisibles, d��duplique les tags et transforme les collisions en `Titre (2).md`, `Titre (3).md`, etc.
 
-### Formatage déterministe du transcript
+### Formatage d��terministe du transcript
 
-Par défaut ScribeWatch découpe le corps du transcript en paragraphes lisibles **sans LLM**. Les limites de phrases Unicode suivent **Unicode Standard Annex #29** via `unicode-segmentation` en Rust ; les phrases sont regroupées avec des limites fixes de phrases/mots/caractères ; un STT sans ponctuation est découpé par blocs fixes de mots ; et les paragraphes déjà présents sont conservés. **Aucun mot n'est réécrit, résumé ou reclassé sémantiquement.**
+Par d��faut ScribeWatch d��coupe le corps du transcript en paragraphes lisibles **sans LLM**. Les limites de phrases Unicode suivent **Unicode Standard Annex #29** via `unicode-segmentation` en Rust ; les phrases sont regroup��es avec des limites fixes de phrases/mots/caract��res ; un STT sans ponctuation est d��coup�� par blocs fixes de mots ; et les paragraphes d��j�� pr��sents sont conserv��s. **Aucun mot n'est r����crit, r��sum�� ou reclass�� s��mantiquement.**
 
-Décochez **Readable deterministic paragraphs** dans Quick Transcribe ou un Workflow pour conserver exactement le corps brut renvoyé par le provider.
+D��cochez **Readable deterministic paragraphs** dans Quick Transcribe ou un Workflow pour conserver exactement le corps brut renvoy�� par le provider.
 
 ### Profils de structure IA optionnels
 
-Le LLM est une **deuxième couche facultative**. ScribeWatch termine toujours le STT en premier et conserve le transcript intact. Lorsqu’un profil de structure est choisi, la note contient les deux vues :
+Le LLM est une **deuxi��me couche facultative**. ScribeWatch termine toujours le STT en premier et conserve le transcript intact. Lorsqu���un profil de structure est choisi, la note contient les deux vues :
 
 ```text
-Audio → normalisation FFmpeg → STT → transcript canonique
-                                         ├─ Markdown déterministe
-                                         └─ profil IA optionnel → Notes structurées
+Audio ��� normalisation FFmpeg ��� STT ��� transcript canonique
+                                         ������ Markdown d��terministe
+                                         ������ profil IA optionnel ��� Notes structur��es
 ```
 
-Les profils intégrés couvrent la note structurée générale, les réunions/appels, les brouillons de documentation de consultation médicale, les brainstorms marketing et les interviews/recherches. Ils peuvent être reliés à n’importe quel endpoint chat-completions compatible OpenAI et modifiés pour votre déploiement ; des profils entièrement personnalisés peuvent aussi être créés.
+Les profils int��gr��s couvrent la note structur��e g��n��rale, les r��unions/appels, les brouillons de documentation de consultation m��dicale, les brainstorms marketing et les interviews/recherches. Ils peuvent ��tre reli��s �� n���importe quel endpoint chat-completions compatible OpenAI et modifi��s pour votre d��ploiement ; des profils enti��rement personnalis��s peuvent aussi ��tre cr����s.
 
-Les longs transcripts sont traités en blocs d’éléments factuels bornés avant la synthèse finale. Le prompt système traite le transcript comme une donnée non fiable, interdit d’inventer des faits et impose de conserver explicitement les incertitudes. Si le LLM échoue, **le job réussit quand même avec le transcript canonique** et l’erreur de structuration est enregistrée séparément.
+Les longs transcripts sont trait��s en blocs d�����l��ments factuels born��s avant la synth��se finale. Le prompt syst��me traite le transcript comme une donn��e non fiable, interdit d���inventer des faits et impose de conserver explicitement les incertitudes. Si le LLM ��choue, **le job r��ussit quand m��me avec le transcript canonique** et l���erreur de structuration est enregistr��e s��par��ment.
 
 <p align="center">
   <img src="docs/screenshots/mobile-quick-transcribe.png" width="390" alt="Quick Transcribe ScribeWatch sur mobile">
 </p>
 
-## 🔄 Fonctionnement d’un Workflow
+## ���� Fonctionnement d���un Workflow
 
 ```text
 Dictaphone / synchro / NAS
-            │
-            ▼
+            ���
+            ���
        Watch folder
-            │
+            ���
        transcription
-            │
-            ▼
-      Markdown folder ─────► Obsidian / notes / base de connaissances
-            │
-    publication réussie
-            │
-            ▼
+            ���
+            ���
+      Markdown folder ������������������ Obsidian / notes / base de connaissances
+            ���
+    publication r��ussie
+            ���
+            ���
        Audio archive
 ```
 
-L’audio n’est **jamais archivé avant la publication réussie du Markdown**. Les Watch folders sont récursifs : les événements filesystem natifs et la réconciliation périodique couvrent aussi les sous-dossiers. Quand **Markdown folder** est vide, la note est publiée dans le dossier exact contenant l’audio détecté. Toute l’arborescence configurée comme **Audio archive** est ignorée avant même le sondage audio ; une archive telle que `Watch/Vocaux` peut donc vivre dans l’arborescence surveillée sans être réingérée.
+L���audio n���est **jamais archiv�� avant la publication r��ussie du Markdown**. Les Watch folders sont r��cursifs : les ��v��nements filesystem natifs et la r��conciliation p��riodique couvrent aussi les sous-dossiers. Quand **Markdown folder** est vide, la note est publi��e dans le dossier exact contenant l���audio d��tect��. Toute l���arborescence configur��e comme **Audio archive** est ignor��e avant m��me le sondage audio ; une archive telle que `Watch/Vocaux` peut donc vivre dans l���arborescence surveill��e sans ��tre r��ing��r��e.
 
-## 🔒 Sécurité par conception
+## ���� S��curit�� par conception
 
-- les clés API restent côté serveur et ne sont jamais renvoyées au navigateur ;
-- l’exploration serveur est limitée aux racines explicitement autorisées et bloque les sorties par symlink ;
-- les uploads navigateur sont bornés pendant le streaming puis nettoyés ;
-- Quick Transcribe ne déplace ni ne supprime jamais la source originale ;
-- une note Markdown existante n’est jamais écrasée silencieusement ;
-- après redémarrage, les travaux interrompus sont enregistrés explicitement ;
-- la structure LLM est best-effort : elle ne peut ni remplacer ni invalider un transcript canonique réussi ;
-- l’export de documents neutralise les images Markdown et désactive le HTML brut avant conversion Pandoc ;
-- le conteneur d’exemple tourne non-root, avec rootfs read-only, capabilities supprimées et `no-new-privileges`.
+- les cl��s API restent c��t�� serveur et ne sont jamais renvoy��es au navigateur ;
+- l���exploration serveur est limit��e aux racines explicitement autoris��es et bloque les sorties par symlink ;
+- les uploads navigateur sont born��s pendant le streaming ; les sources Quick/LIVE r��cup��rables sont conserv��es pendant la fen��tre de r��tention configur��e au lieu d�����tre supprim��es apr��s un ��chec de transcription ;
+- Quick Transcribe ne d��place ni ne supprime jamais la source originale ;
+- une note Markdown existante n���est jamais ��cras��e silencieusement ;
+- apr��s red��marrage, les travaux interrompus sont enregistr��s explicitement ;
+- la structure LLM est best-effort : elle ne peut ni remplacer ni invalider un transcript canonique r��ussi ;
+- l���export de documents neutralise les images Markdown et d��sactive le HTML brut avant conversion Pandoc ;
+- le conteneur d���exemple tourne non-root, avec rootfs read-only, capabilities supprim��es et `no-new-privileges`.
 
 Voir [`SECURITY.md`](.github/SECURITY.md).
 
-## ⚙️ Configuration
+## ������ Configuration
 
-| Variable | Défaut | Rôle |
+| Variable | D��faut | R��le |
 |---|---|---|
 | `SCRIBEWATCH_HOST` | `0.0.0.0` | Adresse HTTP interne au conteneur |
 | `SCRIBEWATCH_PORT` | `3000` | Port HTTP |
-| `SCRIBEWATCH_CONFIG_DIR` | `/config` | Répertoire SQLite/config |
+| `SCRIBEWATCH_CONFIG_DIR` | `/config` | R��pertoire SQLite/config |
 | `SCRIBEWATCH_DATA_DIR` | `/data` | Staging Quick Transcribe |
-| `SCRIBEWATCH_ALLOWED_ROOTS` | requis | Racines serveur accessibles, séparées par `:` |
-| `SCRIBEWATCH_SCAN_SECONDS` | `5` | Fréquence de réconciliation des Watch folders |
-| `SCRIBEWATCH_FILE_STABILITY_MS` | `2000` | Fenêtre de stabilité avant ingestion |
-| `SCRIBEWATCH_MAX_TRANSCRIPTION_JOBS` | `2` | Transcriptions simultanées |
-| `SCRIBEWATCH_MAX_UPLOAD_BYTES` | `2147483648` | Taille maximale d’un upload streamé |
-| `SCRIBEWATCH_QUICK_RESULT_RETENTION_HOURS` | `24` | Rétention des résultats client |
+| `SCRIBEWATCH_ALLOWED_ROOTS` | requis | Racines serveur accessibles, s��par��es par `:` |
+| `SCRIBEWATCH_SCAN_SECONDS` | `5` | Fr��quence de r��conciliation des Watch folders |
+| `SCRIBEWATCH_FILE_STABILITY_MS` | `2000` | Fen��tre de stabilit�� avant ingestion |
+| `SCRIBEWATCH_MAX_TRANSCRIPTION_JOBS` | `2` | Transcriptions simultan��es |
+| `SCRIBEWATCH_MAX_UPLOAD_BYTES` | `2147483648` | Taille maximale d���un upload stream�� |
+| `SCRIBEWATCH_QUICK_RESULT_RETENTION_HOURS` | `24` | R��tention des r��sultats client |
+| `SCRIBEWATCH_QUICK_SOURCE_RETENTION_HOURS` | `24` | R��tention des sources Quick/LIVE r��cup��rables et du staging LIVE orphelin |
 
-L’ingestion audio est **basée sur le contenu, pas sur l’extension**. Les fichiers stables d’un Watch folder et les uploads Quick sont sondés avec FFprobe ; tout fichier contenant une piste audio décodable par le FFmpeg embarqué est accepté, puis normalisé en WAV PCM mono 16 kHz avant STT.
+L���ingestion audio est **bas��e sur le contenu, pas sur l���extension**. Les fichiers stables d���un Watch folder et les uploads Quick sont sond��s avec FFprobe ; tout fichier contenant une piste audio d��codable par le FFmpeg embarqu�� est accept��, puis normalis�� en WAV PCM mono 16 kHz avant STT.
 
-## 🧩 Dossiers de l’ordinateur client
+## ���� Dossiers de l���ordinateur client
 
-Un navigateur ne peut pas surveiller en permanence n’importe quel dossier d’un autre ordinateur. ScribeWatch garde cette frontière explicite :
+Un navigateur ne peut pas surveiller en permanence n���importe quel dossier d���un autre ordinateur. ScribeWatch garde cette fronti��re explicite :
 
-- l’audio local entre par glisser-déposer, sélecteur de fichier ou capture micro dans Live Recorder ;
-- le Markdown terminé peut être écrit directement dans un dossier local lorsque le navigateur supporte File System Access en contexte sécurisé ;
-- sinon le `.md` est téléchargé normalement.
+- l���audio local entre par glisser-d��poser, s��lecteur de fichier ou capture micro dans Live Recorder ;
+- le Markdown termin�� peut ��tre ��crit directement dans un dossier local lorsque le navigateur supporte File System Access en contexte s��curis�� ;
+- le M4A final d���un LIVE peut aussi ��tre enregistr�� dans un dossier client choisi apr��s finalisation canonique sur Cloud9 ; le handle du dossier reste c��t�� navigateur ;
+- sinon le fichier est t��l��charg�� normalement.
 
-Aucun handle de dossier local n’est envoyé ni stocké par le serveur ScribeWatch.
+Aucun handle de dossier local n���est envoy�� ni stock�� par le serveur ScribeWatch.
 
-## 🛠️ Stack & développement
+## ������� Stack & d��veloppement
 
-**Backend :** Rust 1.98 · Axum · Tokio · SQLite · notify
-**Frontend :** Svelte 5 · SvelteKit 2 · TypeScript
-**Média / exports :** FFmpeg + FFprobe · Pandoc · WeasyPrint
+**Backend :** Rust 1.98 �� Axum �� Tokio �� SQLite �� notify
+**Frontend :** Svelte 5 �� SvelteKit 2 �� TypeScript
+**M��dia / exports :** FFmpeg + FFprobe �� Pandoc �� WeasyPrint
 
 ```bash
 cargo fmt --all -- --check
@@ -232,31 +244,33 @@ cargo test --locked --all-targets
 cd frontend && npm ci && npm test && npm run check && npm run build
 ```
 
-Test end-to-end déterministe :
+Test end-to-end d��terministe :
 
 ```bash
 bash scripts/e2e-v02.sh
 ```
 
-## 📡 API principale
+## ���� API principale
 
-- `POST /api/v1/quick/upload` — upload navigateur streamé
-- `POST /api/v1/quick/server` — fichier audio serveur autorisé
-- `GET /api/v1/jobs/{id}/markdown` — Markdown produit pour le client
-- `GET /api/v1/jobs/{id}/export/{format}` — export MD/TXT/HTML/DOCX/ODT/PDF
-- `GET|POST /api/v1/workflows` — automatisation Watch folder
-- `GET|POST /api/v1/providers` — moteurs de transcription compatibles OpenAI
-- `GET|POST /api/v1/llm-providers` — providers LLM compatibles OpenAI optionnels
-- `GET|POST /api/v1/structure-profiles` — profils de structure LLM réutilisables
-- `GET /api/v1/jobs`, `GET /api/v1/events` — historique et état live
-- `GET /api/v1/health`, `GET /api/v1/ready` — santé/readiness
+- `POST /api/v1/quick/upload` ��� upload navigateur stream��
+- `POST /api/v1/quick/server` ��� fichier audio serveur autoris��
+- `POST /api/v1/live/upload` ��� finalisation LIVE multi-segments stream��e avec acceptation idempotente par session
+- `GET /api/v1/jobs/{id}/audio` ��� M4A canonique conserv�� pour les jobs LIVE accept��s
+- `GET /api/v1/jobs/{id}/markdown` ��� Markdown produit pour le client
+- `GET /api/v1/jobs/{id}/export/{format}` ��� export MD/TXT/HTML/DOCX/ODT/PDF
+- `GET|POST /api/v1/workflows` ��� automatisation Watch folder
+- `GET|POST /api/v1/providers` ��� moteurs de transcription compatibles OpenAI
+- `GET|POST /api/v1/llm-providers` ��� providers LLM compatibles OpenAI optionnels
+- `GET|POST /api/v1/structure-profiles` ��� profils de structure LLM r��utilisables
+- `GET /api/v1/jobs`, `GET /api/v1/events` ��� historique et ��tat live
+- `GET /api/v1/health`, `GET /api/v1/ready` ��� sant��/readiness
 
-## 🤝 Contribuer
+## ���� Contribuer
 
 Issues et pull requests sont bienvenues. Voir [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) et [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md).
 
-Si ScribeWatch trouve sa place dans votre stack, une ⭐ aide d’autres utilisateurs de notes vocales et d’Obsidian à le découvrir.
+Si ScribeWatch trouve sa place dans votre stack, une ��� aide d���autres utilisateurs de notes vocales et d���Obsidian �� le d��couvrir.
 
-## 📄 Licence
+## ���� Licence
 
 [MIT](LICENSE)
