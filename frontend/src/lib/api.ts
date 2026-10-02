@@ -1,11 +1,15 @@
 import { parseApiResponse } from './api-response.js';
 import type {
-  BrowseResponse, DashboardStats, ExportFormat, Job, LlmProvider, LlmProviderInput,
+  BrowseResponse, DashboardStats, ExportFormat, Job, LiveUploadManifest, LlmProvider, LlmProviderInput,
   Provider, ProviderInput, QuickOptions, StructureProfile, Workflow
 } from './types';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
 }
 
 async function errorMessage(response: Response): Promise<string> {
@@ -36,14 +40,34 @@ function appendQuickOptions(form: FormData, options: QuickOptions) {
   form.append('paragraphs', String(options.paragraphs));
   form.append('structureProfileId', options.structureProfileId ?? '');
 }
-function markdownFilename(response: Response): string {
+export function responseFilename(response: Response, fallback = 'transcription.md'): string {
   const disposition = response.headers.get('content-disposition') ?? '';
   const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
   if (encoded) {
     try { return decodeURIComponent(encoded); } catch { /* fallback below */ }
   }
   const simple = disposition.match(/filename="([^"]+)"/i)?.[1];
-  return simple || 'transcription.md';
+  return simple || fallback;
+}
+
+export function buildLiveUploadForm(
+  manifest: LiveUploadManifest,
+  segments: Array<{id:number;blob:Blob}>,
+): FormData {
+  const form = new FormData();
+  form.append('manifest', JSON.stringify(manifest));
+  for (const segment of segments) {
+    const name = `segment-${String(segment.id).padStart(4,'0')}`;
+    const ext = segment.blob.type.includes('mp4')
+      ? 'm4a'
+      : segment.blob.type.includes('ogg')
+        ? 'ogg'
+        : segment.blob.type.includes('wav')
+          ? 'wav'
+          : 'webm';
+    form.append(name, segment.blob, `${name}.${ext}`);
+  }
+  return form;
 }
 
 export const api = {
@@ -87,15 +111,31 @@ export const api = {
     if (!response.ok) throw new ApiError(response.status, await errorMessage(response));
     return response.json() as Promise<Job>;
   },
+  liveUpload: async (
+    manifest: LiveUploadManifest,
+    segments: Array<{id:number;blob:Blob}>,
+  ) => {
+    const response = await fetch('/api/v1/live/upload', {
+      method: 'POST',
+      body: buildLiveUploadForm(manifest, segments),
+    });
+    if (!response.ok) throw new ApiError(response.status, await errorMessage(response));
+    return response.json() as Promise<Job>;
+  },
+  jobAudio: async (id: string) => {
+    const response = await fetch(`/api/v1/jobs/${id}/audio`);
+    if (!response.ok) throw new ApiError(response.status, await errorMessage(response));
+    return response;
+  },
   jobExport: async (id: string, format: ExportFormat) => {
     const response = await fetch(`/api/v1/jobs/${id}/export/${format}`);
     if (!response.ok) throw new ApiError(response.status, await errorMessage(response));
-    return { blob: await response.blob(), filename: markdownFilename(response) };
+    return { blob: await response.blob(), filename: responseFilename(response) };
   },
   jobMarkdown: async (id: string) => {
     const response = await fetch(`/api/v1/jobs/${id}/markdown`);
     if (!response.ok) throw new ApiError(response.status, await errorMessage(response));
-    return { blob: await response.blob(), filename: markdownFilename(response) };
+    return { blob: await response.blob(), filename: responseFilename(response) };
   },
   browse: (path = '', mode: 'file'|'directory'|'any' = 'any', extensions = '') =>
     request<BrowseResponse>(`/api/v1/browse?path=${encodeURIComponent(path)}&mode=${mode}&extensions=${encodeURIComponent(extensions)}`)
