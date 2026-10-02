@@ -256,14 +256,16 @@ async fn deleted_upload_job_becomes_cleanup_eligible() {
     assert!(!staged.exists());
 }
 
-
 #[tokio::test]
 async fn expired_terminal_live_source_becomes_cleanup_eligible() {
     use crate::domain::LiveJobMeta;
     let temp = tempfile::tempdir().unwrap();
     let state = state(temp.path(), true).await;
     let session = uuid::Uuid::new_v4().to_string();
-    let source = state.config.live_source_dir().join(format!("{session}.m4a"));
+    let source = state
+        .config
+        .live_source_dir()
+        .join(format!("{session}.m4a"));
     std::fs::write(&source, tiny_wav()).unwrap();
     let job = create_live_job(
         &state,
@@ -296,7 +298,10 @@ async fn referenced_live_source_is_preserved_within_retention_window() {
     let temp = tempfile::tempdir().unwrap();
     let state = state(temp.path(), true).await;
     let session = uuid::Uuid::new_v4().to_string();
-    let source = state.config.live_source_dir().join(format!("{session}.m4a"));
+    let source = state
+        .config
+        .live_source_dir()
+        .join(format!("{session}.m4a"));
     std::fs::write(&source, tiny_wav()).unwrap();
     let job = create_live_job(
         &state,
