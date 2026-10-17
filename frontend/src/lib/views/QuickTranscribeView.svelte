@@ -36,7 +36,7 @@
   $: current=submitted ? (jobs.find((job)=>job.id===submitted?.id)??submitted) : undefined;
   $: sourceReady=sourceMode==='computer' ? !!localFile : !!serverFile;
   $: outputReady=outputMode==='computer' || !!outputDir;
-  $: chainReady=transcriptionChain.length>0&&transcriptionChain.every((route)=>!!route.providerId&&!!route.model);
+  $: chainReady=transcriptionChain.length>0&&transcriptionChain.every((route)=>!!route.providerId);
   $: canSubmit=sourceReady&&outputReady&&chainReady&&!busy;
   $: localDirectoryAvailable=typeof window!=='undefined'&&canSaveToDirectory(window);
 

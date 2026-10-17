@@ -44,7 +44,7 @@
     <div class="list-pane">
       {#if providers.length===0}<div class="empty">No providers configured.</div>{/if}
       {#each providers as provider}
-        <button class="list-item" class:active={provider.id===selectedId} on:click={()=>select(provider)}><strong>{provider.name}</strong><span>{provider.model || 'No model'} · {provider.enabled?'enabled':'disabled'}</span></button>
+        <button class="list-item" class:active={provider.id===selectedId} on:click={()=>select(provider)}><strong>{provider.name}</strong><span>{provider.model || 'Automatic model'} · {provider.enabled?'enabled':'disabled'}</span></button>
       {/each}
     </div>
     <section class="card">
@@ -52,7 +52,7 @@
       <div class="card-body stack">
         <div class="grid two">
           <div class="field"><label for="provider-name">Name</label><input id="provider-name" class="input" bind:value={draft.name} placeholder="Local Speaches" /></div>
-          <div class="field"><label for="provider-model">Default model</label><input id="provider-model" class="input" bind:value={draft.model} placeholder="whisper-1" /></div>
+          <div class="field"><label for="provider-model">Default model (optional)</label><input id="provider-model" class="input" bind:value={draft.model} placeholder="Optional provider default (OmniRoute: Transcription)" /></div>
         </div>
         <div class="field"><label for="provider-url">Transcription URL</label><input id="provider-url" class="input mono" bind:value={draft.transcriptionUrl} placeholder="http://host:8000/v1/audio/transcriptions" /><span class="help">Use the complete OpenAI-compatible transcription endpoint. Nothing is hardcoded to a specific service.</span></div>
         <div class="grid two">
@@ -65,7 +65,7 @@
           {#if selectedId}<button class="btn danger" on:click={remove}>Delete</button>{/if}
           <span class="spacer"></span>
           {#if selectedId}<button class="btn" disabled={busy} on:click={discoverModels}>Discover models</button>{/if}
-          <button class="btn primary" disabled={busy || !draft.name || !draft.transcriptionUrl || !draft.model} on:click={save}>{busy?'Working…':'Save provider'}</button>
+          <button class="btn primary" disabled={busy || !draft.name || !draft.transcriptionUrl} on:click={save}>{busy?'Working…':'Save provider'}</button>
         </div>
       </div>
     </section>

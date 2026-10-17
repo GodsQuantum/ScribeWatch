@@ -23,9 +23,6 @@ fn normalize_explicit_routes(
         if provider_id.is_empty() {
             bail!("transcription route {} providerId is required", index + 1);
         }
-        if model.is_empty() {
-            bail!("transcription route {} model is required", index + 1);
-        }
         if route.fallback_after_seconds == Some(0) {
             bail!(
                 "transcription route {} fallback timeout must be greater than zero",
@@ -65,9 +62,6 @@ fn normalize_legacy_route(
     } else {
         model.trim()
     };
-    if model.is_empty() {
-        bail!("model is required");
-    }
     Ok(vec![TranscriptionRoute {
         provider_id: provider_id.to_owned(),
         model: model.to_owned(),
@@ -103,7 +97,7 @@ pub fn effective_job_chain(job: &Job) -> Result<Vec<TranscriptionRoute>> {
         for (index, route) in job.transcription_chain.iter().enumerate() {
             let provider_id = route.provider_id.trim();
             let model = route.model.trim();
-            if provider_id.is_empty() || model.is_empty() {
+            if provider_id.is_empty() {
                 bail!("persisted transcription route {} is invalid", index + 1);
             }
             if route.fallback_after_seconds == Some(0) {
@@ -122,8 +116,8 @@ pub fn effective_job_chain(job: &Job) -> Result<Vec<TranscriptionRoute>> {
     }
     let provider_id = job.provider_id.trim();
     let model = job.model.trim();
-    if provider_id.is_empty() || model.is_empty() {
-        bail!("legacy persisted job has no usable provider/model");
+    if provider_id.is_empty() {
+        bail!("legacy persisted job has no usable provider");
     }
     Ok(vec![TranscriptionRoute {
         provider_id: provider_id.to_owned(),
@@ -241,9 +235,16 @@ pub async fn transcribe_job_chain(
             job.error = None;
         })?;
 
+        // A blank selection means the provider's configured default model.
+        // OmniRoute's "Transcription" alias applies its own provider/fallback policy.
+        let resolved_model = if route.model.trim().is_empty() {
+            provider.model.trim()
+        } else {
+            route.model.trim()
+        };
         let request = provider::transcribe(
             &provider,
-            &route.model,
+            resolved_model,
             language,
             source,
             &state.http,
@@ -290,13 +291,13 @@ pub async fn transcribe_job_chain(
                     job.transcription_attempts.push(attempt);
                     job.used_provider_id = Some(provider.id.clone());
                     job.used_provider_name = Some(provider.name.clone());
-                    job.used_model = Some(route.model.clone());
+                    job.used_model = Some(resolved_model.to_owned());
                 })?;
                 return Ok(TranscriptionSuccess {
                     transcript,
                     provider_id: provider.id,
                     provider_name: provider.name,
-                    model: route.model.clone(),
+                    model: resolved_model.to_owned(),
                 });
             }
             Err(TranscriptionError::Cancelled) => {
@@ -432,6 +433,20 @@ mod tests {
                 model: "whisper-large-v3".into(),
                 fallback_after_seconds: None,
             }]
+        );
+    }
+
+    #[test]
+    fn blank_model_delegates_to_upstream_router_and_survives_persistence() {
+        let providers = vec![provider("omniroute", "Transcription")];
+        let w = workflow_with_chain(vec![route("omniroute", "")]);
+        let normalized = normalize_workflow_chain(&w, &providers).unwrap();
+        assert_eq!(normalized[0].model, "");
+        let mut old = workflow_with_chain(Vec::new());
+        old.provider_id = "omniroute".into();
+        assert_eq!(
+            normalize_workflow_chain(&old, &[provider("omniroute", "")]).unwrap()[0].model,
+            ""
         );
     }
 
