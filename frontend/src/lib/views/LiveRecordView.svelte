@@ -91,7 +91,7 @@
     chainInitialized=true;
   }
   $: current=submitted ? (jobs.find((job)=>job.id===submitted?.id)??submitted) : undefined;
-  $: chainReady=transcriptionChain.length>0&&transcriptionChain.every((route)=>!!route.providerId&&!!route.model);
+  $: chainReady=transcriptionChain.length>0&&transcriptionChain.every((route)=>!!route.providerId);
   $: outputReady=outputMode==='computer'||!!outputDir;
   $: audioRetentionReady=audioRetentionMode!=='server'||!!audioServerDir;
   $: canRecord=chainReady&&outputReady&&audioRetentionReady&&!processing;
@@ -259,7 +259,7 @@
 
   async function startRecording(){
     if(recording||processing)return;
-    if(!chainReady){notify('error','Choose a transcription provider and model first.');return;}
+    if(!chainReady){notify('error','Choose a transcription provider first.');return;}
     if(!outputReady){notify('error','Choose where to save the recording result first.');return;}
     if(!audioRetentionReady){notify('error','Choose a server folder for the final audio or another retention mode.');return;}
     if(permissionState!=='ready'&&!(await detectMicrophones()))return;

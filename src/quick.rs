@@ -231,8 +231,8 @@ pub struct CleanupStats {
 }
 pub fn cleanup_stale(state: &AppState) -> Result<CleanupStats> {
     let now_ms = now_ms();
-    let source_retention_ms = (state.config.quick_source_retention_hours as u128)
-        .saturating_mul(3_600_000);
+    let source_retention_ms =
+        (state.config.quick_source_retention_hours as u128).saturating_mul(3_600_000);
     let protected = |kind: QuickSourceKind| {
         state
             .jobs

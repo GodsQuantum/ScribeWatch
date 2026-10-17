@@ -81,7 +81,9 @@ pub async fn upload(
         .config
         .live_staging_dir()
         .join(Uuid::new_v4().to_string());
-    tokio::fs::create_dir(&staging).await.map_err(AppError::from)?;
+    tokio::fs::create_dir(&staging)
+        .await
+        .map_err(AppError::from)?;
     let mut paths = HashMap::<u32, PathBuf>::new();
     let mut total_bytes = manifest_bytes.len() as u64;
 
@@ -157,9 +159,7 @@ pub async fn upload(
         if segment_bytes == 0 {
             drop(file);
             remove_staging(&staging).await;
-            return Err(AppError::BadRequest(format!(
-                "LIVE segment {id} is empty"
-            )));
+            return Err(AppError::BadRequest(format!("LIVE segment {id} is empty")));
         }
         file.flush().await.map_err(AppError::from)?;
         file.sync_all().await.map_err(AppError::from)?;
@@ -201,14 +201,10 @@ pub async fn upload(
         }
     }
 
-    let finalized = live_core::finalize_segments(
-        &state.config,
-        &manifest,
-        &paths,
-        &CancellationToken::new(),
-    )
-    .await
-    .map_err(AppError::Internal)?;
+    let finalized =
+        live_core::finalize_segments(&state.config, &manifest, &paths, &CancellationToken::new())
+            .await
+            .map_err(AppError::Internal)?;
 
     let live = LiveJobMeta {
         session_id: session_id.to_string(),
@@ -311,7 +307,10 @@ mod tests {
             timeout_seconds: 5,
             enabled: true,
         };
-        state.db.upsert("provider", &provider.id, &provider).unwrap();
+        state
+            .db
+            .upsert("provider", &provider.id, &provider)
+            .unwrap();
         state.providers.write().await.push(provider);
         state
     }
@@ -375,8 +374,13 @@ mod tests {
         let session = Uuid::new_v4().to_string();
         let response = reqwest::Client::new()
             .post(format!("{base}/api/v1/live/upload"))
-            .multipart(form(&manifest(&session, 2), vec![(1, tiny_wav()), (2, tiny_wav())]))
-            .send().await.unwrap();
+            .multipart(form(
+                &manifest(&session, 2),
+                vec![(1, tiny_wav()), (2, tiny_wav())],
+            ))
+            .send()
+            .await
+            .unwrap();
         let status = response.status();
         let body = response.bytes().await.unwrap();
         assert_eq!(
@@ -386,7 +390,16 @@ mod tests {
             String::from_utf8_lossy(&body)
         );
         let job: Job = serde_json::from_slice(&body).unwrap();
-        assert_eq!(job.quick.as_ref().unwrap().live.as_ref().unwrap().session_id, session);
+        assert_eq!(
+            job.quick
+                .as_ref()
+                .unwrap()
+                .live
+                .as_ref()
+                .unwrap()
+                .session_id,
+            session
+        );
         assert!(job.source_path.is_file());
         assert_eq!(job.source_path.extension().unwrap(), "m4a");
     }
@@ -398,10 +411,16 @@ mod tests {
         let base = api_server(state).await;
         let form = Form::new()
             .part("segment-0001", Part::bytes(tiny_wav()).file_name("one.wav"))
-            .text("manifest", serde_json::to_string(&manifest(&Uuid::new_v4().to_string(), 1)).unwrap());
+            .text(
+                "manifest",
+                serde_json::to_string(&manifest(&Uuid::new_v4().to_string(), 1)).unwrap(),
+            );
         let response = reqwest::Client::new()
             .post(format!("{base}/api/v1/live/upload"))
-            .multipart(form).send().await.unwrap();
+            .multipart(form)
+            .send()
+            .await
+            .unwrap();
         assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
     }
 
@@ -414,13 +433,20 @@ mod tests {
         let response = reqwest::Client::new()
             .post(format!("{base}/api/v1/live/upload"))
             .multipart(form(&m, vec![(1, tiny_wav())]))
-            .send().await.unwrap();
+            .send()
+            .await
+            .unwrap();
         assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
 
         let response = reqwest::Client::new()
             .post(format!("{base}/api/v1/live/upload"))
-            .multipart(form(&m, vec![(1, tiny_wav()), (1, tiny_wav()), (2, tiny_wav())]))
-            .send().await.unwrap();
+            .multipart(form(
+                &m,
+                vec![(1, tiny_wav()), (1, tiny_wav()), (2, tiny_wav())],
+            ))
+            .send()
+            .await
+            .unwrap();
         assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
     }
 
@@ -433,7 +459,9 @@ mod tests {
         let response = reqwest::Client::new()
             .post(format!("{base}/api/v1/live/upload"))
             .multipart(form(&m, vec![(1, b"not audio".to_vec())]))
-            .send().await.unwrap();
+            .send()
+            .await
+            .unwrap();
         assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
     }
 
@@ -445,24 +473,45 @@ mod tests {
         let session = Uuid::new_v4().to_string();
         let m = manifest(&session, 1);
         let client = reqwest::Client::new();
-        let first = client.post(format!("{base}/api/v1/live/upload"))
-            .multipart(form(&m, vec![(1, tiny_wav())])).send().await.unwrap();
+        let first = client
+            .post(format!("{base}/api/v1/live/upload"))
+            .multipart(form(&m, vec![(1, tiny_wav())]))
+            .send()
+            .await
+            .unwrap();
         assert_eq!(first.status(), reqwest::StatusCode::ACCEPTED);
         let first_job: Job = first.json().await.unwrap();
 
-        let second = client.post(format!("{base}/api/v1/live/upload"))
-            .multipart(form(&m, vec![(1, tiny_wav())])).send().await.unwrap();
+        let second = client
+            .post(format!("{base}/api/v1/live/upload"))
+            .multipart(form(&m, vec![(1, tiny_wav())]))
+            .send()
+            .await
+            .unwrap();
         assert_eq!(second.status(), reqwest::StatusCode::ACCEPTED);
         let second_job: Job = second.json().await.unwrap();
         assert_eq!(first_job.id, second_job.id);
-        assert_eq!(state.jobs.iter().filter(|j| j.quick.as_ref().and_then(|q| q.live.as_ref()).is_some_and(|l| l.session_id == session)).count(), 1);
+        assert_eq!(
+            state
+                .jobs
+                .iter()
+                .filter(|j| j
+                    .quick
+                    .as_ref()
+                    .and_then(|q| q.live.as_ref())
+                    .is_some_and(|l| l.session_id == session))
+                .count(),
+            1
+        );
     }
-
 
     async fn direct_live_job(state: &AppState) -> Job {
         use crate::domain::LiveJobMeta;
         let session = Uuid::new_v4().to_string();
-        let source = state.config.live_source_dir().join(format!("{session}.m4a"));
+        let source = state
+            .config
+            .live_source_dir()
+            .join(format!("{session}.m4a"));
         std::fs::write(&source, tiny_wav()).unwrap();
         crate::quick::create_live_job(
             state,
@@ -491,7 +540,10 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), reqwest::StatusCode::OK);
         assert_eq!(
-            response.headers().get(reqwest::header::CONTENT_TYPE).unwrap(),
+            response
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .unwrap(),
             "audio/mp4"
         );
         assert!(!response.bytes().await.unwrap().is_empty());
@@ -504,14 +556,9 @@ mod tests {
         let source = state.config.quick_upload_dir().join("ordinary.wav");
         std::fs::write(&source, tiny_wav()).unwrap();
         let options = manifest(&Uuid::new_v4().to_string(), 1).options;
-        let job = crate::quick::create_uploaded_job(
-            &state,
-            source,
-            "ordinary.wav".into(),
-            options,
-        )
-        .await
-        .unwrap();
+        let job = crate::quick::create_uploaded_job(&state, source, "ordinary.wav".into(), options)
+            .await
+            .unwrap();
         let base = api_server(state).await;
         let response = reqwest::get(format!("{base}/api/v1/jobs/{}/audio", job.id))
             .await
@@ -546,13 +593,21 @@ mod tests {
         let session = Uuid::new_v4().to_string();
         let m = manifest(&session, 1);
         let client = reqwest::Client::new();
-        let first = client.post(format!("{base}/api/v1/live/upload"))
-            .multipart(form(&m, vec![(1, tiny_wav())])).send().await.unwrap();
+        let first = client
+            .post(format!("{base}/api/v1/live/upload"))
+            .multipart(form(&m, vec![(1, tiny_wav())]))
+            .send()
+            .await
+            .unwrap();
         let job: Job = first.json().await.unwrap();
         std::fs::remove_file(&job.source_path).unwrap();
 
-        let second = client.post(format!("{base}/api/v1/live/upload"))
-            .multipart(form(&m, vec![(1, tiny_wav())])).send().await.unwrap();
+        let second = client
+            .post(format!("{base}/api/v1/live/upload"))
+            .multipart(form(&m, vec![(1, tiny_wav())]))
+            .send()
+            .await
+            .unwrap();
         assert_eq!(second.status(), reqwest::StatusCode::CONFLICT);
     }
 }

@@ -71,7 +71,10 @@ pub fn validate_manifest(manifest: &LiveUploadManifest) -> Result<Uuid> {
         if segment.started_at_ms < manifest.started_at_ms {
             bail!("LIVE segment starts before the session");
         }
-        if segment.ended_at_ms.is_some_and(|ended| ended < segment.started_at_ms) {
+        if segment
+            .ended_at_ms
+            .is_some_and(|ended| ended < segment.started_at_ms)
+        {
             bail!("LIVE segment end timestamp precedes its start");
         }
         if index == 0 && segment.gap_ms_before.is_some() {
@@ -160,7 +163,10 @@ fn publish_server_copy(source: &Path, directory: &Path, name: &str) -> Result<Pa
     }
     let temp = directory.join(format!(".scribewatch-live-{}.partial", Uuid::new_v4()));
     let mut src = File::open(source)?;
-    let mut dst = OpenOptions::new().write(true).create_new(true).open(&temp)?;
+    let mut dst = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp)?;
     std::io::copy(&mut src, &mut dst)?;
     dst.flush()?;
     dst.sync_all()?;
@@ -271,7 +277,10 @@ pub async fn finalize_segments(
 mod tests {
     use super::*;
     use crate::{config::Config, domain::QuickOutputKind, quick::QuickOptions};
-    use std::{collections::HashMap, path::{Path, PathBuf}};
+    use std::{
+        collections::HashMap,
+        path::{Path, PathBuf},
+    };
 
     fn config(root: &Path) -> Config {
         let allowed = root.join("allowed");
@@ -355,7 +364,10 @@ mod tests {
     #[test]
     fn manifest_requires_schema_v1_and_uuid_session() {
         let valid = manifest();
-        assert_eq!(validate_manifest(&valid).unwrap().to_string(), valid.session_id);
+        assert_eq!(
+            validate_manifest(&valid).unwrap().to_string(),
+            valid.session_id
+        );
         let mut bad_schema = valid.clone();
         bad_schema.schema_version = 2;
         assert!(validate_manifest(&bad_schema).is_err());
@@ -440,20 +452,19 @@ mod tests {
         let mut paths = HashMap::new();
         paths.insert(2, two);
         paths.insert(1, one);
-        let result = finalize_segments(
-            &config,
-            &manifest(),
-            &paths,
-            &CancellationToken::new(),
-        )
-        .await
-        .unwrap();
+        let result = finalize_segments(&config, &manifest(), &paths, &CancellationToken::new())
+            .await
+            .unwrap();
         assert!(result.source_path.is_file());
         assert_eq!(
             result.source_path.file_name().unwrap().to_string_lossy(),
             "550e8400-e29b-41d4-a716-446655440000.m4a"
         );
-        assert!(audio::probe_audio(&result.source_path, &CancellationToken::new()).await.unwrap());
+        assert!(
+            audio::probe_audio(&result.source_path, &CancellationToken::new())
+                .await
+                .unwrap()
+        );
         assert!(result.server_copy.is_none());
     }
 

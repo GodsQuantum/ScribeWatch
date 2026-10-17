@@ -45,7 +45,7 @@
   }
   function providerChanged(index:number, event:Event) {
     const providerId=(event.currentTarget as HTMLSelectElement).value;
-    const model=providers.find((provider)=>provider.id===providerId)?.model??'';
+    const model='';
     update(index,{providerId,model});
     void discover(providerId,true);
   }
@@ -79,7 +79,7 @@
 
 <div class="chain-editor">
   <div class="chain-head">
-    <div><strong>Transcription chain</strong><p class="help">Choose the exact provider + model order. If one route fails, ScribeWatch tries the next.</p></div>
+    <div><strong>Transcription chain</strong><p class="help">Choose providers in fallback order. Leave a model empty to let OmniRoute decide, or select/type a specific model.</p></div>
   </div>
   {#each value as route,index (index)}
     <div class="chain-route">
@@ -95,12 +95,14 @@
       </div>
       <div class="field">
         <label for={`route-model-${index}`}>Model</label>
-        <select id={`route-model-${index}`} class="select" value={route.model} disabled={!route.providerId||loadingByProvider[route.providerId]} on:change={(event)=>modelChanged(index,event)}>
-          <option value="">{loadingByProvider[route.providerId]?'Loading models…':'Choose model'}</option>
+        <select id={`route-model-${index}`} class="select" value={route.model} disabled={!route.providerId} on:change={(event)=>modelChanged(index,event)}>
+          <option value="">Auto — configured provider default</option>
           {#each modelOptions(route) as model}
             <option value={model}>{model}{errorsByProvider[route.providerId]&&model===route.model?' (saved — discovery unavailable)':''}</option>
           {/each}
         </select>
+        <input class="input mono" value={route.model} disabled={!route.providerId} placeholder="Optional exact model ID (e.g. Mistral or Turbo Q6)" aria-label="Exact transcription model ID" on:input={(event)=>update(index,{model:(event.currentTarget as HTMLInputElement).value})} />
+        <span class="help">Empty = use this provider’s default model (OmniRoute: Transcription alias and configured fallback routing). A model ID overrides it if the endpoint supports that model.</span>
         {#if errorsByProvider[route.providerId]}
           <span class="help error-inline">Model discovery unavailable. <button class="link-button" on:click={()=>discover(route.providerId,true)}>Retry</button></span>
         {/if}
