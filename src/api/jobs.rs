@@ -74,12 +74,8 @@ fn rfc5987(value: &str) -> String {
     out
 }
 
-pub async fn audio(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> AppResult<Response> {
-    let job = jobs::get_job(&state, &id)
-        .map_err(|_| AppError::NotFound("job not found".into()))?;
+pub async fn audio(State(state): State<AppState>, Path(id): Path<String>) -> AppResult<Response> {
+    let job = jobs::get_job(&state, &id).map_err(|_| AppError::NotFound("job not found".into()))?;
     let quick = job
         .quick
         .as_ref()
@@ -106,10 +102,9 @@ pub async fn audio(
         rfc5987(&live.audio_result_name)
     );
     let mut response = Response::new(Body::from_stream(stream));
-    response.headers_mut().insert(
-        header::CONTENT_TYPE,
-        HeaderValue::from_static("audio/mp4"),
-    );
+    response
+        .headers_mut()
+        .insert(header::CONTENT_TYPE, HeaderValue::from_static("audio/mp4"));
     response.headers_mut().insert(
         header::CONTENT_DISPOSITION,
         HeaderValue::from_str(&disposition)

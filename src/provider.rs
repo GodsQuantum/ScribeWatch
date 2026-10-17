@@ -44,8 +44,11 @@ pub async fn transcribe(
 
     let mut form = multipart::Form::new()
         .part("file", part)
-        .text("model", model.to_owned())
         .text("response_format", "json");
+    // An omitted model delegates routing to the upstream endpoint.
+    if !model.trim().is_empty() {
+        form = form.text("model", model.trim().to_owned());
+    }
     if let Some(language) = language
         .map(str::trim)
         .filter(|v| !v.is_empty() && *v != "auto")
@@ -128,10 +131,6 @@ pub fn validate_provider(provider: &Provider) -> anyhow::Result<()> {
         !provider.name.trim().is_empty(),
         "provider name is required"
     );
-    anyhow::ensure!(
-        !provider.model.trim().is_empty(),
-        "provider model is required"
-    );
     let url = url::Url::parse(&provider.transcription_url)?;
     anyhow::ensure!(
         matches!(url.scheme(), "http" | "https"),
@@ -159,6 +158,62 @@ mod tests {
             "one two"
         );
     }
+    #[test]
+    fn an_omniroute_provider_without_default_model_is_valid() {
+        let provider = Provider {
+            id: "omni".into(),
+            name: "OmniRoute Transcription".into(),
+            transcription_url: "https://example.com/v1/audio/transcriptions".into(),
+            model: String::new(),
+            api_key: String::new(),
+            timeout_seconds: 600,
+            enabled: true,
+        };
+        validate_provider(&provider).unwrap();
+    }
+
+    #[tokio::test]
+    async fn blank_model_is_omitted_from_multipart() {
+        use axum::{Router, body::Bytes, routing::post};
+        let app = Router::new().route(
+            "/v1/audio/transcriptions",
+            post(|body: Bytes| async move {
+                let raw = String::from_utf8_lossy(&body);
+                assert!(
+                    !raw.contains(r#"name="model""#),
+                    "model field must be absent"
+                );
+                axum::Json(serde_json::json!({"text":"automatic route"}))
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let tmp = tempfile::tempdir().unwrap();
+        let wav = tmp.path().join("test.wav");
+        tokio::fs::write(&wav, b"RIFFtest").await.unwrap();
+        let provider = Provider {
+            id: "omni".into(),
+            name: "OmniRoute".into(),
+            transcription_url: format!("http://{addr}/v1/audio/transcriptions"),
+            model: String::new(),
+            api_key: String::new(),
+            timeout_seconds: 10,
+            enabled: true,
+        };
+        let value = transcribe(
+            &provider,
+            "",
+            Some("fr"),
+            &wav,
+            &Client::new(),
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(value, "automatic route");
+    }
+
     #[test]
     fn malformed_semantic_response_is_rejected() {
         assert!(transcript_text(&serde_json::json!({"ok":true})).is_err());

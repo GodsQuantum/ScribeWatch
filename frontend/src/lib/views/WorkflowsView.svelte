@@ -53,7 +53,7 @@
     try{await api.deleteWorkflow(selectedId);createNew();await refresh();notify('success','Workflow deleted.');}
     catch(e){notify('error',e instanceof Error?e.message:String(e));}
   }
-  $: chainValid=(draft.transcriptionChain??[]).length>0&&(draft.transcriptionChain??[]).every((route)=>!!route.providerId&&!!route.model);
+  $: chainValid=(draft.transcriptionChain??[]).length>0&&(draft.transcriptionChain??[]).every((route)=>!!route.providerId);
   $: pickerTitle=picker==='watch'?'Choose Watch folder':picker==='output'?'Choose Markdown folder':'Choose Audio archive';
   $: pickerInitial=picker==='watch'?draft.watchDir:picker==='output'?(draft.outputDir??draft.watchDir):draft.archiveDir;
 </script>
