@@ -1,0 +1,187 @@
+#!/bin/sh
+set -eu
+
+ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd -P)
+FETCH="$ROOT/packaging/appimage/fetch-tools.sh"
+
+requested_arch="${1:-$(uname -m)}"
+case "$requested_arch" in
+  x86_64|amd64) arch=x86_64 ;;
+  aarch64|arm64) arch=aarch64 ;;
+  *)
+    printf 'unsupported AppImage architecture: %s\n' "$requested_arch" >&2
+    exit 64
+    ;;
+esac
+
+version=$(python3 -c 'import tomllib; print(tomllib.load(open("'"$ROOT"'/Cargo.toml","rb"))["package"]["version"])')
+build_dir="${SCRIBEWATCH_APPIMAGE_BUILD_DIR:-${TMPDIR:-/tmp}/scribewatch-appimage-$arch}"
+out_dir="${SCRIBEWATCH_APPIMAGE_OUTPUT_DIR:-$ROOT/dist}"
+appdir="$build_dir/ScribeWatch.AppDir"
+
+binary="${SCRIBEWATCH_BINARY:-$ROOT/target/release/scribewatch}"
+frontend="${SCRIBEWATCH_FRONTEND_DIR:-$ROOT/frontend/build}"
+
+require_file() {
+  [ -f "$1" ] || {
+    printf 'required file is missing: %s\n' "$1" >&2
+    exit 66
+  }
+}
+
+require_exec() {
+  [ -x "$1" ] || {
+    printf 'required executable is missing: %s\n' "$1" >&2
+    exit 66
+  }
+}
+
+resolve_runtime_tool() {
+  env_name=$1
+  tool_name=$2
+  eval "value=\${$env_name:-}"
+  if [ -z "$value" ]; then
+    value=$(command -v "$tool_name" 2>/dev/null || true)
+  fi
+  [ -n "$value" ] || {
+    printf 'required packaging runtime tool is missing: %s\n' "$tool_name" >&2
+    exit 69
+  }
+  printf '%s\n' "$value"
+}
+
+require_exec "$binary"
+require_file "$frontend/index.html"
+
+ffmpeg=$(resolve_runtime_tool SCRIBEWATCH_FFMPEG ffmpeg)
+ffprobe=$(resolve_runtime_tool SCRIBEWATCH_FFPROBE ffprobe)
+fc_list=$(resolve_runtime_tool SCRIBEWATCH_FC_LIST fc-list)
+fc_scan=$(resolve_runtime_tool SCRIBEWATCH_FC_SCAN fc-scan)
+curl_bin=$(resolve_runtime_tool SCRIBEWATCH_CURL curl)
+
+ca_cert_file="${SCRIBEWATCH_CA_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+require_file "$ca_cert_file"
+
+libjack="${SCRIBEWATCH_LIBJACK:-}"
+if [ -z "$libjack" ] && command -v ldd >/dev/null 2>&1; then
+  libjack=$(ldd "$ffmpeg" 2>/dev/null | awk '$1 == "libjack.so.0" { print $3; exit }')
+fi
+if [ -z "$libjack" ] && ldd "$ffmpeg" 2>/dev/null | grep -Fq 'libjack.so.0'; then
+  printf 'ffmpeg requires libjack.so.0, but the packaging host cannot resolve it\n' >&2
+  exit 69
+fi
+if [ -n "$libjack" ]; then
+  require_file "$libjack"
+fi
+
+if [ -n "${SCRIBEWATCH_LINUXDEPLOY:-}" ] && [ -n "${SCRIBEWATCH_APPIMAGETOOL:-}" ] && [ -n "${SCRIBEWATCH_APPIMAGE_RUNTIME:-}" ]; then
+  linuxdeploy=$SCRIBEWATCH_LINUXDEPLOY
+  appimagetool=$SCRIBEWATCH_APPIMAGETOOL
+  appimage_runtime=$SCRIBEWATCH_APPIMAGE_RUNTIME
+else
+  cache_root="${XDG_CACHE_HOME:-${HOME:?HOME is required when XDG_CACHE_HOME is unset}/.cache}"
+  tool_cache="$cache_root/scribewatch/appimage-tools/$arch"
+  "$FETCH" "$arch" "$tool_cache" >/dev/null
+  linuxdeploy="$tool_cache/linuxdeploy-$arch.AppImage"
+  appimagetool="$tool_cache/appimagetool-$arch.AppImage"
+  appimage_runtime="$tool_cache/runtime-$arch"
+fi
+require_exec "$linuxdeploy"
+require_exec "$appimagetool"
+require_file "$appimage_runtime"
+
+rm -rf -- "$build_dir"
+mkdir -p -- \
+  "$appdir/usr/bin" \
+  "$appdir/usr/lib" \
+  "$appdir/usr/share/scribewatch/frontend" \
+  "$appdir/usr/share/applications" \
+  "$appdir/usr/share/icons/hicolor/scalable/apps" \
+  "$appdir/usr/share/metainfo" \
+  "$out_dir"
+
+cp -L -- "$binary" "$appdir/usr/bin/scribewatch"
+chmod +x "$appdir/usr/bin/scribewatch"
+
+copy_runtime() {
+  source_path=$1
+  name=$2
+  cp -L -- "$source_path" "$appdir/usr/bin/$name"
+  chmod +x "$appdir/usr/bin/$name"
+}
+copy_runtime "$ffmpeg" ffmpeg
+copy_runtime "$ffprobe" ffprobe
+copy_runtime "$fc_list" fc-list
+copy_runtime "$fc_scan" fc-scan
+copy_runtime "$curl_bin" curl
+cp -- "$ca_cert_file" "$appdir/usr/share/scribewatch/ca-certificates.crt"
+printf "%s\n" "$version" > "$appdir/usr/share/scribewatch/version"
+
+set -- \
+  --appdir "$appdir" \
+  --executable "$appdir/usr/bin/scribewatch" \
+  --executable "$appdir/usr/bin/ffmpeg" \
+  --executable "$appdir/usr/bin/ffprobe" \
+  --executable "$appdir/usr/bin/fc-list" \
+  --executable "$appdir/usr/bin/fc-scan" \
+  --executable "$appdir/usr/bin/curl"
+if [ -n "$libjack" ]; then
+  set -- "$@" --library "$libjack"
+fi
+APPIMAGE_EXTRACT_AND_RUN=1 "$linuxdeploy" "$@"
+
+# linuxdeploy intentionally excludes JACK as a host/audio-system library, but
+# Ubuntu's ffmpeg links to it unconditionally. ScribeWatch only needs FFmpeg for
+# file processing, so carry this small compatibility library explicitly to
+# keep the bundled FFmpeg usable on hosts without JACK installed.
+if [ -n "$libjack" ]; then
+  cp -L -- "$libjack" "$appdir/usr/lib/libjack.so.0"
+fi
+
+cp -a -- "$frontend/." "$appdir/usr/share/scribewatch/frontend/"
+cp -- "$ROOT/packaging/appimage/AppRun" "$appdir/AppRun"
+chmod +x "$appdir/AppRun"
+
+sed \
+  -e "s/@VERSION@/$version/g" \
+  -e "s/@ARCH@/$arch/g" \
+  "$ROOT/packaging/appimage/io.github.GodsQuantum.ScribeWatch.desktop" \
+  > "$appdir/usr/share/applications/io.github.GodsQuantum.ScribeWatch.desktop"
+
+cp -- "$ROOT/packaging/appimage/io.github.GodsQuantum.ScribeWatch.metainfo.xml" \
+  "$appdir/usr/share/metainfo/io.github.GodsQuantum.ScribeWatch.appdata.xml"
+cp -- "$ROOT/docs/logo.svg" "$appdir/usr/share/icons/hicolor/scalable/apps/scribewatch.svg"
+
+ln -s "usr/share/applications/io.github.GodsQuantum.ScribeWatch.desktop" \
+  "$appdir/io.github.GodsQuantum.ScribeWatch.desktop"
+ln -s "usr/share/icons/hicolor/scalable/apps/scribewatch.svg" "$appdir/scribewatch.svg"
+ln -s "scribewatch.svg" "$appdir/.DirIcon"
+
+if command -v desktop-file-validate >/dev/null 2>&1; then
+  desktop-file-validate "$appdir/usr/share/applications/io.github.GodsQuantum.ScribeWatch.desktop"
+fi
+if command -v appstreamcli >/dev/null 2>&1; then
+  appstreamcli validate --no-net "$appdir/usr/share/metainfo/io.github.GodsQuantum.ScribeWatch.appdata.xml"
+fi
+
+if [ -z "${SOURCE_DATE_EPOCH:-}" ] && command -v git >/dev/null 2>&1; then
+  SOURCE_DATE_EPOCH=$(git -C "$ROOT" log -1 --format=%ct 2>/dev/null || true)
+  export SOURCE_DATE_EPOCH
+fi
+
+output="$out_dir/ScribeWatch-$version-$arch.AppImage"
+rm -f -- "$output" "$output.sha256"
+APPIMAGE_EXTRACT_AND_RUN=1 ARCH="$arch" VERSION="$version" \
+  "$appimagetool" --runtime-file "$appimage_runtime" "$appdir" "$output"
+chmod +x "$output"
+(
+  cd "$out_dir"
+  sha256sum "$(basename "$output")" > "$(basename "$output").sha256"
+)
+
+printf 'AppImage: %s\n' "$output"
+printf 'Checksum: %s.sha256\n' "$output"
+
+if [ "${SCRIBEWATCH_APPIMAGE_KEEP_APPDIR:-0}" != "1" ]; then
+  rm -rf -- "$build_dir"
+fi
