@@ -375,7 +375,7 @@ pub async fn normalize_definition(state: &AppState, mut workflow: Workflow) -> R
 }
 
 pub async fn scan_once(state: &AppState, workflow_id: &str) -> Result<()> {
-    let workflow = state
+    let mut workflow = state
         .workflows
         .read()
         .await
@@ -389,6 +389,11 @@ pub async fn scan_once(state: &AppState, workflow_id: &str) -> Result<()> {
     let watch_dir = state
         .config
         .resolve_allowed_dir(Path::new(&workflow.watch_dir))?;
+    let archive_dir = state
+        .config
+        .resolve_allowed_dir(Path::new(&workflow.archive_dir))?;
+    workflow.watch_dir = watch_dir.to_string_lossy().into_owned();
+    workflow.archive_dir = archive_dir.to_string_lossy().into_owned();
     let token = CancellationToken::new();
     let mut attempted = HashMap::new();
     scan_tree(state, &workflow, &watch_dir, &token, &mut attempted).await

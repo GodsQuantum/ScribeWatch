@@ -120,7 +120,7 @@ fn audio_name(manifest: &LiveUploadManifest, session_id: Uuid) -> String {
 }
 
 fn sync_file(path: &Path) -> Result<()> {
-    let file = OpenOptions::new().read(true).open(path)?;
+    let file = OpenOptions::new().read(true).write(true).open(path)?;
     file.sync_all()?;
     Ok(())
 }
