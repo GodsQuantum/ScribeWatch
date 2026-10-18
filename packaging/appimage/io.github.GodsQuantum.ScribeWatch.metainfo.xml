@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.GodsQuantum.ScribeWatch</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>ScribeWatch</name>
+  <developer id="io.github.godsquantum"><name>GodsQuantum</name></developer>
+  <summary>Voice notes, recording and audio transcription to Markdown</summary>
+  <description>
+    <p>ScribeWatch runs its complete local Rust server and web interface without Docker, and can connect to a remote Cloud9-Speaches transcription provider.</p>
+    <p>Audio processing requires FFmpeg, which is bundled. Advanced export tools such as Pandoc or WeasyPrint may be installed separately for their respective output formats.</p>
+  </description>
+  <launchable type="desktop-id">io.github.GodsQuantum.ScribeWatch.desktop</launchable>
+  <provides><binary>scribewatch</binary></provides>
+  <url type="homepage">https://github.com/GodsQuantum/ScribeWatch</url>
+  <url type="bugtracker">https://github.com/GodsQuantum/ScribeWatch/issues</url>
+  <categories><category>AudioVideo</category><category>Audio</category></categories>
+  <content_rating type="oars-1.1"/>
+</component>
