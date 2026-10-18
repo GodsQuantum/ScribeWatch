@@ -2,6 +2,21 @@
 
 All notable ScribeWatch changes are documented here.
 
+## [0.5.3] - 2026-10-18
+
+### Added
+- A real ScribeWatch Linux AppImage for x86_64 and aarch64, with the complete local Rust server, Svelte UI, FFmpeg/FFprobe, and pinned AppImage runtime dependencies.
+- User-scoped XDG configuration/data/state, loopback-only local server and native launch/browser control.
+- Native AppImage builds, smoke tests and SHA256 assets in GitHub Actions, released only after both architectures pass validation.
+
+### Fixed
+- Preserve static PIE Rust executables when packaging: prevent linuxdeploy/patchelf from corrupting the server binary.
+
+### Notes
+- Cloud9-Speaches is selectable using the existing ScribeWatch provider API; the automatic one-click pairing wizard is not yet included.
+- Optional Pandoc/WeasyPrint advanced export dependencies are not yet bundled inside the AppImage.
+- Windows and macOS graphical installers remain a separate certification step.
+
 ## [0.5.2] - 2026-10-01
 
 ### Security
