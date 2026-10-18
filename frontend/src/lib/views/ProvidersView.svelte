@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from '$lib/api';
+  import { probeSpeaches } from '$lib/speaches-discovery.js';
   import type { Provider, ProviderInput } from '$lib/types';
   export let providers: Provider[] = [];
   export let refresh: () => Promise<void> = async () => {};
@@ -10,6 +11,52 @@
   let draft = blank();
   let models:string[] = [];
   let busy = false;
+  let speachesAddress = 'http://127.0.0.1:8005';
+  let speachesBusy = false;
+  let speachesPrior: Provider | null | undefined;
+  const speachesId = 'cloud9-speaches-autoconnect';
+  async function connectSpeaches() {
+    if (speachesBusy) return;
+    speachesBusy = true;
+    let created = false;
+    try {
+      const existing = providers.find(p => p.id === speachesId);
+      if (existing?.hasApiKey) throw new Error('Refusing to repoint a provider with an existing secret key.');
+      const found = await probeSpeaches(speachesAddress);
+      const input: ProviderInput = {
+        id: speachesId, name: 'Cloud9-Speaches — Turbo GGUF',
+        transcriptionUrl: found.transcriptionUrl, model: found.model,
+        apiKey: '', timeoutSeconds: 600, enabled: true
+      };
+      const saved = await api.saveProvider(input);
+      created = !existing;
+      speachesPrior = existing ?? null;
+      await refresh();
+      select(saved);
+      notify('success', 'Cloud9-Speaches connected: ' + found.model + ' (alignment available).');
+    } catch (error) {
+      if (created) { try { await api.deleteProvider(speachesId); await refresh(); } catch { /* surface original error */ } }
+      notify('error', error instanceof Error ? error.message : String(error));
+    } finally { speachesBusy = false; }
+  }
+  async function undoSpeaches() {
+    if (speachesPrior === undefined || speachesBusy) return;
+    speachesBusy = true;
+    try {
+      if (speachesPrior === null) await api.deleteProvider(speachesId);
+      else await api.saveProvider({
+        id: speachesPrior.id, name: speachesPrior.name, transcriptionUrl: speachesPrior.transcriptionUrl,
+        model: speachesPrior.model, apiKey: '', timeoutSeconds: speachesPrior.timeoutSeconds,
+        enabled: speachesPrior.enabled
+      });
+      speachesPrior = undefined;
+      createNew();
+      await refresh();
+      notify('success', 'Previous provider state restored.');
+    } catch (error) {
+      notify('error', error instanceof Error ? error.message : String(error));
+    } finally { speachesBusy = false; }
+  }
 
   function select(provider:Provider) {
     selectedId = provider.id;
@@ -40,6 +87,14 @@
 
 <div class="page">
   <div class="page-head"><div><h1 class="page-title">Transcription providers</h1><p class="page-kicker">Any OpenAI-compatible audio transcription endpoint can be local or remote. ScribeWatch stores secrets server-side.</p></div><div class="page-actions"><button class="btn primary" on:click={createNew}>+ Add provider</button></div></div>
+  <section class="card" style="margin-bottom:16px"><div class="card-header"><strong>Connect to Cloud9-Speaches</strong></div>
+    <div class="card-body stack">
+      <p class="help">Discover a reachable local/private LAN instance, confirm Whisper Turbo GGUF and FastConformer, then create or update one dedicated provider without altering existing providers.</p>
+      <div class="field"><label for="speaches-connect-address">Cloud9-Speaches server URL</label><input id="speaches-connect-address" class="input" bind:value={speachesAddress} placeholder="http://127.0.0.1:8005"/></div>
+      <div class="row wrap"><button class="btn primary" disabled={speachesBusy} on:click={connectSpeaches}>{speachesBusy?'Checking…':'Connect Cloud9-Speaches'}</button>
+      {#if speachesPrior !== undefined}<button class="btn" disabled={speachesBusy} on:click={undoSpeaches}>Undo connection</button>{/if}</div>
+    </div>
+  </section>
   <div class="split-editor">
     <div class="list-pane">
       {#if providers.length===0}<div class="empty">No providers configured.</div>{/if}
