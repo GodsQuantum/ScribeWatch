@@ -15,7 +15,14 @@ pub struct Config {
     pub dist_dir: PathBuf,
     #[arg(long, env = "SCRIBEWATCH_DATA_DIR", default_value = "/data")]
     pub data_dir: PathBuf,
-    #[arg(long, env = "SCRIBEWATCH_ALLOWED_ROOTS", value_delimiter = ':')]
+    #[cfg_attr(
+        windows,
+        arg(long, env = "SCRIBEWATCH_ALLOWED_ROOTS", value_delimiter = ';')
+    )]
+    #[cfg_attr(
+        not(windows),
+        arg(long, env = "SCRIBEWATCH_ALLOWED_ROOTS", value_delimiter = ':')
+    )]
     pub allowed_roots: Vec<PathBuf>,
     #[arg(long, env = "SCRIBEWATCH_SCAN_SECONDS", default_value_t = 5)]
     pub scan_seconds: u64,
@@ -228,6 +235,22 @@ pub fn ensure_sqlite_local(config_dir: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn allowed_roots_delimiter_is_platform_native() {
+        let paths = if cfg!(windows) {
+            r"C:\Media;D:\Audio"
+        } else {
+            "/mnt/media:/mnt/audio"
+        };
+        let config = Config::try_parse_from(["app", "--allowed-roots", paths])
+            .expect("platform-native allowed-roots separator");
+        assert_eq!(config.allowed_roots.len(), 2);
+        if cfg!(windows) {
+            assert_eq!(config.allowed_roots[0], PathBuf::from(r"C:\Media"));
+            assert_eq!(config.allowed_roots[1], PathBuf::from(r"D:\Audio"));
+        }
+    }
 
     fn config(root: &Path, allowed: &Path) -> Config {
         Config {
