@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=ScribeWatch
+GenericName=Voice Notes and Transcription
+Comment=Record and transcribe audio to Markdown with selectable providers
+Exec=scribewatch
+Icon=scribewatch
+Categories=AudioVideo;Audio;Utility;
+Terminal=false
+StartupNotify=false
+X-AppImage-Name=ScribeWatch
+X-AppImage-Version=@VERSION@
+X-AppImage-Arch=@ARCH@

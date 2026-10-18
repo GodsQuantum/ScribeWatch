@@ -1,0 +1,136 @@
+#!/bin/sh
+set -eu
+
+if [ -z "${APPDIR:-}" ]; then
+  APPDIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
+  export APPDIR
+fi
+
+OPEN_BROWSER="${SCRIBEWATCH_APPIMAGE_OPEN_BROWSER:-1}"
+CLI_STDIO=0
+for arg in "$@"; do
+  case "$arg" in
+    --version|-V|--help|-h) CLI_STDIO=1 ;;
+  esac
+done
+if [ "$CLI_STDIO" = "1" ]; then
+  OPEN_BROWSER=0
+fi
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --background|--no-browser)
+      OPEN_BROWSER=0
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [ -z "${HOME:-}" ]; then
+  printf '%s\n' "ScribeWatch AppImage requires HOME or explicit writable XDG/SCRIBEWATCH paths." >&2
+  exit 64
+fi
+
+XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+
+SCRIBEWATCH_CONFIG_DIR="${SCRIBEWATCH_CONFIG_DIR:-$XDG_CONFIG_HOME/scribewatch}"
+SCRIBEWATCH_DATA_DIR="${SCRIBEWATCH_DATA_DIR:-$XDG_DATA_HOME/scribewatch}"
+SCRIBEWATCH_APPIMAGE_STATE_DIR="${SCRIBEWATCH_APPIMAGE_STATE_DIR:-$XDG_STATE_HOME/scribewatch}"
+SCRIBEWATCH_DIST_DIR="${SCRIBEWATCH_DIST_DIR:-$APPDIR/usr/share/scribewatch/frontend}"
+SCRIBEWATCH_HOST="${SCRIBEWATCH_HOST:-127.0.0.1}"
+SCRIBEWATCH_PORT="${SCRIBEWATCH_PORT:-3052}"
+
+if [ -z "${SSL_CERT_FILE:-}" ] && [ -f "$APPDIR/usr/share/scribewatch/ca-certificates.crt" ]; then
+  SSL_CERT_FILE="$APPDIR/usr/share/scribewatch/ca-certificates.crt"
+  export SSL_CERT_FILE
+fi
+
+mkdir -p -- "$SCRIBEWATCH_CONFIG_DIR" "$SCRIBEWATCH_DATA_DIR" "$SCRIBEWATCH_APPIMAGE_STATE_DIR"
+
+if [ -z "${SCRIBEWATCH_ALLOWED_ROOTS:-}" ]; then
+  SCRIBEWATCH_ALLOWED_ROOTS="$SCRIBEWATCH_DATA_DIR:$HOME"
+  for candidate in /mnt /media; do
+    if [ -d "$candidate" ]; then
+      SCRIBEWATCH_ALLOWED_ROOTS="$SCRIBEWATCH_ALLOWED_ROOTS:$candidate"
+    fi
+  done
+  if [ -n "${USER:-}" ] && [ -d "/run/media/$USER" ]; then
+    SCRIBEWATCH_ALLOWED_ROOTS="$SCRIBEWATCH_ALLOWED_ROOTS:/run/media/$USER"
+  fi
+fi
+
+export SCRIBEWATCH_CONFIG_DIR SCRIBEWATCH_DATA_DIR
+export SCRIBEWATCH_APPIMAGE_STATE_DIR SCRIBEWATCH_DIST_DIR SCRIBEWATCH_ALLOWED_ROOTS
+export SCRIBEWATCH_HOST SCRIBEWATCH_PORT
+
+ORIGINAL_PATH="${PATH:-/usr/bin:/bin}"
+if [ "${SCRIBEWATCH_USE_SYSTEM_MEDIA_TOOLS:-0}" = "1" ]; then
+  PATH="$ORIGINAL_PATH:$APPDIR/usr/bin"
+else
+  PATH="$APPDIR/usr/bin:$ORIGINAL_PATH"
+fi
+export PATH
+
+# Informational CLI commands must always reach the packaged backend, even when
+# another ScribeWatch instance is already healthy on the selected port.
+if [ "$CLI_STDIO" = "1" ]; then
+  exec "$APPDIR/usr/bin/scribewatch" "$@"
+fi
+
+BROWSER_HOST="$SCRIBEWATCH_HOST"
+case "$BROWSER_HOST" in
+  0.0.0.0|::|'[::]') BROWSER_HOST=127.0.0.1 ;;
+esac
+URL="http://$BROWSER_HOST:$SCRIBEWATCH_PORT/"
+HEALTH_URL="${URL}api/v1/ready"
+
+health_ready() {
+  command -v curl >/dev/null 2>&1 || return 1
+  body=$(curl -fsS --max-time 1 "$HEALTH_URL" 2>/dev/null) || return 1
+  printf '%s' "$body" | grep -q '"status":"ready"' || return 1
+  expected_version=$(cat "$APPDIR/usr/share/scribewatch/version")
+  printf '%s' "$body" | grep -Fq '"version":"'"$expected_version"'"' || return 1
+}
+
+open_url() {
+  if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$URL" >/dev/null 2>&1 || true
+  elif command -v gio >/dev/null 2>&1; then
+    gio open "$URL" >/dev/null 2>&1 || true
+  else
+    printf 'ScribeWatch: %s\n' "$URL" >&2
+  fi
+}
+
+if health_ready; then
+  if [ "$OPEN_BROWSER" != "0" ]; then
+    open_url
+  fi
+  exit 0
+fi
+
+if [ "$OPEN_BROWSER" != "0" ]; then
+  (
+    count=0
+    while [ "$count" -lt 120 ]; do
+      if health_ready; then
+        open_url
+        exit 0
+      fi
+      count=$((count + 1))
+      sleep 0.25
+    done
+    printf 'ScribeWatch started but the browser helper could not confirm readiness. Open %s manually.\n' "$URL" >&2
+  ) &
+fi
+
+if [ "${SCRIBEWATCH_APPIMAGE_FORCE_STDIO:-0}" = "1" ] || [ "$CLI_STDIO" = "1" ] || [ -t 1 ]; then
+  exec "$APPDIR/usr/bin/scribewatch" "$@"
+fi
+
+exec "$APPDIR/usr/bin/scribewatch" "$@" >>"$SCRIBEWATCH_APPIMAGE_STATE_DIR/scribewatch.log" 2>&1
