@@ -1,0 +1,154 @@
+name: Native AppImage
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'src/**'
+      - 'frontend/**'
+      - 'packaging/appimage/**'
+      - '.github/workflows/appimage.yml'
+      - '.github/workflows/release.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Native AppImage / ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install pinned Rust and musl target
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal
+          rustup default 1.98.0
+          rustup target add ${{ matrix.arch }}-unknown-linux-musl
+
+      - name: Install AppImage build and media dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            appstream curl desktop-file-utils ffmpeg file fontconfig \
+            libjack0 musl-tools procps python3 shellcheck
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build statically linked Rust server
+        run: cargo build --release --locked --target ${{ matrix.arch }}-unknown-linux-musl
+
+      - name: Validate launcher and packaging scripts
+        run: |
+          shellcheck -x \
+            packaging/appimage/AppRun \
+            packaging/appimage/build.sh \
+            packaging/appimage/fetch-tools.sh
+          sh -n packaging/appimage/AppRun
+          sh -n packaging/appimage/build.sh
+
+      - name: Build AppImage
+        env:
+          SCRIBEWATCH_BINARY: ${{ github.workspace }}/target/${{ matrix.arch }}-unknown-linux-musl/release/scribewatch
+          SCRIBEWATCH_APPIMAGE_BUILD_DIR: ${{ runner.temp }}/scribewatch-appimage-build
+          SCRIBEWATCH_APPIMAGE_OUTPUT_DIR: ${{ github.workspace }}/dist
+          SCRIBEWATCH_APPIMAGE_KEEP_APPDIR: '1'
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: packaging/appimage/build.sh "${{ matrix.arch }}"
+
+      - name: Smoke standalone AppImage
+        shell: bash
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+          SCRIBEWATCH_APPIMAGE_OPEN_BROWSER: '0'
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml","rb"))["package"]["version"])')"
+          IMAGE="dist/ScribeWatch-${VERSION}-${{ matrix.arch }}.AppImage"
+          test -x "$IMAGE"
+          "$IMAGE" --version | grep -F "scribewatch ${VERSION}"
+
+          APPDIR="${RUNNER_TEMP}/scribewatch-appimage-build/ScribeWatch.AppDir"
+          for tool in scribewatch ffmpeg ffprobe curl; do
+            test -x "$APPDIR/usr/bin/$tool"
+          done
+          test -f "$APPDIR/usr/share/scribewatch/version"
+
+          SMOKE="${RUNNER_TEMP}/scribewatch-appimage-smoke"
+          mkdir -p "$SMOKE/home" "$SMOKE/config" "$SMOKE/data" "$SMOKE/state"
+          LOG="$SMOKE/backend.log"
+          HOME="$SMOKE/home" \
+          XDG_CONFIG_HOME="$SMOKE/config" \
+          XDG_DATA_HOME="$SMOKE/data" \
+          XDG_STATE_HOME="$SMOKE/state" \
+          SCRIBEWATCH_PORT=39052 \
+          SCRIBEWATCH_APPIMAGE_OPEN_BROWSER=0 \
+            "$IMAGE" --no-browser >"$LOG" 2>&1 &
+          PID=$!
+          cleanup() {
+            pkill -TERM -P "$PID" >/dev/null 2>&1 || true
+            kill "$PID" >/dev/null 2>&1 || true
+            wait "$PID" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          READY=""
+          for _ in $(seq 1 100); do
+            READY="$(curl -fsS http://127.0.0.1:39052/api/v1/ready 2>/dev/null || true)"
+            case "$READY" in *'"status":"ready"'*) break;; esac
+            if ! kill -0 "$PID" 2>/dev/null; then
+              cat "$LOG"
+              exit 1
+            fi
+            sleep 0.25
+          done
+          echo "$READY"
+          echo "$READY" | grep -q '"status":"ready"'
+          echo "$READY" | grep -q "\"version\":\"$VERSION\""
+          STATUS="$(curl -sS -o "$SMOKE/index.html" -w '%{http_code}' http://127.0.0.1:39052/)"
+          test "$STATUS" = 200
+          grep -qi scribewatch "$SMOKE/index.html"
+          test -d "$SMOKE/config/scribewatch"
+          test -d "$SMOKE/data/scribewatch"
+          test -d "$SMOKE/state/scribewatch"
+
+      - name: Verify AppImage checksum
+        run: |
+          cd dist
+          sha256sum -c ./*.AppImage.sha256
+
+      - name: Upload AppImage artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scribewatch-appimage-${{ matrix.arch }}
+          path: |
+            dist/*.AppImage
+            dist/*.AppImage.sha256
+          if-no-files-found: error
+          retention-days: 14
