@@ -100,9 +100,7 @@ mkdir -p -- \
   "$appdir/usr/share/metainfo" \
   "$out_dir"
 
-cp -L -- "$binary" "$appdir/usr/bin/scribewatch"
-chmod +x "$appdir/usr/bin/scribewatch"
-
+# Install the static PIE Rust server only AFTER linuxdeploy; patchelf corrupts it.
 copy_runtime() {
   source_path=$1
   name=$2
@@ -119,7 +117,6 @@ printf "%s\n" "$version" > "$appdir/usr/share/scribewatch/version"
 
 set -- \
   --appdir "$appdir" \
-  --executable "$appdir/usr/bin/scribewatch" \
   --executable "$appdir/usr/bin/ffmpeg" \
   --executable "$appdir/usr/bin/ffprobe" \
   --executable "$appdir/usr/bin/fc-list" \
@@ -129,6 +126,15 @@ if [ -n "$libjack" ]; then
   set -- "$@" --library "$libjack"
 fi
 APPIMAGE_EXTRACT_AND_RUN=1 "$linuxdeploy" "$@"
+
+# ScribeWatch is a static PIE musl executable. Never run patchelf/linuxdeploy
+# on it: this invalidates the ELF and can cause a segmentation fault at startup.
+cp -L -- "$binary" "$appdir/usr/bin/scribewatch"
+chmod +x "$appdir/usr/bin/scribewatch"
+cmp -s -- "$binary" "$appdir/usr/bin/scribewatch" || {
+  printf "Packaged Rust executable differs from qualified source binary\\n" >&2
+  exit 1
+}
 
 # linuxdeploy intentionally excludes JACK as a host/audio-system library, but
 # Ubuntu's ffmpeg links to it unconditionally. ScribeWatch only needs FFmpeg for
