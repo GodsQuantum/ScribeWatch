@@ -8,6 +8,7 @@ All notable ScribeWatch changes are documented here.
 - A real ScribeWatch Linux AppImage for x86_64 and aarch64, with the complete local Rust server, Svelte UI, FFmpeg/FFprobe, and pinned AppImage runtime dependencies.
 - User-scoped XDG configuration/data/state, loopback-only local server and native launch/browser control.
 - Native AppImage builds, smoke tests and SHA256 assets in GitHub Actions, released only after both architectures pass validation.
+- Native ARM64 GitHub-hosted runners for Docker CI and GHCR release builds, replacing slow QEMU ARM emulation.
 
 ### Fixed
 - Preserve static PIE Rust executables when packaging: prevent linuxdeploy/patchelf from corrupting the server binary.
