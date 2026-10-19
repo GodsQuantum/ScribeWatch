@@ -6,6 +6,7 @@ pub mod jobs;
 pub mod live;
 pub mod providers;
 pub mod quick;
+pub mod speaches;
 pub mod workflows;
 
 use crate::{
@@ -53,6 +54,7 @@ async fn ready(State(state): State<AppState>) -> AppResult<Json<Health>> {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/health", get(health))
+        .route("/api/v1/speaches/probe", post(speaches::probe))
         .route("/api/v1/ready", get(ready))
         .route("/api/v1/dashboard", get(dashboard::stats))
         .route("/api/v1/events", get(events::events))
