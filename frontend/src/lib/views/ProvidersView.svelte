@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api } from '$lib/api';
-  import { probeSpeaches } from '$lib/speaches-discovery.js';
+  import { probeSpeachesViaApp } from '$lib/speaches-discovery.js';
   import type { Provider, ProviderInput } from '$lib/types';
   export let providers: Provider[] = [];
   export let refresh: () => Promise<void> = async () => {};
@@ -22,7 +22,7 @@
     try {
       const existing = providers.find(p => p.id === speachesId);
       if (existing?.hasApiKey) throw new Error('Refusing to repoint a provider with an existing secret key.');
-      const found = await probeSpeaches(speachesAddress);
+      const found = await probeSpeachesViaApp(speachesAddress);
       const input: ProviderInput = {
         id: speachesId, name: 'Cloud9-Speaches — Turbo GGUF',
         transcriptionUrl: found.transcriptionUrl, model: found.model,
