@@ -18,7 +18,7 @@
   <img alt="Compatible Obsidian" src="https://img.shields.io/badge/Obsidian-friendly-7c3aed">
 </p>
 
-<p align="center">🇬🇧 <a href="README.md">English README</a></p>
+<p align="center">🇬🇧 <a href="README.md">English README</a> · <a href="README.zh-CN.md">简体中文</a></p>
 
 ---
 
@@ -274,3 +274,16 @@ Si ScribeWatch trouve sa place dans votre stack, une ⭐ aide d’autres utilisa
 ## 📄 Licence
 
 [MIT](LICENSE)
+
+## Profil matériel prudent, détecté sans modification
+
+**Versions :** [Linux](https://github.com/GodsQuantum/ScribeWatch/releases) · [candidats Windows/macOS](https://github.com/GodsQuantum/ScribeWatch/releases/tag/desktop-v0.5.3-rc.2), non officiellement signés ni notarisés. Vérifier les SHA256.
+
+~~~bash
+python3 scripts/auto-tune.py
+python3 scripts/auto-tune.py --env   # recommandations à reporter manuellement dans .env
+~~~
+
+Une petite machine (2–4 threads ou moins de 8 Gio) commence avec une seule transcription. Pour Ryzen 7 8845HS, 16 threads, conteneur partagé de 32 Gio : débuter avec 2 transcriptions, 1 thread FFmpeg, scan toutes les 5 secondes et stabilité de 2 secondes ; prolonger la stabilité sur réseau NFS lent. Dans Paramètres, appairer un serveur Speaches /v1 réellement accessible et vérifier le Markdown généré à partir d'un vrai fichier.
+
+Un conteneur sur NAS distant ne peut pas lire automatiquement le micro ni les dossiers du poste client : choisir les chemins autorisés. Le détecteur **ne change ni fichiers, ni montages, ni données, ni services**. Vérifier les fallbacks, la conservation de l'original et les archives avant les gros traitements. Pour l'accès distant, reverse proxy HTTPS authentifié.

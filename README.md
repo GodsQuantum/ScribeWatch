@@ -18,7 +18,7 @@
   <img alt="Obsidian friendly" src="https://img.shields.io/badge/Obsidian-friendly-7c3aed">
 </p>
 
-<p align="center">🇫🇷 <a href="README.fr.md">README en français</a></p>
+<p align="center">🇫🇷 <a href="README.fr.md">README en français</a> · <a href="README.zh-CN.md">简体中文</a></p>
 
 ---
 
@@ -277,3 +277,18 @@ If ScribeWatch earns a place in your stack, a ⭐ helps other voice-note and Obs
 ## 📄 License
 
 [MIT](LICENSE)
+
+## Hardware-aware safe performance starter
+
+**Downloads:** [Linux](https://github.com/GodsQuantum/ScribeWatch/releases) · [Windows x64 / macOS Intel and Apple Silicon installer candidates](https://github.com/GodsQuantum/ScribeWatch/releases/tag/desktop-v0.5.3-rc.2). Windows/macOS candidates are unsigned and not Apple-notarized. Check SHA256 before trusting a binary.
+
+~~~bash
+python3 scripts/auto-tune.py           # read-only CPU and RAM detection
+python3 scripts/auto-tune.py --env     # suggested settings to review for .env
+~~~
+
+- On a small host with 2–4 effective threads or under 8 GiB, start with a single transcription.
+- On a shared Ryzen 7 8845HS with 16 threads and a 32 GiB container, start with 2 concurrent jobs, 1 FFmpeg decode thread, 5-second scan interval and 2-second file stability. Slow NFS mounts may require longer stability.
+- Pair an actually available Speaches /v1 or OpenAI-compatible provider from Settings. Test a real audio file and the Markdown/Obsidian output, then check retries, archive safety and provider fallback before enabling a watched folder.
+- A remote NAS container cannot automatically access client-side microphones or files. Enable client folder access or explicitly authorized paths.
+- This detector does **not** modify files, existing mounts, application data or running services. For remote access prefer an authenticated HTTPS reverse proxy over exposing the default loopback-bound Docker port.
