@@ -7,7 +7,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run check && npm test && npm run build
 
-FROM rust:1.98.1-trixie@sha256:a8a5f0a1e5fe7dfe1d352591e4a1c7dd2c08fd70475cae872cf3458ba0df0546 AS builder
+FROM rust:1.99.0-trixie@sha256:81015672d6939b0265f09adf96d5de125482bb1330106076956b0518e74edc90 AS builder
 ARG TARGETARCH
 WORKDIR /src
 COPY rust-toolchain.toml ./
