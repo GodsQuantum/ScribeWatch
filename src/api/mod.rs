@@ -4,6 +4,7 @@ pub mod dashboard;
 pub mod events;
 pub mod jobs;
 pub mod live;
+pub mod local_llm;
 pub mod providers;
 pub mod quick;
 pub mod speaches;
@@ -69,6 +70,14 @@ pub fn router() -> Router<AppState> {
         )
         .route("/api/v1/llm-providers/{id}", delete(ai::delete_provider))
         .route("/api/v1/llm-providers/{id}/models", get(ai::models))
+        .route("/api/v1/llm-local", get(local_llm::engines))
+        .route("/api/v1/llm-local/discover", post(local_llm::discover))
+        .route("/api/v1/llm-local/pull", post(local_llm::pull))
+        .route("/api/v1/llm-local/downloads", get(local_llm::downloads))
+        .route(
+            "/api/v1/llm-local/install-engine",
+            post(local_llm::install_engine),
+        )
         .route(
             "/api/v1/structure-profiles",
             get(ai::list_profiles).post(ai::upsert_profile),
