@@ -65,6 +65,12 @@ jobs:
         shell: bash
         run: |
           python -m unittest discover -s packaging/desktop -p test_media_smoke.py -v
+      - name: Install NSIS on Windows without Chocolatey
+        if: runner.os == 'Windows'
+        uses: negrutiu/nsis-install@f3339c88dba6fd08910d5275a943f8f746d94876 # v2
+        with:
+          distro: negrutiu
+          arch: amd64
       - name: Build and test complete native installer with pinned FFmpeg
         shell: bash
         run: |

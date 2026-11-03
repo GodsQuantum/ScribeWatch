@@ -69,6 +69,7 @@ def main() -> None:
             output=DIST/(APPNAME+"-"+VERSION+"-windows-amd64-setup.exe")
             run(installer,"/V2","/DAPP_NAME="+APPNAME,"/DAPP_VERSION="+VERSION,
                 "/DSTAGING="+str(stage),"/DOUTPUT="+str(output),
+                "/DAPP_ICON="+str(ROOT/"packaging"/"desktop"/"assets"/"app.ico"),
                 ROOT/"packaging"/"desktop"/"installer.nsi")
             assert output.is_file()
             installed=Path(tempfile.gettempdir())/("trio-installed-"+APPNAME)

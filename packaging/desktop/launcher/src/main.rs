@@ -1,3 +1,5 @@
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 use std::{
     env,
     fs::{self, File, OpenOptions},
@@ -8,6 +10,38 @@ use std::{
     thread,
     time::Duration,
 };
+
+#[cfg(target_os = "windows")]
+fn hide_console(command: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW for child CLI/server.
+}
+#[cfg(not(target_os = "windows"))]
+fn hide_console(_: &mut Command) {}
+
+#[cfg(target_os = "windows")]
+fn show_error(message: &str) {
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn MessageBoxW(
+            hwnd: *mut std::ffi::c_void,
+            text: *const u16,
+            caption: *const u16,
+            flags: u32,
+        ) -> i32;
+    }
+    let text = message
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let caption = "ScribeWatch"
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    unsafe {
+        MessageBoxW(std::ptr::null_mut(), text.as_ptr(), caption.as_ptr(), 0x10);
+    }
+}
 
 const APP_NAME: &str = "ScribeWatch";
 const APP_ENV: &str = "SCRIBEWATCH";
@@ -59,8 +93,10 @@ fn executable(name: &str) -> String {
 }
 
 fn check_binary(file: &Path, arg: &str) -> Result<String, String> {
-    let result = Command::new(file)
-        .arg(arg)
+    let mut command = Command::new(file);
+    command.arg(arg);
+    hide_console(&mut command);
+    let result = command
         .output()
         .map_err(|e| format!("{}: {e}", file.display()))?;
     if !result.status.success() {
@@ -96,26 +132,54 @@ fn http_health(port: u16) -> Result<String, String> {
 
 fn open_browser(port: u16) -> Result<(), String> {
     let url = format!("http://127.0.0.1:{port}/");
+    // Browser app mode uses the OS web renderer without a second Electron/Tauri
+    // bundle. A normal browser remains a safe fallback on any unsupported host.
     #[cfg(target_os = "windows")]
-    let mut cmd = {
-        let mut c = Command::new("explorer.exe");
-        c.arg(&url);
-        c
-    };
+    {
+        for root in ["PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"] {
+            if let Some(prefix) = env::var_os(root) {
+                for relative in [
+                    "Microsoft/Edge/Application/msedge.exe",
+                    "Google/Chrome/Application/chrome.exe",
+                ] {
+                    let exe = PathBuf::from(&prefix).join(relative);
+                    if exe.is_file() {
+                        let mut command = Command::new(exe);
+                        command.arg(format!("--app={url}"));
+                        hide_console(&mut command);
+                        return command.spawn().map(|_| ()).map_err(|e| e.to_string());
+                    }
+                }
+            }
+        }
+        let mut fallback = Command::new("explorer.exe");
+        fallback.arg(&url);
+        hide_console(&mut fallback);
+        return fallback.spawn().map(|_| ()).map_err(|e| e.to_string());
+    }
     #[cfg(target_os = "macos")]
-    let mut cmd = {
-        let mut c = Command::new("open");
-        c.arg(&url);
-        c
-    };
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    let mut cmd = {
-        let mut c = Command::new("xdg-open");
-        c.arg(&url);
-        c
-    };
-    cmd.spawn().map_err(|e| e.to_string())?;
-    Ok(())
+    {
+        if Path::new("/Applications/Google Chrome.app").exists() {
+            return Command::new("open")
+                .args(["-a", "Google Chrome", "--args", &format!("--app={url}")])
+                .spawn()
+                .map(|_| ())
+                .map_err(|e| e.to_string());
+        }
+        return Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string());
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
 }
 
 fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
@@ -189,7 +253,9 @@ fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
         .append(true)
         .open(&logpath)
         .map_err(|e| e.to_string())?;
-    let mut child = Command::new(&server)
+    let mut command = Command::new(&server);
+    hide_console(&mut command);
+    let mut child = command
         .env(format!("{APP_ENV}_HOST"), "127.0.0.1")
         .env(format!("{APP_ENV}_PORT"), port.to_string())
         .env(format!("{APP_ENV}_CONFIG_DIR"), &config)
@@ -245,6 +311,8 @@ fn main() {
     let no_browser = env::args().any(|arg| arg == "--no-browser");
     if let Err(error) = launch(smoke, no_browser) {
         eprintln!("{APP_NAME}: {error}");
+        #[cfg(target_os = "windows")]
+        show_error(&error);
         std::process::exit(1);
     }
 }
