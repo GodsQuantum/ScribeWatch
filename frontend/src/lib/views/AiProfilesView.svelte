@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from '$lib/api';
+  import { onMount } from 'svelte';
   import type { LlmProvider, LlmProviderInput, StructureProfile } from '$lib/types';
 
   export let llmProviders:LlmProvider[]=[];
@@ -18,6 +19,80 @@
   let providerDraft=blankProvider();
   let providerBusy=false;
   let providerModels:string[]=[];
+  let desktopAvailable=false;
+  let detectedEngines:Array<{name:string;chatCompletionsUrl:string;models:string[]}>=[];
+  let discoveryBusy=false;
+  let installBusy=false;
+  let installStatus='';
+  let installModel='lfm3-1.7b';
+  let downloadStatus='';
+  let isWindows=false;
+
+  onMount(()=>{
+    isWindows=navigator.userAgent.toLowerCase().includes('windows');
+    void scanLocalEngines();
+  });
+  async function scanLocalEngines(){
+    discoveryBusy=true;
+    try {
+      const result=await api.llmLocalEngines();
+      desktopAvailable=result.desktop;
+      detectedEngines=result.engines;
+    } catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{discoveryBusy=false;}
+  }
+  function useEngine(engine:{name:string;chatCompletionsUrl:string;models:string[]}){
+    newProvider();
+    providerDraft.name=engine.name;
+    providerDraft.chatCompletionsUrl=engine.chatCompletionsUrl;
+    providerDraft.model=engine.models[0]??'';
+    providerModels=engine.models;
+  }
+  async function discoverDraft(){
+    if(!providerDraft.chatCompletionsUrl.trim())return;
+    discoveryBusy=true;
+    try{
+      providerModels=(await api.llmDiscoverDraft(providerDraft.chatCompletionsUrl,providerDraft.apiKey??'')).models;
+      if(providerModels.length&&!providerModels.includes(providerDraft.model))providerDraft.model=providerModels[0];
+      if(!providerModels.length)notify('error','No installed chat models returned by this provider.');
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{discoveryBusy=false;}
+  }
+  async function installEngine(){
+    if(!confirm('Install AMD Lemonade Server on this Windows computer via WinGet, then download the recommended Liquid LFM3-1.7B Q4_K_M model (~1.1 GB)? Normal Windows installer prompts still apply.'))return;
+    installBusy=true;
+    installStatus='Installation via WinGet…';
+    try{
+      const done=await api.llmInstallEngine();
+      installStatus=done.status==='installed'?'Lemonade installed. Checking model installation…':done.status;
+      await scanLocalEngines();
+      if(detectedEngines.some(engine=>engine.name==='Lemonade Server')){
+        const job=await api.llmInstallModel('lfm3-1.7b');
+        installStatus='Lemonade installed; Liquid LFM3-1.7B download '+job.status+'. Check progress to confirm completion.';
+      }else{
+        installStatus='Lemonade installed. Start Lemonade, scan engines, then click Install selected model.';
+      }
+    }catch(e){installStatus=e instanceof Error?e.message:String(e);}
+    finally{installBusy=false;}
+  }
+  async function installRecommendedModel(){
+    const description=installModel==='lfm3-1.7b'?'Liquid LFM3-1.7B Q4_K_M (~1.1 GB)':'Qwen3.5-4B Q4_K_M (~3 GB)';
+    if(!confirm('Download '+description+' into the local Lemonade cache?'))return;
+    installBusy=true;installStatus='Starting model download…';
+    try{
+      const job=await api.llmInstallModel(installModel);
+      installStatus=job.model+': download '+job.status+'. Check progress, then rescan engines.';
+    }catch(e){installStatus=e instanceof Error?e.message:String(e);}
+    finally{installBusy=false;}
+  }
+  async function checkDownloads(){
+    try{
+      const jobs=await api.llmDownloads();
+      downloadStatus=jobs.length?jobs.map(job=>(job.model_name??'Model')+': '+(job.status??'pending')+' ('+(job.percent??0)+'%)').join(' • '):'No ongoing downloads.';
+      await scanLocalEngines();
+    }catch(e){downloadStatus=e instanceof Error?e.message:String(e);}
+  }
+
   let profileId='';
   let profileDraft=blankProfile();
   let profileBusy=false;
@@ -36,6 +111,7 @@
       await refresh();
       const current=llmProviders.find((provider)=>provider.id===saved.id)??saved;
       editProvider(current);
+      try{providerModels=(await api.llmModels(current.id)).models;}catch{/* Nonstandard model endpoints remain manually configurable. */}
       notify('success','LLM provider saved.');
     }catch(e){notify('error',e instanceof Error?e.message:String(e));}
     finally{providerBusy=false;}
@@ -101,6 +177,55 @@
     </div>
   </section>
 
+  <section class="card">
+    <div class="card-header">
+      <strong>Local AI engine discovery</strong>
+      <button class="btn" disabled={discoveryBusy} on:click={scanLocalEngines}>Scan this computer</button>
+    </div>
+    <div class="card-body stack">
+      {#if desktopAvailable}
+        <p class="muted small">Native desktop: check Lemonade (13305), LM Studio (1234), Ollama (11434) and llama.cpp (8080). No download happens during detection.</p>
+        {#if detectedEngines.length}
+          <div class="tag-list">
+            {#each detectedEngines as engine}
+              <button class="chip-button" on:click={()=>useEngine(engine)}>
+                Use {engine.name} ({engine.models.length} models)
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <span class="muted small">No local engine detected. Start a current engine or install one below.</span>
+        {/if}
+        {#if isWindows}
+          <div class="stack">
+            <strong>Optional Windows engine installation</strong>
+            <p class="muted small">WinGet installs the official AMD Lemonade Server package only after your confirmation. Windows may display normal installer prompts.</p>
+            <div class="row wrap">
+              <button class="btn" disabled={installBusy} on:click={installEngine}>Install Lemonade + LFM3 (WinGet)</button>
+              <a href="https://github.com/lemonade-sdk/lemonade/releases/latest/download/lemonade.msi" target="_blank" rel="noopener noreferrer">Official MSI</a>
+            </div>
+          </div>
+        {/if}
+        {#if detectedEngines.some(engine=>engine.name==='Lemonade Server')}
+          <div class="stack">
+            <strong>Download a recommended LLM</strong>
+            <div class="row wrap">
+              <select class="select" bind:value={installModel} aria-label="Recommended LLM">
+                <option value="lfm3-1.7b">Liquid LFM3-1.7B Q4_K_M — small</option>
+                <option value="qwen3.5-4b">Qwen3.5-4B Q4_K_M — stronger</option>
+              </select>
+              <button class="btn primary" disabled={installBusy} on:click={installRecommendedModel}>Install selected model</button>
+              <button class="btn" disabled={installBusy} on:click={checkDownloads}>Check progress</button>
+            </div>
+            {#if downloadStatus}<p class="muted small">{downloadStatus}</p>{/if}
+          </div>
+        {/if}
+        {#if installStatus}<p class="muted small">{installStatus}</p>{/if}
+      {:else}
+        <p class="muted small">Automatic host discovery and installation are for the native desktop app only. In server deployments, enter your existing inference endpoint below.</p>
+      {/if}
+    </div>
+  </section>
   <div class="ai-grid">
     <section class="card">
       <div class="card-header"><strong>LLM providers</strong><button class="btn" on:click={newProvider}>+ Provider</button></div>
@@ -124,6 +249,7 @@
           </div>
           {#if providerModels.length}<div class="tag-list">{#each providerModels as model}<button class="chip-button" on:click={()=>providerDraft.model=model}>{model}</button>{/each}</div>{/if}
           <div class="form-actions">
+            {#if desktopAvailable}<button class="btn" disabled={discoveryBusy||!providerDraft.chatCompletionsUrl} on:click={discoverDraft}>Find models from URL</button>{/if}
             {#if providerId}<button class="btn danger" on:click={removeProvider}>Delete</button><button class="btn" disabled={providerBusy} on:click={discoverProviderModels}>Discover models</button>{/if}
             <span class="spacer"></span><button class="btn primary" disabled={providerBusy||!providerDraft.name||!providerDraft.chatCompletionsUrl||!providerDraft.model} on:click={saveProvider}>Save provider</button>
           </div>

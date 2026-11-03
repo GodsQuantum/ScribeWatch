@@ -193,16 +193,7 @@ pub async fn models(
     if !status.is_success() {
         return Err(AppError::Upstream(format!("HTTP {status}: {value}")));
     }
-    let mut models = value
-        .get("data")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|entry| entry.get("id").and_then(Value::as_str))
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
-    models.sort();
-    models.dedup();
+    let models = super::local_llm::model_ids(&value);
     Ok(Json(ModelsResponse { models }))
 }
 

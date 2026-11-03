@@ -292,3 +292,30 @@ python3 scripts/auto-tune.py --env     # suggested settings to review for .env
 - Pair an actually available Speaches /v1 or OpenAI-compatible provider from Settings. Test a real audio file and the Markdown/Obsidian output, then check retries, archive safety and provider fallback before enabling a watched folder.
 - A remote NAS container cannot automatically access client-side microphones or files. Enable client folder access or explicitly authorized paths.
 - This detector does **not** modify files, existing mounts, application data or running services. For remote access prefer an authenticated HTTPS reverse proxy over exposing the default loopback-bound Docker port.
+
+### Optional local text LLM (native desktop)
+
+In **AI Profiles → Local AI engine discovery**, the desktop build checks only
+known localhost API ports for Lemonade Server (13305), LM Studio (1234), Ollama
+(11434) and llama.cpp/Llama-Windows (8080). Click a detected engine to prefill
+the OpenAI-compatible chat endpoint and choose a locally available model.
+For a custom endpoint, provide its chat-completions URL and optional API key,
+then use **Find models from URL** (desktop) or **Discover models** after saving
+a provider (desktop or server). No clinical transcript is sent during discovery.
+
+On Windows, **Install Lemonade (WinGet)** explicitly asks permission before
+using the official AMD.LemonadeServer package; alternatively, the official MSI
+download is linked. Neither engine nor model installs automatically.
+After Lemonade is running, **Install selected model** offers a lightweight
+official Liquid LFM3-1.7B Q4_K_M GGUF or the larger Qwen3.5-4B Q4_K_M,
+using Lemonade's own native model-download API and persistent job manager.
+Click **Check progress** to see download status; rescan when complete.
+Model architecture support depends on the installed backend version.
+Small models are not automatically clinically accurate: review and correct
+all generated reports, and keep the original transcript.
+
+Security boundaries: the install/pull APIs exist only when the native desktop
+launcher marks its loopback-bound backend. They require a matching same-origin
+browser request, accept only allowlisted model IDs/official WinGet package IDs,
+and cannot execute caller-supplied commands or fetch arbitrary installation
+scripts. Normal server/Docker deployments do not gain host-install privileges.

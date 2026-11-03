@@ -261,6 +261,7 @@ fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
     hide_console(&mut command);
     let mut child = command
         .env(format!("{APP_ENV}_HOST"), "127.0.0.1")
+        .env("SCRIBEWATCH_DESKTOP_MODE", "1")
         .env(format!("{APP_ENV}_PORT"), port.to_string())
         .env(format!("{APP_ENV}_CONFIG_DIR"), &config)
         .env(format!("{APP_ENV}_DATA_DIR"), &data)

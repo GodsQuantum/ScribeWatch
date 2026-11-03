@@ -79,6 +79,17 @@ export const api = {
   }),
   deleteLlmProvider: (id: string) => request<void>(`/api/v1/llm-providers/${id}`, { method: 'DELETE' }),
   llmModels: (id: string) => request<{models:string[]}>(`/api/v1/llm-providers/${id}/models`),
+  llmLocalEngines: () => request<{desktop:boolean;engines:{name:string;chatCompletionsUrl:string;models:string[]}[]}>('/api/v1/llm-local'),
+  llmDiscoverDraft: (chatCompletionsUrl:string,apiKey:string) => request<{models:string[]}>('/api/v1/llm-local/discover', {
+    method:'POST',body:JSON.stringify({chatCompletionsUrl,apiKey})
+  }),
+  llmInstallEngine: () => request<{status:string;model:string}>('/api/v1/llm-local/install-engine', {
+    method:'POST',body:JSON.stringify({})
+  }),
+  llmInstallModel: (model:string) => request<{status:string;model:string}>('/api/v1/llm-local/pull', {
+    method:'POST',body:JSON.stringify({model})
+  }),
+  llmDownloads: () => request<Array<{model_name?:string;percent?:number;status?:string}>>('/api/v1/llm-local/downloads'),
   structureProfiles: () => request<StructureProfile[]>('/api/v1/structure-profiles'),
   saveStructureProfile: (profile: Omit<StructureProfile,'builtIn'>) => request<StructureProfile>('/api/v1/structure-profiles', {
     method: 'POST', body: JSON.stringify(profile)
