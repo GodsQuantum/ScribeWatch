@@ -31,21 +31,21 @@ test('onboard discovery uses the ScribeWatch API and does not send transcripts',
   assert.ok(!client.slice(client.indexOf('llmLocalEngines:'), client.indexOf('structureProfiles:')).includes('transcript'));
 });
 
-test('host installs are restricted to desktop launcher and explicit selection', () => {
-  const launcher = read('packaging/desktop/launcher/src/main.rs');
-  const server = read('src/api/local_llm.rs');
-  assert.match(launcher, /SCRIBEWATCH_DESKTOP_MODE/);
-  assert.match(server, /same_origin\(&headers\)/);
-  assert.match(server, /AMD\.LemonadeServer/);
-  assert.match(server, /cfg!\(target_os = "windows"\)/);
-  assert.match(server, /No user-supplied command/);
-  assert.doesNotMatch(server, /sh -c|powershell -Command/);
+test('Windows installer requires explicit UI confirmation and desktop gate', () => {
+  const ui = read('frontend/src/lib/views/AiProfilesView.svelte');
+  assert.match(ui, /desktopAvailable/);
+  assert.match(ui, /isWindows/);
+  assert.match(ui, /confirm\('Install AMD Lemonade Server/);
+  assert.match(ui, /api\.llmInstallEngine\(\)/);
+  assert.match(ui, /Install Lemonade \+ LFM3/);
 });
 
-test('recommended models download through the Lemonade native API', () => {
-  const server = read('src/api/local_llm.rs');
-  assert.match(server, /\/v1\/pull/);
-  assert.match(server, /"subscribe": false/);
-  assert.match(server, /LiquidAI\/LFM3-1\.7B-GGUF:Q4_K_M/);
-  assert.match(server, /unsloth\/Qwen3\.5-4B-GGUF:Q4_K_M/);
+test('recommended models are selected explicitly via the local provider API', () => {
+  const ui = read('frontend/src/lib/views/AiProfilesView.svelte');
+  const client = read('frontend/src/lib/api.ts');
+  assert.match(ui, /confirm\('Download '/);
+  assert.match(ui, /api\.llmInstallModel\(installModel\)/);
+  assert.match(ui, /lfm3-1\.7b/);
+  assert.match(ui, /qwen3\.5-4b/);
+  assert.match(client, /llmInstallModel:.*\/api\/v1\/llm-local\/pull/);
 });
