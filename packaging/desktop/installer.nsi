@@ -12,6 +12,10 @@ Unicode true
 !ifndef OUTPUT
   !error "Missing OUTPUT"
 !endif
+!ifdef APP_ICON
+Icon "${APP_ICON}"
+UninstallIcon "${APP_ICON}"
+!endif
 Name "${APP_NAME} ${APP_VERSION}"
 OutFile "${OUTPUT}"
 InstallDir "$LOCALAPPDATA\Programs\${APP_NAME}"

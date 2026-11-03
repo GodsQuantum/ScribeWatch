@@ -77,6 +77,8 @@ export interface StructureProfile {
   name: string;
   description: string;
   prompt: string;
+  outputTemplate: string;
+  outputExample: string;
   providerId: string;
   model: string;
   builtIn: boolean;

@@ -22,3 +22,5 @@ Build: first `npm ci && npm run build` inside frontend; then
 `SCRIBEWATCH_BINARY=target/<arch>-unknown-linux-musl/release/scribewatch
 packaging/appimage/build.sh <arch>`. Pinned download hashes are defined in
 `fetch-tools.sh`.
+
+Toolchain pinned to linuxdeploy 1-alpha-20251107-1, appimagetool 1.9.1, type2-runtime 20251108, with per-architecture SHA-256 verification. Do not switch back to mutable continuous releases.

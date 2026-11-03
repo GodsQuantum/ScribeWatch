@@ -22,5 +22,8 @@
   },
   "overrides": {
     "cookie": "0.7.2"
+  },
+  "dependencies": {
+    "pdf-lib": "1.17.1"
   }
 }

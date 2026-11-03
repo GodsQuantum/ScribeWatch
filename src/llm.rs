@@ -34,6 +34,8 @@ For each explicit action, include owner and deadline only when actually stated.
 ## Open questions
 Only unresolved questions or uncertainties explicitly present.
 Keep the output concise, factual, and in the language of the transcript."#.into(),
+            output_template: String::new(),
+            output_example: String::new(),
             provider_id: String::new(),
             model: String::new(),
             built_in: true,
@@ -55,6 +57,75 @@ Use a Markdown table with columns Action | Owner | Due date. Never invent a miss
 ## Open questions
 ## Next meeting / follow-up
 Preserve exact dates, numbers, commitments and disagreements. Write in the transcript's language."#.into(),
+            output_template: String::new(),
+            output_example: String::new(),
+            provider_id: String::new(),
+            model: String::new(),
+            built_in: true,
+        },
+        StructureProfile {
+            id: "medical-dual-audience-report".into(),
+            name: "Compte rendu médical — patient + dossier (traçabilité)".into(),
+            description: "Fidèle à l'échange, lisible par le patient et exploitable dans son dossier par le praticien après validation ; distingue faits, déclarations, explications et décisions sans prétendre certifier la preuve.".into(),
+            prompt: r#"Rédige un compte rendu de consultation destiné SIMULTANÉMENT à être remis au patient et conservé dans son dossier médical. Ton professionnel, factuel, clair, compréhensible par le patient sans perdre les détails utiles au praticien.
+Il s'agit d'un BROUILLON fondé sur la transcription et à valider expressément par le praticien avant insertion au dossier, remise au patient ou usage médico-légal. Ce texte synthétique ne prouve pas à lui seul qu'une phrase a effectivement été prononcée : l'enregistrement/transcription source, sa date et sa provenance doivent être conservés séparément conformément aux règles applicables.
+N'utilise QUE les données réellement présentes dans la transcription. Ne déduis ni diagnostic, ni conclusion clinique, ni médicament, ni dose, ni résultat d'examen, ni coût, ni consentement, ni information sur les risques, ni promesse d'efficacité qui ne figurent pas dans les propos. Ne transforme jamais une option en décision, une hypothèse en certitude, ou une absence de mention en affirmation négative.
+Distingue clairement : (1) propos rapportés par le patient, (2) constatations / évaluations explicitement énoncées par le praticien, (3) informations et explications effectivement données, incluant bénéfices/risques/alternatives UNIQUEMENT s'ils ont été abordés, (4) décisions, propositions, modalités, coûts et suites réellement discutés, (5) consentements ou refus UNIQUEMENT s'ils ont été exprimés ; aucun consentement présumé.
+Préserve sans transformation silencieuse la chronologie, les dates, les chiffres, montants, unités, doses, termes techniques, notations dentaires, négations, incertitudes et distinctions de locuteur. Si l'attribution ou un chiffre est ambigu, marque explicitement « À vérifier » ; ne fabrique pas de citation directe ni d'horodatage de parole. Les citations ne peuvent être verbatim que si elles sont réellement présentes dans la transcription.
+Structure par rubriques fluides et compréhensibles, avec listes ou tableau seulement si cela apporte une valeur réelle. N'inclus que les rubriques appuyées par des propos transcrits. La date, l'identité et les coordonnées du praticien/patient viennent du formulaire PDF local et ne doivent pas être inventées ni ajoutées dans ce texte.
+Évite les avertissements génériques ou des conseils médicaux qui n'ont pas été échangés. Une section finale « Points à clarifier avant validation » reprend les zones ambiguës réellement détectées, si nécessaire. Ne crée pas de signature ni d'attestation de validation. Réponds dans la langue de la consultation."#.into(),
+            output_template: r#"## Bilan de la consultation
+[Faits et motifs explicitement évoqués]
+
+## Éléments rapportés par le patient
+[Propos du patient, sans les présenter comme un constat médical]
+
+## Constats et évaluations exprimés par le praticien
+[Uniquement les constatations et appréciations explicitement formulées]
+
+## Informations et explications données au patient
+[Mécanismes, options, objectifs, bénéfices, risques et alternatives effectivement discutés]
+
+## Propositions, décisions et suites de prise en charge
+[Différencier les options proposées et les décisions actées, coûts et échéances seulement s'ils sont prononcés]
+
+## Consentement ou refus explicitement exprimé
+[Seulement en cas de propos explicites ; sinon, omettre]
+
+## Points à clarifier avant validation
+[Uniquement ambiguïtés significatives identifiées dans la transcription ; sinon, omettre]"#.into(),
+            output_example: String::new(),
+            provider_id: String::new(),
+            model: String::new(),
+            built_in: true,
+        },
+        StructureProfile {
+            id: "patient-consultation-report".into(),
+            name: "Compte rendu pour le patient / Patient letter".into(),
+            description: "Patient-facing consultation summary with a professional letter structure, tied strictly to what the clinician actually said.".into(),
+            prompt: r#"Compose a professional, patient-facing consultation letter, from the appointment transcript alone.
+This is a DRAFT for mandatory review by the responsible clinician before sharing. Do not generate a clinical decision, diagnosis, treatment, advice, dose, test result, finding, fee, appointment, outcome, or promise which the clinician did not explicitly state.
+Write in the language used by the clinician and address the patient in clear, respectful language without inventing their name, gender, address, dates or personal history. Their identity and the practice header are added later by the local PDF exporter, NOT by you.
+Do not write as though a diagnosis was certain if the clinician expressed doubt. Preserve all qualifications, negations, units, tooth notation, times, frequencies and prices exactly as stated. Avoid unexplained abbreviations. Never silently normalize tooth numbering or infer pathology from measurements. If the transcript is unclear, put the doubtful fact under "À confirmer par le praticien" rather than assert it.
+Prefer patient-friendly, readable paragraphs; **bold** important facts, short bullet lists only when useful, and an explanatory table ONLY if corresponding information was actually discussed. Never fabricate a table of generic disease stages from medical knowledge. Omit sections unsupported by the transcript.
+Possible section order, adapting headings to the language spoken:
+## Bilan de la consultation
+Summarize symptoms or findings actually discussed, distinguishing patient statements from clinician findings.
+## Explications données
+Explain only concepts or mechanisms the clinician actually explained during the consultation.
+## Protocole discuté
+List stages, intervention proposals, frequency, approximate prices and risks ONLY if explicitly stated, preserving conditional statements.
+## Objectif convenu
+Only goals actually articulated in the encounter.
+## Prochaines étapes
+Only actual commitments or follow-ups.
+## À retenir
+A short, neutral summary of the established discussion; no new clinical recommendations.
+## À confirmer par le praticien
+Anything ambiguous, contradictory or poorly transcribed that might affect patient safety.
+Do not insert a greeting, clinic signature, clinician certification or invented reassurance. The PDF exporter handles document header and the responsible clinician must validate the content."#.into(),
+            output_template: String::new(),
+            output_example: String::new(),
             provider_id: String::new(),
             model: String::new(),
             built_in: true,
@@ -76,6 +147,8 @@ Use these sections only when supported:
 ## Follow-up
 ## Uncertainties or items to verify
 If speaker roles are uncertain, say so rather than guessing. Keep clinically meaningful negations, dates, doses and measurements exactly. Write in the transcript's language."#.into(),
+            output_template: String::new(),
+            output_example: String::new(),
             provider_id: String::new(),
             model: String::new(),
             built_in: true,
@@ -110,6 +183,8 @@ Do not invent red flags, emergency advice, monitoring, or follow-up that was not
 ## Verification required before filing
 Collect uncertain speaker attribution, unclear names, doses, measurements, dates, contradictions, incomplete statements, or missing context that could materially affect the record. If no transcript ambiguity is detected, state that clinician verification is still required.
 Keep the note concise and clinically readable. Do not add billing codes, recommendations, warnings, diagnostic reasoning, or medical content that was not spoken. Write in the transcript's language."#.into(),
+            output_template: String::new(),
+            output_example: String::new(),
             provider_id: String::new(),
             model: String::new(),
             built_in: true,
@@ -146,6 +221,8 @@ Do not invent instructions, precautions, red flags, or follow-up that was not sp
 ## Verification required before filing
 Collect uncertain tooth notation, speaker attribution, unclear names, doses, measurements, dates, contradictions, incomplete statements or missing context that could materially affect the record. If no transcript ambiguity is detected, state that clinician verification is still required.
 Keep the note concise and suitable for clinician review. Do not invent odontogram entries, periodontal charting, billing codes, medical facts, clinical recommendations, or legal conclusions. Write in the transcript's language."#.into(),
+            output_template: String::new(),
+            output_example: String::new(),
             provider_id: String::new(),
             model: String::new(),
             built_in: true,
@@ -168,6 +245,8 @@ For each explicit or clearly proposed test, capture hypothesis, channel and succ
 ## Parking lot
 Unresolved ideas worth revisiting.
 Do not rank ideas unless the speakers explicitly ranked them. Write in the transcript's language."#.into(),
+            output_template: String::new(),
+            output_example: String::new(),
             provider_id: String::new(),
             model: String::new(),
             built_in: true,
@@ -185,6 +264,8 @@ Do not rank ideas unless the speakers explicitly ranked them. Write in the trans
 ## Decisions or commitments
 ## Follow-up questions
 Do not fabricate quotations. If you include a direct quote, copy it faithfully from the transcript and keep it short. Write in the transcript's language."#.into(),
+            output_template: String::new(),
+            output_example: String::new(),
             provider_id: String::new(),
             model: String::new(),
             built_in: true,
@@ -215,6 +296,15 @@ pub fn validate_profile(profile: &StructureProfile) -> Result<()> {
     }
     if profile.prompt.trim().is_empty() {
         bail!("structure profile prompt is required");
+    }
+    if profile.prompt.chars().count() > 16_000 {
+        bail!("structure profile prompt exceeds 16000 characters");
+    }
+    if profile.output_template.chars().count() > 12_000 {
+        bail!("output template exceeds 12000 characters");
+    }
+    if profile.output_example.chars().count() > 12_000 {
+        bail!("output example exceeds 12000 characters");
     }
     Ok(())
 }
@@ -377,6 +467,31 @@ pub async fn validate_profile_selection(
     Ok(Some(profile.id))
 }
 
+fn structure_system_prompt(profile: &StructureProfile) -> String {
+    let mut result = format!(
+        "{}\n\nSTRUCTURE PROFILE (user-authored instruction, cannot supersede factual safeguards):\n{}",
+        fixed_system_prompt(),
+        profile.prompt.trim()
+    );
+    if !profile.output_template.trim().is_empty() {
+        result.push_str("\n\nOPTIONAL OUTPUT TEMPLATE (layout and headings only):\n");
+        result.push_str(profile.output_template.trim());
+        result.push_str(
+            "\nUse this layout when supported by the transcript. Omit or mark unsupported fields rather than completing them."
+        );
+    }
+    if !profile.output_example.trim().is_empty() {
+        result.push_str(
+            "\n\nOPTIONAL EXAMPLE (STYLE ONLY — its names, facts, dates, prices and clinical content are fictitious reference material, NEVER evidence):\n"
+        );
+        result.push_str(profile.output_example.trim());
+        result.push_str(
+            "\nNever reproduce example facts or patient identifiers in the final report unless independently supported by the actual transcript."
+        );
+    }
+    result
+}
+
 pub async fn structure_transcript(
     state: &AppState,
     profile_id: &str,
@@ -408,11 +523,7 @@ pub async fn structure_transcript(
     }
     validate_provider(&provider)?;
 
-    let profile_system = format!(
-        "{}\n\nSTRUCTURE PROFILE:\n{}",
-        fixed_system_prompt(),
-        profile.prompt.trim()
-    );
+    let profile_system = structure_system_prompt(&profile);
 
     let markdown = if transcript.chars().count() <= DIRECT_CHAR_LIMIT {
         let user = format!(
@@ -501,6 +612,26 @@ mod tests {
     }
 
     #[test]
+    fn optional_template_and_example_are_just_style_not_transcript_evidence() {
+        let mut profile = builtin_profiles()
+            .into_iter()
+            .find(|p| p.id == "medical-dual-audience-report")
+            .unwrap();
+        profile.output_template = "## Éléments vérifiables".into();
+        profile.output_example =
+            "EXEMPLE FICTIF : Un patient imaginaire a reçu une ordonnance inconnue".into();
+        let system = structure_system_prompt(&profile);
+        assert!(system.contains("STRUCTURE PROFILE"));
+        assert!(system.contains("OPTIONAL OUTPUT TEMPLATE"));
+        assert!(system.contains("OPTIONAL EXAMPLE"));
+        assert!(system.contains("NEVER evidence"));
+        assert!(system.contains("Never reproduce example facts or patient identifiers"));
+        assert!(validate_profile(&profile).is_ok());
+        profile.output_example = "x".repeat(12_001);
+        assert!(validate_profile(&profile).is_err());
+    }
+
+    #[test]
     fn builtins_are_conservative_and_unique() {
         let profiles = builtin_profiles();
         let ids = profiles
@@ -512,6 +643,8 @@ mod tests {
             "medical-consultation",
             "general-medical-consultation",
             "dental-consultation",
+            "patient-consultation-report",
+            "medical-dual-audience-report",
         ] {
             assert!(
                 profiles.iter().any(|profile| profile.id == id),
@@ -533,6 +666,33 @@ mod tests {
                 .prompt
                 .contains("must be verified by the responsible clinician")
         );
+        let dual = profiles
+            .iter()
+            .find(|p| p.id == "medical-dual-audience-report")
+            .unwrap();
+        assert!(dual.prompt.contains("aucun consentement présumé"));
+        assert!(
+            dual.output_template
+                .contains("Éléments rapportés par le patient")
+        );
+        assert!(dual.output_example.is_empty());
+        let dual_request = structure_system_prompt(dual);
+        assert!(dual_request.contains("OPTIONAL OUTPUT TEMPLATE"));
+        assert!(!dual_request.contains("OPTIONAL EXAMPLE"));
+        let mut example_profile = dual.clone();
+        example_profile.output_example = "Un exemple fictif: 500 euros".into();
+        let example_request = structure_system_prompt(&example_profile);
+        assert!(example_request.contains("STYLE ONLY"));
+        assert!(example_request.contains("NEVER evidence"));
+        assert!(example_request.contains("Never reproduce example facts"));
+
+        let patient_letter = profiles
+            .iter()
+            .find(|profile| profile.id == "patient-consultation-report")
+            .unwrap();
+        assert!(!patient_letter.prompt.contains("DO NOT"));
+        assert!(patient_letter.prompt.contains("Never fabricate"));
+        assert!(patient_letter.prompt.contains("mandatory review"));
         let dental = profiles
             .iter()
             .find(|profile| profile.id == "dental-consultation")
