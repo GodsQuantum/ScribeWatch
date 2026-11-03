@@ -567,7 +567,7 @@ mod tests {
             .iter()
             .find(|profile| profile.id == "patient-consultation-report")
             .unwrap();
-        assert!(patient_letter.prompt.contains("DO NOT") == false);
+        assert!(!patient_letter.prompt.contains("DO NOT"));
         assert!(patient_letter.prompt.contains("Never fabricate"));
         assert!(patient_letter.prompt.contains("mandatory review"));
         let dental = profiles
