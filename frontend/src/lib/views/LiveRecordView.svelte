@@ -64,6 +64,48 @@
   let pdfDestinationLabel='';
   let pdfDate=new Date();
 
+  type LivePreset={
+    name:string;transcriptionChain:TranscriptionRoute[];language:string;
+    structureProfileId:string;outputMode:'computer'|'server';outputDir:string;
+    frontmatter:boolean;paragraphs:boolean;medicalReportEnabled:boolean;
+    audioRetentionMode:'none'|'server'|'client';audioServerDir:string;
+  };
+  const presetStorageKey='scribewatch.live.presets.v1';
+  let presets:LivePreset[]=[];
+  let presetName='';
+  let presetSelected='';
+  function savePreset(){
+    const name=presetName.trim().slice(0,64);
+    if(!name){notify('error','Nom de profil requis');return;}
+    const item:LivePreset={
+      name,transcriptionChain:structuredClone(transcriptionChain),language,
+      structureProfileId,outputMode,outputDir,frontmatter,paragraphs,
+      medicalReportEnabled,audioRetentionMode,audioServerDir
+    };
+    presets=[...presets.filter(p=>p.name!==name),item].slice(-30);
+    try{localStorage.setItem(presetStorageKey,JSON.stringify(presets));presetSelected=name;
+      notify('success','Profil de session enregistre sans donnees patient.');
+    }catch(e){notify('error','Enregistrement du profil impossible');}
+  }
+  function applyPreset(name:string){
+    presetSelected=name;
+    const p=presets.find(p=>p.name===name);
+    if(!p)return;
+    transcriptionChain=structuredClone(p.transcriptionChain);
+    chainInitialized=true;
+    language=p.language;structureProfileId=p.structureProfileId;
+    outputMode=p.outputMode;outputDir=p.outputDir;
+    frontmatter=p.frontmatter;paragraphs=p.paragraphs;
+    medicalReportEnabled=p.medicalReportEnabled;
+    audioRetentionMode=p.audioRetentionMode;audioServerDir=p.audioServerDir;
+  }
+  function deletePreset(){
+    if(!presetSelected)return;
+    presets=presets.filter(p=>p.name!==presetSelected);
+    localStorage.setItem(presetStorageKey,JSON.stringify(presets));
+    presetSelected='';presetName='';
+  }
+
   async function choosePdfFolder(){
     if(!localDirectoryAvailable)return;
     try{
@@ -515,6 +557,10 @@
   }
 
   onMount(()=>{
+    try{
+      const stored=JSON.parse(localStorage.getItem(presetStorageKey)||'[]');
+      if(Array.isArray(stored))presets=stored.filter(p=>p&&typeof p.name==='string'&&Array.isArray(p.transcriptionChain)).slice(-30);
+    }catch{presets=[];}
     secureContext=window.isSecureContext;
     unsubscribeController=controller.subscribe(applySnapshot);
     localProxyPlatform=detectLocalProxyPlatform(navigator as Navigator & {userAgentData?:{platform?:string}});
@@ -699,6 +745,12 @@
 
         <div class="subsection stack">
           <strong>Profil de sortie de la session</strong>
+          <div class="grid two">
+            <div class="field"><label for="live-preset">Profil enregistre</label><select id="live-preset" class="select" value={presetSelected} on:change={(e)=>applyPreset(e.currentTarget.value)} disabled={recording}><option value="">Configuration manuelle</option>{#each presets as preset}<option value={preset.name}>{preset.name}</option>{/each}</select></div>
+            <div class="field"><label for="live-preset-name">Nom du profil</label><input id="live-preset-name" class="input" bind:value={presetName} disabled={recording} placeholder="Consultation parodontale"/></div>
+          </div>
+          <div class="row wrap"><button class="btn compact" on:click={savePreset} disabled={recording||!presetName.trim()}>Enregistrer ce profil</button>{#if presetSelected}<button class="btn compact" on:click={deletePreset} disabled={recording}>Supprimer le profil</button>{/if}</div>
+          <span class="help">Le profil conserve la chaine de transcription, les modeles et les destinations. Les identites des patients ne sont jamais sauvegardees dans ces profils.</span>
           <span class="help">Transcription et modele de structuration : selections ci-dessus.</span>
           <label class="check"><input type="checkbox" checked={medicalReportEnabled} on:change={(e)=>enableMedicalReport(e.currentTarget.checked)} disabled={recording}/> Compte rendu de consultation (PDF)</label>
           {#if medicalReportEnabled}

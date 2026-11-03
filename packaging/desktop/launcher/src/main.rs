@@ -43,6 +43,8 @@ fn show_error(message: &str) {
     }
 }
 
+mod desktop_tray;
+
 const APP_NAME: &str = "ScribeWatch";
 const APP_ENV: &str = "SCRIBEWATCH";
 const SERVER_NAME: &str = "scribewatch-server";
@@ -227,6 +229,8 @@ fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
         if smoke {
             return Err("A server already occupies the smoke test port".into());
         }
+        // A second launch restores the hidden tray without restarting the backend.
+        desktop_tray::request_show(&base);
         if !no_browser {
             open_browser(port)?;
         }
@@ -298,6 +302,16 @@ fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
     }
     if !no_browser {
         open_browser(port)?;
+    }
+    // Existing CLI probes still exit without any GUI, including CI --smoke.
+    // In GUI mode a native tray owns the server lifetime; no extra service.
+    if !env::args().any(|arg| arg == "--no-tray")
+        && (cfg!(target_os = "windows")
+            || cfg!(target_os = "macos")
+            || env::var_os("DISPLAY").is_some()
+            || env::var_os("WAYLAND_DISPLAY").is_some())
+    {
+        return desktop_tray::run(port, base, child);
     }
     let status = child.wait().map_err(|e| e.to_string())?;
     if !status.success() {
