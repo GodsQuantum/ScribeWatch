@@ -217,3 +217,16 @@ export interface EmbeddedRuntimeStatus {
   }>;
   download:{status:string;model:string};
 }
+
+// Spaces are metadata only: they never relocate or rewrite recordings.
+export type SpaceKind='general'|'project'|'meeting'|'case';
+export interface Space {
+  id:string;
+  name:string;
+  kind:SpaceKind;
+  createdAtMs:number;
+}
+export interface SpaceMembership {
+  jobId:string;
+  spaceId:string;
+}

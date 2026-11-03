@@ -34,6 +34,7 @@ jobs:
         run: |
           cargo +1.98.0 build --locked --bin scribewatch
           python3 -m unittest discover -s packaging/desktop -p test_embedded_runtime.py -v
+          python3 -m unittest discover -s packaging/desktop -p test_spaces_e2e.py -v
           python3 -m unittest discover -s packaging/desktop -p test_standalone_bundle.py -v
 
   frontend:
