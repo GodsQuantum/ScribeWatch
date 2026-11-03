@@ -60,6 +60,35 @@ Preserve exact dates, numbers, commitments and disagreements. Write in the trans
             built_in: true,
         },
         StructureProfile {
+            id: "patient-consultation-report".into(),
+            name: "Compte rendu pour le patient / Patient letter".into(),
+            description: "Patient-facing consultation summary with a professional letter structure, tied strictly to what the clinician actually said.".into(),
+            prompt: r#"Compose a professional, patient-facing consultation letter, from the appointment transcript alone.
+This is a DRAFT for mandatory review by the responsible clinician before sharing. Do not generate a clinical decision, diagnosis, treatment, advice, dose, test result, finding, fee, appointment, outcome, or promise which the clinician did not explicitly state.
+Write in the language used by the clinician and address the patient in clear, respectful language without inventing their name, gender, address, dates or personal history. Their identity and the practice header are added later by the local PDF exporter, NOT by you.
+Do not write as though a diagnosis was certain if the clinician expressed doubt. Preserve all qualifications, negations, units, tooth notation, times, frequencies and prices exactly as stated. Avoid unexplained abbreviations. Never silently normalize tooth numbering or infer pathology from measurements. If the transcript is unclear, put the doubtful fact under "À confirmer par le praticien" rather than assert it.
+Prefer patient-friendly, readable paragraphs; **bold** important facts, short bullet lists only when useful, and an explanatory table ONLY if corresponding information was actually discussed. Never fabricate a table of generic disease stages from medical knowledge. Omit sections unsupported by the transcript.
+Possible section order, adapting headings to the language spoken:
+## Bilan de la consultation
+Summarize symptoms or findings actually discussed, distinguishing patient statements from clinician findings.
+## Explications données
+Explain only concepts or mechanisms the clinician actually explained during the consultation.
+## Protocole discuté
+List stages, intervention proposals, frequency, approximate prices and risks ONLY if explicitly stated, preserving conditional statements.
+## Objectif convenu
+Only goals actually articulated in the encounter.
+## Prochaines étapes
+Only actual commitments or follow-ups.
+## À retenir
+A short, neutral summary of the established discussion; no new clinical recommendations.
+## À confirmer par le praticien
+Anything ambiguous, contradictory or poorly transcribed that might affect patient safety.
+Do not insert a greeting, clinic signature, clinician certification or invented reassurance. The PDF exporter handles document header and the responsible clinician must validate the content."#.into(),
+            provider_id: String::new(),
+            model: String::new(),
+            built_in: true,
+        },
+        StructureProfile {
             id: "medical-consultation".into(),
             name: "Medical consultation draft".into(),
             description: "A conservative clinical documentation draft that never invents diagnoses or findings.".into(),
@@ -512,6 +541,7 @@ mod tests {
             "medical-consultation",
             "general-medical-consultation",
             "dental-consultation",
+            "patient-consultation-report",
         ] {
             assert!(
                 profiles.iter().any(|profile| profile.id == id),
@@ -533,6 +563,13 @@ mod tests {
                 .prompt
                 .contains("must be verified by the responsible clinician")
         );
+        let patient_letter = profiles
+            .iter()
+            .find(|profile| profile.id == "patient-consultation-report")
+            .unwrap();
+        assert!(patient_letter.prompt.contains("DO NOT") == false);
+        assert!(patient_letter.prompt.contains("Never fabricate"));
+        assert!(patient_letter.prompt.contains("mandatory review"));
         let dental = profiles
             .iter()
             .find(|profile| profile.id == "dental-consultation")

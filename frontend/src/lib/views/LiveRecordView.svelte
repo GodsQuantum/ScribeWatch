@@ -60,6 +60,8 @@
   let patientForename='';
   let patientBirthDate='';
   let practitionerName='';
+  let practiceAddress='';
+  let practiceContact='';
   let pdfDestination:FileSystemDirectoryHandle|undefined;
   let pdfDestinationLabel='';
   let pdfDate=new Date();
@@ -119,10 +121,11 @@
   function enableMedicalReport(checked:boolean){
     medicalReportEnabled=checked;
     if(checked){
+      const letter=structureProfiles.find(p=>p.id==='patient-consultation-report'&&p.providerId);
       const dental=structureProfiles.find(p=>p.id==='dental-consultation'&&p.providerId);
       const general=structureProfiles.find(p=>p.id==='medical-consultation'&&p.providerId);
       const current=structureProfiles.find(p=>p.id===structureProfileId);
-      if(!current?.providerId)structureProfileId=(dental??general)?.id??'';
+      if(!current?.providerId)structureProfileId=(letter??dental??general)?.id??'';
     }
   }
   let frontmatter=true;
@@ -502,7 +505,7 @@
       if(format==='pdf'&&medicalReportEnabled){
         const {createMedicalPdf,medicalFilename}=await import('$lib/medical-report');
         const source=await api.jobMarkdown(current.id);
-        const patient={surname:patientSurname,forename:patientForename,dateOfBirth:patientBirthDate,practitioner:practitionerName};
+        const patient={surname:patientSurname,forename:patientForename,dateOfBirth:patientBirthDate,practitioner:practitionerName,practiceAddress,practiceContact};
         const blob=await createMedicalPdf(await source.blob.text(),patient,pdfDate);
         await saveResponseToDirectory(new Response(blob),medicalFilename(patient,pdfDate),pdfDestination,window);
         notify('success','PDF clinique cree. Relecture medicale requise.');
@@ -761,8 +764,11 @@
               <div class="field"><label for="patient-first">Prenom (facultatif)</label><input id="patient-first" class="input" autocomplete="off" bind:value={patientForename}/></div>
               <div class="field"><label for="patient-dob">Date de naissance</label><input id="patient-dob" class="input" type="date" bind:value={patientBirthDate}/></div>
               <div class="field"><label for="patient-doctor">Praticien</label><input id="patient-doctor" class="input" autocomplete="off" bind:value={practitionerName}/></div>
+              <div class="field"><label for="practice-address">Adresse du cabinet (facultative)</label><input id="practice-address" class="input" autocomplete="off" bind:value={practiceAddress} placeholder="Adresse complète" /></div>
+              <div class="field"><label for="practice-contact">Contact professionnel (facultatif)</label><input id="practice-contact" class="input" autocomplete="off" bind:value={practiceContact} placeholder="Téléphone ou e-mail" /></div>
             </div>
             <div class="row wrap"><button class="btn compact" on:click={choosePdfFolder} disabled={!localDirectoryAvailable}>Dossier PDF</button><span class="help">{pdfDestinationLabel||'Choisir au moment de la sauvegarde'}</span></div>
+            <span class="help">Modèle de rédaction conseillé : « Compte rendu pour le patient / Patient letter » (à relier à un fournisseur LLM dans AI structure profiles). Les données du patient et du cabinet restent locales au PDF.</span>
             <span class="help">Nom automatique du PDF : 3 lettres NOM + 3 lettres PRENOM + date. Rendu local sur cet ordinateur, sans Pandoc.</span>
           {/if}
         </div>
