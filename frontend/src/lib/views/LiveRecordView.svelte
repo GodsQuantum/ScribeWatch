@@ -64,8 +64,6 @@
   let practiceContact='';
   let pdfDestination:FileSystemDirectoryHandle|undefined;
   let pdfDestinationLabel='';
-  let pdfDate=new Date();
-
   type LivePreset={
     name:string;transcriptionChain:TranscriptionRoute[];language:string;
     structureProfileId:string;outputMode:'computer'|'server';outputDir:string;
@@ -121,11 +119,12 @@
   function enableMedicalReport(checked:boolean){
     medicalReportEnabled=checked;
     if(checked){
+      const dual=structureProfiles.find(p=>p.id==='medical-dual-audience-report'&&p.providerId);
       const letter=structureProfiles.find(p=>p.id==='patient-consultation-report'&&p.providerId);
       const dental=structureProfiles.find(p=>p.id==='dental-consultation'&&p.providerId);
       const general=structureProfiles.find(p=>p.id==='medical-consultation'&&p.providerId);
       const current=structureProfiles.find(p=>p.id===structureProfileId);
-      if(!current?.providerId)structureProfileId=(letter??dental??general)?.id??'';
+      if(!current?.providerId)structureProfileId=(dual??letter??dental??general)?.id??'';
     }
   }
   let frontmatter=true;
@@ -503,12 +502,23 @@
     exporting=format;
     try{
       if(format==='pdf'&&medicalReportEnabled){
-        const {createMedicalPdf,medicalFilename}=await import('$lib/medical-report');
+        const {createMedicalPdf,medicalFilename,uniqueMedicalFilename}=await import('$lib/medical-report');
         const source=await api.jobMarkdown(current.id);
-        const patient={surname:patientSurname,forename:patientForename,dateOfBirth:patientBirthDate,practitioner:practitionerName,practiceAddress,practiceContact};
-        const blob=await createMedicalPdf(await source.blob.text(),patient,pdfDate);
-        await saveResponseToDirectory(new Response(blob),medicalFilename(patient,pdfDate),pdfDestination,window);
-        notify('success','PDF clinique cree. Relecture medicale requise.');
+        const sourceMarkdown=await source.blob.text();
+        // Content-derived link to the separately preserved Markdown note, not a signature.
+        const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(sourceMarkdown));
+        const sourceDocumentSha256=Array.from(new Uint8Array(digest),value=>value.toString(16).padStart(2,'0')).join('');
+        const patient={surname:patientSurname,forename:patientForename,dateOfBirth:patientBirthDate,
+          practitioner:practitionerName,practiceAddress,practiceContact,
+          sourceSessionRef:current.quick?.live?.sessionId??current.id,
+          sourceDocumentSha256,structuredProfile:current.structuredProfileName,structuredModel:current.structuredModel};
+        const sessionMs=current.quick?.live?.startedAtMs??current.createdAtMs;
+        const sessionDate=Number.isFinite(sessionMs)&&sessionMs>0?new Date(sessionMs):new Date();
+        const blob=await createMedicalPdf(sourceMarkdown,patient,sessionDate);
+        const target=pdfDestination??(localDirectoryAvailable?await (window as any).showDirectoryPicker({mode:'readwrite'}) as FileSystemDirectoryHandle:undefined);
+        const filename=target?await uniqueMedicalFilename(target,medicalFilename(patient,sessionDate)):medicalFilename(patient,sessionDate);
+        await saveResponseToDirectory(new Response(blob),filename,target,window);
+        notify('success','Brouillon PDF créé. Vérifier les faits, archiver le Markdown source et faire valider par le praticien.');
       }else{
         const result=await api.jobExport(current.id,format);
         await saveMarkdownLocally(result.filename,result.blob);
@@ -768,7 +778,8 @@
               <div class="field"><label for="practice-contact">Contact professionnel (facultatif)</label><input id="practice-contact" class="input" autocomplete="off" bind:value={practiceContact} placeholder="Téléphone ou e-mail" /></div>
             </div>
             <div class="row wrap"><button class="btn compact" on:click={choosePdfFolder} disabled={!localDirectoryAvailable}>Dossier PDF</button><span class="help">{pdfDestinationLabel||'Choisir au moment de la sauvegarde'}</span></div>
-            <span class="help">Modèle de rédaction conseillé : « Compte rendu pour le patient / Patient letter » (à relier à un fournisseur LLM dans AI structure profiles). Les données du patient et du cabinet restent locales au PDF.</span>
+            <span class="help">Profil recommandé : « Compte rendu médical — patient + dossier (traçabilité) ». Le PDF est un brouillon à valider par le praticien ; conserver la source de l'enregistrement séparément. Les informations du formulaire patient/cabinet sont ajoutées localement au PDF.</span>
+            {#if audioRetentionMode==='none'}<span class="help">Attention : aucune copie audio permanente. Pour documenter les échanges, choisir explicitement une conservation de l'audio si elle est autorisée ; le PDF seul ne certifie pas les propos.</span>{/if}
             <span class="help">Nom automatique du PDF : 3 lettres NOM + 3 lettres PRENOM + date. Rendu local sur cet ordinateur, sans Pandoc.</span>
           {/if}
         </div>

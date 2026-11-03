@@ -3,6 +3,10 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf
 export interface PatientMetadata {
   surname:string;forename:string;dateOfBirth:string;
   practitioner?:string;practiceAddress?:string;practiceContact?:string;
+  sourceSessionRef?:string;
+  sourceDocumentSha256?:string;
+  structuredProfile?:string;
+  structuredModel?:string;
 }
 export function medicalFilename(patient:PatientMetadata,date=new Date()):string{
   const letters=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,3);
@@ -10,6 +14,23 @@ export function medicalFilename(patient:PatientMetadata,date=new Date()):string{
   const day=[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
   return (a&&b?a+b+'_':'CONSULTATION_')+day+'.pdf';
 }
+/** A saved consultation report must not overwrite another encounter on the same day. */
+export async function uniqueMedicalFilename(directory:FileSystemDirectoryHandle,filename:string):Promise<string>{
+  const dot=filename.lastIndexOf('.');
+  const base=dot>=0?filename.slice(0,dot):filename;
+  const extension=dot>=0?filename.slice(dot):'';
+  for(let n=1;n<=999;n++){
+    const candidate=n===1?filename:base+'_'+n+extension;
+    try{
+      await directory.getFileHandle(candidate,{create:false});
+    }catch(error){
+      if(error instanceof DOMException&&error.name==='NotFoundError')return candidate;
+      throw error;
+    }
+  }
+  throw new Error('Too many reports with the same name in this directory');
+}
+
 export function structuredMedicalBody(text:string):string{
   const matched=text.match(/^## Structured notes\s*([\s\S]*?)(?=^## Transcript\s*$|(?![\s\S]))/m);
   if(matched?.[1]?.trim())return matched[1].trim();
@@ -42,6 +63,7 @@ function wrap(text:string,font:PDFFont,size:number,width:number):string[]{
 export async function createMedicalPdf(markdown:string,patient:PatientMetadata,date=new Date()):Promise<Blob>{
   const pdf=await PDFDocument.create();
   pdf.setTitle('Compte rendu de consultation');pdf.setCreator('ScribeWatch');
+  if(patient.sourceSessionRef)pdf.setSubject('Brouillon non validé ; référence de session '+patient.sourceSessionRef);
   const regular=await pdf.embedFont(StandardFonts.Helvetica);
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
   const W=595.28,H=841.89,M=49,contentWidth=W-2*M;
@@ -144,10 +166,22 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     else if(/^[-*]\s/.test(line)||/^\d+[.)]\s/.test(line))draw('• '+line.replace(/^(?:[-*]|\d+[.)])\s+/,''),'bullet');
     else draw(line);
   }
+  if(patient.sourceSessionRef||patient.sourceDocumentSha256||patient.structuredProfile||patient.structuredModel){
+    y-=8;
+    draw('Références documentaires (brouillon non validé)','section');
+    if(patient.sourceSessionRef)draw('Session source : '+patient.sourceSessionRef);
+    if(patient.structuredProfile)draw('Profil de mise en forme : '+patient.structuredProfile);
+    if(patient.structuredModel)draw('Modèle de rédaction : '+patient.structuredModel);
+    if(patient.sourceDocumentSha256)draw('SHA-256 du Markdown source : '+patient.sourceDocumentSha256);
+    draw("L’empreinte sert à comparer la note Markdown archivée. Elle ne certifie pas l’audio, l’identité des intervenants, le contenu des propos ni la validation clinique.");
+  }
   for(let i=0;i<pages.length;i++){
     const p=pages[i];
     p.drawLine({start:{x:M,y:53},end:{x:W-M,y:53},thickness:.7,color:rgb(.78,.83,.84)});
-    p.drawText('Brouillon - validation obligatoire par le praticien',{x:M,y:37,size:8,font:regular,color:muted});
+    const footer=patient.sourceSessionRef
+      ? 'Brouillon - validation du praticien requise | Réf. '+patient.sourceSessionRef.slice(0,12)
+      : 'Brouillon - validation obligatoire par le praticien';
+    p.drawText(footer,{x:M,y:37,size:7.8,font:regular,color:muted});
     const n='Page '+(i+1)+' / '+pages.length;
     p.drawText(n,{x:W-M-bold.widthOfTextAtSize(n,8),y:37,size:8,font:bold,color:muted});
   }
