@@ -1,4 +1,5 @@
 use crate::{
+    api::embedded::EmbeddedManager,
     config::Config,
     db::Database,
     domain::{Job, JobEvent, JobStatus, LlmProvider, Provider, StructureProfile, Workflow},
@@ -12,6 +13,7 @@ use tokio_util::sync::CancellationToken;
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<Config>,
+    pub embedded: Arc<EmbeddedManager>,
     pub db: Database,
     pub providers: Arc<RwLock<Vec<Provider>>>,
     pub llm_providers: Arc<RwLock<Vec<LlmProvider>>>,
@@ -60,8 +62,10 @@ impl AppState {
             .user_agent(concat!("ScribeWatch/", env!("CARGO_PKG_VERSION")))
             .build()?;
         let slots = config.max_transcription_jobs.max(1);
+        let embedded = Arc::new(EmbeddedManager::new(&db, &config)?);
         Ok(Self {
             config: Arc::new(config),
+            embedded,
             db,
             providers: Arc::new(RwLock::new(providers)),
             llm_providers: Arc::new(RwLock::new(llm_providers)),
