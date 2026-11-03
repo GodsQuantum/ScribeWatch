@@ -1,0 +1,108 @@
+name: Standalone Windows candidate (native STT and LLM)
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'frontend/**'
+      - 'packaging/desktop/**'
+      - '.github/workflows/standalone-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-windows:
+    runs-on: windows-2025
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Prepare pinned release dependencies and verify SHA256
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .native-cache/speaches .native-cache/llama
+          # Source: tested Cloud9-Speaches native ASR release from PR16 merge.
+          gh release download desktop-v0.1.0-rc.5 -R GodsQuantum/Cloud9-Speaches \
+            --pattern 'Cloud9-Speaches-windows-amd64.zip' -D .native-cache/speaches
+          # Upstream llama.cpp b12074 pinned binary variants, includes CUDA runtime DLLs.
+          gh release download b12074 -R ggml-org/llama.cpp \
+            --pattern 'llama-b12074-bin-win-cpu-x64.zip' \
+            --pattern 'llama-b12074-bin-win-vulkan-x64.zip' \
+            --pattern 'llama-b12074-bin-win-cuda-12.4-x64.zip' \
+            --pattern 'cudart-llama-bin-win-cuda-12.4-x64.zip' \
+            -D .native-cache/llama
+          python packaging/desktop/standalone_bundle.py \
+            --platform windows-amd64 \
+            --speaches '.native-cache/speaches/Cloud9-Speaches-windows-amd64.zip' \
+            --speaches-sha '5e8a7e4edf716545b32c5738584c898b562e381f136fadb9a7f7ca49f4cf4751' \
+            --llm-cpu '.native-cache/llama/llama-b12074-bin-win-cpu-x64.zip' \
+            --llm-cpu-sha 51f5e2c0f74cb4a37103416228888c43188b81d31c7fb8ac01e38d07a516279f \
+            --llm-vulkan '.native-cache/llama/llama-b12074-bin-win-vulkan-x64.zip' \
+            --llm-vulkan-sha 588d7f20ee97b5d83739474fbd9f50a43a4b055679ae81b889f5d8f3fbc42b33 \
+            --llm-cuda '.native-cache/llama/llama-b12074-bin-win-cuda-12.4-x64.zip' \
+            --llm-cuda-sha 283473b230ec36437af8bdf6f865263715e95648fc5929317f47f92f4c5d9365 \
+            --cuda-runtime '.native-cache/llama/cudart-llama-bin-win-cuda-12.4-x64.zip' \
+            --cuda-runtime-sha 8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6 \
+            --output '.native-cache/engines'
+
+      - name: Rust and frontend native desktop release
+        shell: bash
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal
+          rustup default 1.98.0
+          cd frontend
+          npm ci --no-audit --no-fund
+          npm run check
+          npm test
+          npm run build
+          cd ..
+          cargo build --release --locked
+          cargo build --release --locked --manifest-path packaging/desktop/launcher/Cargo.toml
+
+      - name: Validate package inputs and genuine FFmpeg media
+        shell: bash
+        run: |
+          python -m unittest discover -s packaging/desktop -p test_standalone_bundle.py -v
+          python -m unittest discover -s packaging/desktop -p test_standalone_stage.py -v
+          python -m unittest discover -s packaging/desktop -p test_media_smoke.py -v
+          python -m unittest discover -s packaging/desktop -p test_installer_dependencies.py -v
+
+      - name: Install NSIS via immutable action
+        uses: negrutiu/nsis-install@f3339c88dba6fd08910d5275a943f8f746d94876 # v2
+        with:
+          distro: negrutiu
+          arch: amd64
+
+      - name: Build full standalone, install, start both engines and uninstall
+        shell: bash
+        env:
+          SCRIBEWATCH_EMBEDDED_DIR: ${{ github.workspace }}/.native-cache/engines
+        run: |
+          python packaging/desktop/native_pipeline.py
+
+      - name: Upload unsigned/non-notarized verified Windows candidate + SHA256
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scribewatch-full-standalone-windows-amd64
+          path: |
+            dist/desktop/*standalone-setup.exe
+            dist/desktop/*standalone-setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 14
