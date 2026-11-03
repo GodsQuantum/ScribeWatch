@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod browse;
 pub mod dashboard;
+pub mod embedded;
 pub mod events;
 pub mod jobs;
 pub mod live;
@@ -70,6 +71,15 @@ pub fn router() -> Router<AppState> {
         )
         .route("/api/v1/llm-providers/{id}", delete(ai::delete_provider))
         .route("/api/v1/llm-providers/{id}/models", get(ai::models))
+        .route("/api/v1/embedded/status", get(embedded::status))
+        .route("/api/v1/embedded/mode", post(embedded::set_mode))
+        .route("/api/v1/embedded/models/{kind}", get(embedded::models))
+        .route("/api/v1/embedded/download", post(embedded::download))
+        .route(
+            "/api/v1/embedded/stt/variants",
+            post(embedded::asr_variants),
+        )
+        .route("/api/v1/embedded/stt/install", post(embedded::asr_install))
         .route("/api/v1/llm-local", get(local_llm::engines))
         .route("/api/v1/llm-local/discover", post(local_llm::discover))
         .route("/api/v1/llm-local/pull", post(local_llm::pull))

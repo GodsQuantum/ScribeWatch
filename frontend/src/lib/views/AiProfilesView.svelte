@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from '$lib/api';
   import { onMount } from 'svelte';
-  import type { LlmProvider, LlmProviderInput, StructureProfile } from '$lib/types';
+  import type { LlmProvider, LlmProviderInput, StructureProfile, EmbeddedKind, EmbeddedMode, EmbeddedRuntimeStatus } from '$lib/types';
 
   export let llmProviders:LlmProvider[]=[];
   export let structureProfiles:StructureProfile[]=[];
@@ -31,6 +31,7 @@
   onMount(()=>{
     isWindows=navigator.userAgent.toLowerCase().includes('windows');
     void scanLocalEngines();
+    void refreshEmbedded();
   });
   async function scanLocalEngines(){
     discoveryBusy=true;
@@ -91,6 +92,109 @@
       downloadStatus=jobs.length?jobs.map(job=>(job.model_name??'Model')+': '+(job.status??'pending')+' ('+(job.percent??0)+'%)').join(' • '):'No ongoing downloads.';
       await scanLocalEngines();
     }catch(e){downloadStatus=e instanceof Error?e.message:String(e);}
+  }
+
+  let embedded:EmbeddedRuntimeStatus={desktop:false,engines:[],download:{status:'',model:''}};
+  let embeddedBusy=false;
+  let selectedSTT='handy-computer/whisper-large-v3-turbo-gguf';
+  let selectedLLM='LiquidAI/LFM3-1.7B-GGUF:Q4_K_M';
+  let customLLM='';
+  let asrSource='handy-computer/parakeet-ultra-gguf';
+  let asrVariants:Array<{label:string;filename:string}>=[];
+  let asrVariant='';
+  let asrBusy=false;
+  async function discoverAsrVariants(){
+    asrBusy=true;
+    try{
+      asrVariants=(await api.embeddedAsrVariants(asrSource)).variants;
+      asrVariant=asrVariants[0]?.filename??'';
+      if(!asrVariants.length)notify('error','Aucune quantification GGUF trouvée.');
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{asrBusy=false;}
+  }
+  async function installAsrVariant(){
+    if(!asrVariant || !confirm('Télécharger '+asrVariant+' dans le cache local ScribeWatch ?'))return;
+    asrBusy=true;
+    try{
+      const result=await api.embeddedAsrInstall(asrSource,asrVariant);
+      embedded={...embedded,download:result};
+      notify('success','Téléchargement demandé. Vérifiez son état avec Actualiser.');
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{asrBusy=false;}
+  }
+  async function installAcousticPack(){
+    if(!confirm('Télécharger le pack acoustique ScribeWatch complet (transcription + alignement) ?'))return;
+    asrBusy=true;
+    try{
+      const result=await api.embeddedDownload('stt','scribewatch-pack');
+      embedded={...embedded,download:result};
+      notify('success','Installation du pack acoustique demandée.');
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{asrBusy=false;}
+  }
+
+  let embeddedSttModels:string[]=[];
+  let embeddedLlmModels:string[]=[];
+  const embeddedCatalog=[
+    ['handy-computer/whisper-large-v3-turbo-gguf','Whisper Turbo · multilingue'],
+    ['handy-computer/parakeet-ultra-gguf','Parakeet Ultra · rapide'],
+    ['handy-computer/Qwen3-ASR-0.6B-gguf','Qwen3-ASR 0.6B'],
+    ['handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf','Nemotron 3.5 ASR']
+  ];
+  async function refreshEmbedded(){
+    try {
+      embedded=await api.embeddedStatus();
+      for(const kind of ['stt','llm'] as EmbeddedKind[]){
+        if(embedded.engines.find(engine=>engine.kind===kind)?.running){
+          try {
+            const info=await api.embeddedModels(kind);
+            const ids=(info.data??info.models??[]).map(m=>m.id??m.model??'').filter(Boolean);
+            if(kind==='stt')embeddedSttModels=ids;else embeddedLlmModels=ids;
+          }catch { if(kind==='stt')embeddedSttModels=[];else embeddedLlmModels=[]; }
+        }
+      }
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+  }
+  async function setEmbeddedMode(kind:EmbeddedKind,mode:EmbeddedMode){
+    if(mode==='internal'&&!confirm('Démarrer le moteur '+kind+' inclus dans ScribeWatch ? Cela utilisera la RAM et éventuellement le GPU.'))return;
+    embeddedBusy=true;
+    try{
+      embedded=await api.embeddedSetMode(kind,mode);
+      await refreshEmbedded();
+      notify('success',mode==='internal'?'Moteur intégré lancé.':'Moteur intégré arrêté. Les fournisseurs externes sont conservés.');
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{embeddedBusy=false;}
+  }
+  async function downloadEmbedded(kind:EmbeddedKind){
+    const model=kind==='llm'?(customLLM.trim()||selectedLLM):selectedSTT;
+    if(!confirm('Télécharger le modèle '+model+' sur cet ordinateur ? Les poids restent locaux.'))return;
+    embeddedBusy=true;
+    try{
+      const result=await api.embeddedDownload(kind,model);
+      embedded={...embedded,download:result};
+      notify('success','Téléchargement demandé. Actualiser le statut pour vérifier son achèvement.');
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{embeddedBusy=false;}
+  }
+  function selectEmbeddedLlm(){
+    const model=embeddedLlmModels[0]??'';
+    newProvider();
+    providerDraft={...providerDraft,name:'LLM intégré ScribeWatch',
+      chatCompletionsUrl:'http://127.0.0.1:38080/v1/chat/completions',model};
+    providerModels=[...embeddedLlmModels];
+  }
+  async function connectEmbeddedStt(){
+    const model=embeddedSttModels[0];
+    if(!model){notify('error','Téléchargez puis sélectionnez un modèle de transcription.');return;}
+    embeddedBusy=true;
+    try{
+      await api.saveProvider({id:'',name:'Transcription intégrée ScribeWatch',
+        transcriptionUrl:'http://127.0.0.1:38005/v1/audio/transcriptions',
+        model,timeoutSeconds:600,enabled:true,apiKey:''});
+      await refresh();
+      notify('success','Fournisseur de transcription interne créé. Choisissez-le pour vos workflows.');
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{embeddedBusy=false;}
   }
 
   let profileId='';
@@ -174,6 +278,106 @@
       <span class="status-pill done">TRANSCRIPT FIRST</span>
       <span>Audio → canonical transcript → optional LLM structure → Markdown with both views.</span>
       <span class="muted small">If the LLM fails, ScribeWatch still publishes the transcript.</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <strong>Moteurs intégrés — transcription et rédaction</strong>
+      <button class="btn" disabled={embeddedBusy} on:click={refreshEmbedded}>Actualiser</button>
+    </div>
+    <div class="card-body stack">
+      <p class="muted small">ScribeWatch peut piloter ses moteurs internes sans installer de service système. Chaque moteur reste facultatif, et les fournisseurs externes déjà configurés ne sont jamais effacés.</p>
+      {#if embedded.desktop}
+        {#each embedded.engines as engine}
+          <div class="stack">
+            <div class="row wrap">
+              <strong>{engine.kind==='stt'?'Transcription · Cloud9-Speaches':'Rédaction · llama.cpp'}</strong>
+              <span class="status-pill" class:done={engine.running}>
+                {engine.running?'Démarré':engine.bundled?'Arrêté':'Module absent de cet installateur'}
+              </span>
+            </div>
+            <div class="row wrap">
+              <label for={'embedded-'+engine.kind}>Mode du moteur</label>
+              <select id={'embedded-'+engine.kind} class="select" value={engine.mode}
+                disabled={embeddedBusy}
+                on:change={(event)=>setEmbeddedMode(engine.kind,event.currentTarget.value as EmbeddedMode)}>
+                <option value="external">Externe : fournisseur configuré</option>
+                <option value="internal" disabled={!engine.bundled}>Interne : utiliser le module inclus</option>
+                <option value="disabled">Désactiver ce moteur interne</option>
+              </select>
+              <span class="muted small mono">{engine.endpoint}</span>
+            </div>
+            {#if engine.running && engine.kind==='stt'}
+              <div class="field">
+                <label for="embedded-stt-choice">Modèle de transcription</label>
+                <select id="embedded-stt-choice" class="select" bind:value={selectedSTT}>
+                  {#each embeddedCatalog as option}
+                    <option value={option[0]}>{option[1]}</option>
+                  {/each}
+                </select>
+              </div>
+              <div class="row wrap">
+                <button class="btn" disabled={embeddedBusy} on:click={()=>downloadEmbedded('stt')}>Télécharger le modèle ASR</button>
+                <button class="btn" disabled={embeddedBusy||!embeddedSttModels.length} on:click={connectEmbeddedStt}>Configurer ce moteur comme fournisseur STT</button>
+                <a href="http://127.0.0.1:38005/" target="_blank" rel="noopener noreferrer">Gestion avancée des modèles ASR</a>
+              </div>
+              <div class="row wrap">
+                <button class="btn primary" disabled={asrBusy} on:click={installAcousticPack}>
+                  Installer pack complet ScribeWatch (ASR + alignement)
+                </button>
+              </div>
+              <div class="field">
+                <label for="embedded-hf-source">Modèle ASR Hugging Face personnalisé</label>
+                <input id="embedded-hf-source" class="input mono" bind:value={asrSource}
+                  placeholder="organisation/modele-gguf ou URL Hugging Face"/>
+              </div>
+              <div class="row wrap">
+                <button class="btn" disabled={asrBusy||!asrSource.trim()} on:click={discoverAsrVariants}>
+                  Rechercher les quantifications GGUF
+                </button>
+                {#if asrVariants.length}
+                  <select class="select" bind:value={asrVariant} aria-label="Quantification du modèle vocal">
+                    {#each asrVariants as entry}
+                      <option value={entry.filename}>{entry.label}</option>
+                    {/each}
+                  </select>
+                  <button class="btn primary" disabled={asrBusy||!asrVariant} on:click={installAsrVariant}>
+                    Télécharger la variante choisie
+                  </button>
+                {/if}
+              </div>
+              <p class="muted small">Les GGUF ASR transcribe.cpp uniquement ; les GGUF llama.cpp ne sont pas interchangeables. Le catalogue est chargé sans téléchargement de poids.</p>
+            {/if}
+            {#if engine.running && engine.kind==='llm'}
+              <div class="field">
+                <label for="embedded-llm-choice">Modèle de rédaction</label>
+                <select id="embedded-llm-choice" class="select" bind:value={selectedLLM}>
+                  <option value="LiquidAI/LFM3-1.7B-GGUF:Q4_K_M">Liquid LFM3 1.7B · léger</option>
+                  <option value="unsloth/Qwen3.5-4B-GGUF:Q4_K_M">Qwen3.5 4B · équilibre</option>
+                  <option value="unsloth/Qwen3.5-9B-GGUF:Q4_K_M">Qwen3.5 9B · qualité</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="embedded-llm-custom">GGUF personnalisé (facultatif)</label>
+                <input id="embedded-llm-custom" class="input mono" bind:value={customLLM}
+                  placeholder="organisation/modele-GGUF:Q4_K_M"/>
+              </div>
+              <div class="row wrap">
+                <button class="btn" disabled={embeddedBusy} on:click={()=>downloadEmbedded('llm')}>Télécharger le modèle LLM</button>
+                <button class="btn" disabled={embeddedBusy||!embeddedLlmModels.length} on:click={selectEmbeddedLlm}>Préremplir le fournisseur LLM interne</button>
+              </div>
+              <p class="muted small">Le routeur intégré charge au plus un modèle à la fois, garde une marge GPU de 512 Mio et libère les poids après 45 s d'inactivité. Les poids ne sont pas intégrés dans le programme.</p>
+            {/if}
+          </div>
+          {#if engine.kind==='stt'}<hr />{/if}
+        {/each}
+        {#if embedded.download.status}
+          <p class="muted small">Dernière opération modèles : {embedded.download.model} · {embedded.download.status}</p>
+        {/if}
+      {:else}
+        <p class="muted small">Le lancement de moteurs intégrés nécessite la version bureau autonome complète. Ici, les fournisseurs externes restent disponibles.</p>
+      {/if}
     </div>
   </section>
 

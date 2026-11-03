@@ -1,5 +1,6 @@
 import { parseApiResponse } from './api-response.js';
 import type {
+  EmbeddedRuntimeStatus,
   BrowseResponse, DashboardStats, ExportFormat, Job, LiveUploadManifest, LlmProvider, LlmProviderInput,
   Provider, ProviderInput, QuickOptions, StructureProfile, Workflow
 } from './types';
@@ -79,6 +80,23 @@ export const api = {
   }),
   deleteLlmProvider: (id: string) => request<void>(`/api/v1/llm-providers/${id}`, { method: 'DELETE' }),
   llmModels: (id: string) => request<{models:string[]}>(`/api/v1/llm-providers/${id}/models`),
+  embeddedStatus: () => request<EmbeddedRuntimeStatus>('/api/v1/embedded/status'),
+  embeddedSetMode: (kind:'stt'|'llm',mode:'internal'|'external'|'disabled') =>
+    request<EmbeddedRuntimeStatus>('/api/v1/embedded/mode', {
+      method:'POST',body:JSON.stringify({kind,mode})
+    }),
+  embeddedModels: (kind:'stt'|'llm') =>
+    request<{data?:Array<{id?:string;model?:string}>;models?:Array<{id?:string;model?:string}>}>('/api/v1/embedded/models/'+kind),
+  embeddedAsrVariants: (source:string) => request<{variants:Array<{label:string;filename:string}>}>('/api/v1/embedded/stt/variants', {
+    method:'POST',body:JSON.stringify({source})
+  }),
+  embeddedAsrInstall: (source:string,filename:string) => request<{status:string;model:string}>('/api/v1/embedded/stt/install', {
+    method:'POST',body:JSON.stringify({source,filename})
+  }),
+  embeddedDownload: (kind:'stt'|'llm',model:string) =>
+    request<{status:string;model:string}>('/api/v1/embedded/download', {
+      method:'POST',body:JSON.stringify({kind,model})
+    }),
   llmLocalEngines: () => request<{desktop:boolean;engines:{name:string;chatCompletionsUrl:string;models:string[]}[]}>('/api/v1/llm-local'),
   llmDiscoverDraft: (chatCompletionsUrl:string,apiKey:string) => request<{models:string[]}>('/api/v1/llm-local/discover', {
     method:'POST',body:JSON.stringify({chatCompletionsUrl,apiKey})

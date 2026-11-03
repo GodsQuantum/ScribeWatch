@@ -20,6 +20,13 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::parse();
     let state = AppState::load(config).await?;
+    // Only user-enabled embedded engines are restored. External endpoints stay untouched.
+    if state.embedded.available() {
+        let manager = state.embedded.clone();
+        tokio::spawn(async move {
+            manager.recover().await;
+        });
+    }
     let shutdown = CancellationToken::new();
     tokio::spawn(workflows::run_supervisor(state.clone(), shutdown.clone()));
     let cleanup_state = state.clone();
