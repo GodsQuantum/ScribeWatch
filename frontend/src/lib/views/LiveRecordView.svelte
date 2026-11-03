@@ -55,6 +55,34 @@
   let chainInitialized=false;
   let language='';
   let structureProfileId='';
+  let medicalReportEnabled=false;
+  let patientSurname='';
+  let patientForename='';
+  let patientBirthDate='';
+  let practitionerName='';
+  let pdfDestination:FileSystemDirectoryHandle|undefined;
+  let pdfDestinationLabel='';
+  let pdfDate=new Date();
+
+  async function choosePdfFolder(){
+    if(!localDirectoryAvailable)return;
+    try{
+      pdfDestination=await (window as any).showDirectoryPicker({mode:'readwrite'}) as FileSystemDirectoryHandle;
+      pdfDestinationLabel=pdfDestination.name;
+    }catch(error){
+      if(!(error instanceof DOMException&&error.name==='AbortError'))
+        notify('error',error instanceof Error?error.message:String(error));
+    }
+  }
+  function enableMedicalReport(checked:boolean){
+    medicalReportEnabled=checked;
+    if(checked){
+      const dental=structureProfiles.find(p=>p.id==='dental-consultation'&&p.providerId);
+      const general=structureProfiles.find(p=>p.id==='medical-consultation'&&p.providerId);
+      const current=structureProfiles.find(p=>p.id===structureProfileId);
+      if(!current?.providerId)structureProfileId=(dental??general)?.id??'';
+    }
+  }
   let frontmatter=true;
   let paragraphs=true;
 
@@ -429,9 +457,18 @@
     if(!current||current.status!=='done')return;
     exporting=format;
     try{
-      const result=await api.jobExport(current.id,format);
-      await saveMarkdownLocally(result.filename,result.blob);
-      notify('success',`${format.toUpperCase()} export saved.`);
+      if(format==='pdf'&&medicalReportEnabled){
+        const {createMedicalPdf,medicalFilename}=await import('$lib/medical-report');
+        const source=await api.jobMarkdown(current.id);
+        const patient={surname:patientSurname,forename:patientForename,dateOfBirth:patientBirthDate,practitioner:practitionerName};
+        const blob=await createMedicalPdf(await source.blob.text(),patient,pdfDate);
+        await saveResponseToDirectory(new Response(blob),medicalFilename(patient,pdfDate),pdfDestination,window);
+        notify('success','PDF clinique cree. Relecture medicale requise.');
+      }else{
+        const result=await api.jobExport(current.id,format);
+        await saveMarkdownLocally(result.filename,result.blob);
+        notify('success',format.toUpperCase()+' export saved.');
+      }
     }catch(error){notify('error',error instanceof Error?error.message:String(error));}
     finally{exporting='';}
   }
@@ -660,6 +697,23 @@
           <span class="help">The profile creates an additional structured view. The complete transcript remains in the same Markdown file.</span>
         </div>
 
+        <div class="subsection stack">
+          <strong>Profil de sortie de la session</strong>
+          <span class="help">Transcription et modele de structuration : selections ci-dessus.</span>
+          <label class="check"><input type="checkbox" checked={medicalReportEnabled} on:change={(e)=>enableMedicalReport(e.currentTarget.checked)} disabled={recording}/> Compte rendu de consultation (PDF)</label>
+          {#if medicalReportEnabled}
+            <div class="notice compact"><strong>Brouillon a faire valider par le praticien.</strong><span>La transcription originale reste disponible. Les donnees patient ne sont pas enregistrees dans les preferences.</span></div>
+            {#if !structureProfileId}<span class="help">Pour une synthese medicale, associer un LLM au profil medical dans AI structure profiles. Sinon le PDF contiendra la transcription brute.</span>{/if}
+            <div class="grid two">
+              <div class="field"><label for="patient-last">Nom (facultatif)</label><input id="patient-last" class="input" autocomplete="off" bind:value={patientSurname}/></div>
+              <div class="field"><label for="patient-first">Prenom (facultatif)</label><input id="patient-first" class="input" autocomplete="off" bind:value={patientForename}/></div>
+              <div class="field"><label for="patient-dob">Date de naissance</label><input id="patient-dob" class="input" type="date" bind:value={patientBirthDate}/></div>
+              <div class="field"><label for="patient-doctor">Praticien</label><input id="patient-doctor" class="input" autocomplete="off" bind:value={practitionerName}/></div>
+            </div>
+            <div class="row wrap"><button class="btn compact" on:click={choosePdfFolder} disabled={!localDirectoryAvailable}>Dossier PDF</button><span class="help">{pdfDestinationLabel||'Choisir au moment de la sauvegarde'}</span></div>
+            <span class="help">Nom automatique du PDF : 3 lettres NOM + 3 lettres PRENOM + date. Rendu local sur cet ordinateur, sans Pandoc.</span>
+          {/if}
+        </div>
         <div class="subsection stack">
           <strong>Destination</strong>
           <div class="segmented"><button disabled={recording} class:active={outputMode==='server'} on:click={()=>outputMode='server'}>Server folder</button><button disabled={recording} class:active={outputMode==='computer'} on:click={()=>outputMode='computer'}>This computer</button></div>
