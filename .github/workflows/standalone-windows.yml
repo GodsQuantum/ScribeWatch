@@ -31,6 +31,14 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Validate package inputs and genuine FFmpeg media
+        shell: bash
+        run: |
+          python -m unittest discover -s packaging/desktop -p test_standalone_bundle.py -v
+          python -m unittest discover -s packaging/desktop -p test_standalone_stage.py -v
+          python -m unittest discover -s packaging/desktop -p test_media_smoke.py -v
+          python -m unittest discover -s packaging/desktop -p test_installer_dependencies.py -v
+
       - name: Prepare pinned release dependencies and verify SHA256
         shell: bash
         env:
@@ -75,14 +83,6 @@ jobs:
           cd ..
           cargo build --release --locked
           cargo build --release --locked --manifest-path packaging/desktop/launcher/Cargo.toml
-
-      - name: Validate package inputs and genuine FFmpeg media
-        shell: bash
-        run: |
-          python -m unittest discover -s packaging/desktop -p test_standalone_bundle.py -v
-          python -m unittest discover -s packaging/desktop -p test_standalone_stage.py -v
-          python -m unittest discover -s packaging/desktop -p test_media_smoke.py -v
-          python -m unittest discover -s packaging/desktop -p test_installer_dependencies.py -v
 
       - name: Install NSIS via immutable action
         uses: negrutiu/nsis-install@f3339c88dba6fd08910d5275a943f8f746d94876 # v2
