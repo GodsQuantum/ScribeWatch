@@ -103,6 +103,10 @@ pub struct StructureProfile {
     pub description: String,
     pub prompt: String,
     #[serde(default)]
+    pub output_template: String,
+    #[serde(default)]
+    pub output_example: String,
+    #[serde(default)]
     pub provider_id: String,
     #[serde(default)]
     pub model: String,
@@ -347,6 +351,28 @@ pub struct DashboardStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn structure_profile_schema_remains_compatible_with_old_database() {
+        let old = r#"{"id":"old","name":"legacy","prompt":"keep facts","providerId":"","model":"","builtIn":false}"#;
+        let parsed: StructureProfile = serde_json::from_str(old).unwrap();
+        assert_eq!(parsed.prompt, "keep facts");
+        assert_eq!(parsed.output_template, "");
+        assert_eq!(parsed.output_example, "");
+        let mut updated = parsed;
+        updated.output_template = "## Bilan
+## Suites"
+            .into();
+        updated.output_example = "Exemple fictif, jamais une source".into();
+        let restored: StructureProfile =
+            serde_json::from_str(&serde_json::to_string(&updated).unwrap()).unwrap();
+        assert_eq!(restored, updated);
+        assert_eq!(
+            restored.output_template,
+            "## Bilan
+## Suites"
+        );
+    }
 
     #[test]
     fn v01_workflow_and_job_json_deserialize_with_v02_defaults() {
