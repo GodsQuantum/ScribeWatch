@@ -206,6 +206,31 @@ Object.assign(supplemental['zh-CN'], {
   'Recording started with durable local recovery.':'录音已启动，并启用持久本地恢复。'
 });
 
+// Shared workspace/theme controls (desktop, browser and mobile use this exact UI).
+Object.assign(supplemental.fr, {
+  'Spaces':'Espaces','Create a space':'Créer un espace','Space name':'Nom de l’espace',
+  'Space type':'Type d’espace','General':'Général','Project':'Projet',
+  'Meeting':'Réunion','Case / dossier':'Dossier','All recordings':'Tous les enregistrements',
+  'Inbox':'Boîte de réception','Inbox — unassigned':'Non classés','Recent recordings':'Enregistrements récents',
+  'Remove space (keep recordings)':'Supprimer l’espace (conserver les enregistrements)',
+  'Theme':'Thème','Search recordings':'Rechercher un enregistrement',
+  'Create':'Créer','Cancel':'Annuler','Space':'Espace','+ Create space':'+ Créer un espace',
+  'Remove space':'Supprimer l’espace','No recordings here yet. Select another space or clear your search.':
+    'Aucun enregistrement ici. Choisissez un autre espace ou effacez la recherche.',
+  'Show more recordings':'Voir plus d’enregistrements',
+  'Local-first · Private':'Données locales · Privé'
+});
+Object.assign(supplemental['zh-CN'], {
+  'Spaces':'工作空间','Create a space':'创建空间','Space name':'空间名称',
+  'Space type':'空间类型','General':'常规','Project':'项目','Meeting':'会议',
+  'Case / dossier':'档案','All recordings':'所有录音','Inbox':'收件箱',
+  'Inbox — unassigned':'未分类','Recent recordings':'最近录音',
+  'Remove space (keep recordings)':'删除空间（保留录音）',
+  'Theme':'主题','Search recordings':'搜索录音',
+  'Create':'创建','Cancel':'取消','Space':'空间','+ Create space':'+ 创建空间',
+  'Remove space':'删除空间','Local-first · Private':'本地优先 · 私密'
+});
+
 function detectedLocale(): Locale {
   if (typeof window === 'undefined') return 'en';
   const stored = window.localStorage.getItem('scribewatch:locale');

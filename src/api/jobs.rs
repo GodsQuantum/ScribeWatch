@@ -59,6 +59,11 @@ pub async fn delete(
     }
     state.jobs.remove(&id);
     state.db.delete("job", &id).map_err(AppError::Internal)?;
+    // Drop only the optional grouping link; never cascade to another recording.
+    state
+        .db
+        .delete("job_space", &id)
+        .map_err(AppError::Internal)?;
     Ok(StatusCode::NO_CONTENT)
 }
 

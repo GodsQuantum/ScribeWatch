@@ -7,6 +7,9 @@
   export let providers:Provider[]=[];
   export let structureProfiles:StructureProfile[]=[];
   export let jobs:Job[]=[];
+  export let selectedSpace='all';
+  export let onassign:(jobId:string,spaceId:string|null)=>Promise<void>=async()=>{};
+
   export let refresh:()=>Promise<void>=async()=>{};
   export let notify:(type:'success'|'error',message:string)=>void=()=>{};
 
@@ -56,6 +59,9 @@
       submitted=sourceMode==='computer'&&localFile
         ? await api.quickUpload(localFile,options)
         : await api.quickServer(serverFile,options);
+      if(submitted && selectedSpace!=='all' && selectedSpace!=='unassigned'){
+        try{await onassign(submitted.id,selectedSpace);}catch{/* job itself remains queued */}
+      }
       await refresh();
       notify('success','Transcription queued.');
     }catch(e){notify('error',e instanceof Error?e.message:String(e));}

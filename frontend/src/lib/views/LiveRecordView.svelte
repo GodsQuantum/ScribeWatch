@@ -19,6 +19,9 @@
   export let providers:Provider[]=[];
   export let structureProfiles:StructureProfile[]=[];
   export let jobs:Job[]=[];
+  export let selectedSpace='all';
+  export let onassign:(jobId:string,spaceId:string|null)=>Promise<void>=async()=>{};
+
   export let refresh:()=>Promise<void>=async()=>{};
   export let notify:(type:'success'|'error',message:string)=>void=()=>{};
 
@@ -372,6 +375,9 @@
         fetchAudio:api.jobAudio,
         saveClient:(response,filename,handle)=>saveResponseToDirectory(response,filename,handle,window)
       });
+      if(submitted && selectedSpace!=='all' && selectedSpace!=='unassigned'){
+        try{await onassign(submitted.id,selectedSpace);}catch{/* audio and job remain safe */}
+      }
       await refresh();
       notify('success',successMessage);
     }catch(error){

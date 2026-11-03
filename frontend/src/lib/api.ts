@@ -1,6 +1,6 @@
 import { parseApiResponse } from './api-response.js';
 import type {
-  EmbeddedRuntimeStatus,
+  EmbeddedRuntimeStatus, Space, SpaceMembership, SpaceKind,
   BrowseResponse, DashboardStats, ExportFormat, Job, LiveUploadManifest, LlmProvider, LlmProviderInput,
   Provider, ProviderInput, QuickOptions, StructureProfile, Workflow
 } from './types';
@@ -124,6 +124,16 @@ export const api = {
   }),
   deleteWorkflow: (id: string) => request<void>(`/api/v1/workflows/${id}`, { method: 'DELETE' }),
   scanWorkflow: (id: string) => request<void>(`/api/v1/workflows/${id}/scan`, { method: 'PUT' }),
+  spaces: () => request<Space[]>('/api/v1/spaces'),
+  spaceAssignments: () => request<SpaceMembership[]>('/api/v1/spaces/assignments'),
+  createSpace: (name:string,kind:SpaceKind) => request<Space>('/api/v1/spaces', {
+    method:'POST',body:JSON.stringify({name,kind})
+  }),
+  deleteSpace: (id:string) => request<void>('/api/v1/spaces/'+encodeURIComponent(id),{method:'DELETE'}),
+  assignJobSpace: (jobId:string,spaceId:string|null) =>
+    request<void>('/api/v1/jobs/'+encodeURIComponent(jobId)+'/space',{
+      method:'PUT',body:JSON.stringify({spaceId})
+    }),
   jobs: () => request<Job[]>('/api/v1/jobs'),
   job: (id: string) => request<Job>(`/api/v1/jobs/${id}`),
   retryJob: (id: string) => request<Job>(`/api/v1/jobs/${id}/retry`, { method: 'POST' }),

@@ -319,3 +319,11 @@ launcher marks its loopback-bound backend. They require a matching same-origin
 browser request, accept only allowlisted model IDs/official WinGet package IDs,
 and cannot execute caller-supplied commands or fetch arbitrary installation
 scripts. Normal server/Docker deployments do not gain host-install privileges.
+
+### Product roadmap — one UI across every platform
+
+The shared desktop/browser theme and recording-space experience, and the
+remaining macOS/Linux full-standalone, systray, model/GPU and trusted-signing
+certification gates, are tracked in
+[docs/ROADMAP_DESKTOP_PORTABILITY.md](docs/ROADMAP_DESKTOP_PORTABILITY.md).
+Existing workflows, microphone recovery, recordings and exports are preserved.
