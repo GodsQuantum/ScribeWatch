@@ -8,6 +8,7 @@ pub mod live;
 pub mod local_llm;
 pub mod providers;
 pub mod quick;
+pub mod spaces;
 pub mod speaches;
 pub mod workflows;
 
@@ -103,6 +104,10 @@ pub fn router() -> Router<AppState> {
             get(workflows::list).post(workflows::upsert),
         )
         .route("/api/v1/workflows/{id}", delete(workflows::delete))
+        .route("/api/v1/spaces", get(spaces::list).post(spaces::create))
+        .route("/api/v1/spaces/assignments", get(spaces::assignments))
+        .route("/api/v1/spaces/{id}", delete(spaces::delete))
+        .route("/api/v1/jobs/{id}/space", put(spaces::assign))
         .route("/api/v1/jobs", get(jobs::list))
         .route("/api/v1/jobs/{id}", get(jobs::get).delete(jobs::delete))
         .route("/api/v1/jobs/{id}/retry", post(jobs::retry))
