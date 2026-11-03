@@ -11,7 +11,7 @@
     id:'',name:'',chatCompletionsUrl:'',model:'',apiKey:'',timeoutSeconds:180,enabled:true
   });
   const blankProfile=():StructureProfile=>({
-    id:'',name:'',description:'',prompt:'',providerId:'',model:'',builtIn:false
+    id:'',name:'',description:'',prompt:'',outputTemplate:'',outputExample:'',providerId:'',model:'',builtIn:false
   });
 
   let providerId='';
@@ -158,6 +158,14 @@
           </div>
           <div class="field"><label for="profile-prompt">Structure prompt</label><textarea id="profile-prompt" class="input profile-prompt" rows="14" bind:value={profileDraft.prompt} placeholder="Describe the exact structure, constraints and what must never be invented."></textarea>
             <span class="help">ScribeWatch adds its own immutable anti-hallucination / prompt-injection system instruction before this profile.</span>
+          </div>
+          <div class="field"><label for="profile-template">Modèle de sortie (facultatif)</label>
+            <textarea id="profile-template" class="input profile-prompt" rows="7" bind:value={profileDraft.outputTemplate} maxlength="12000" placeholder={'## Bilan de consultation\n## Propos rapportés par le patient\n## Constatations indiquées par le praticien\n## Explications et options discutées\n## Suites convenues\n## Points à vérifier'}></textarea>
+            <span class="help">Définit la structure attendue. Les rubriques sans preuve dans la transcription ne sont pas remplies artificiellement.</span>
+          </div>
+          <div class="field"><label for="profile-example">Exemple de rendu (facultatif)</label>
+            <textarea id="profile-example" class="input profile-prompt" rows="7" bind:value={profileDraft.outputExample} maxlength="12000" placeholder="Collez un exemple anonymisé ou entièrement fictif ; utilisé pour le style uniquement."></textarea>
+            <span class="help">Référence de ton et de présentation, jamais source de faits. N'insérez aucune donnée de patient réel dans l'exemple.</span>
           </div>
           <div class="form-actions">
             {#if profileId&&!profileDraft.builtIn}<button class="btn danger" on:click={removeProfile}>Delete</button>{/if}

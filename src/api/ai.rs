@@ -48,6 +48,10 @@ pub struct StructureProfileInput {
     pub description: String,
     pub prompt: String,
     #[serde(default)]
+    pub output_template: String,
+    #[serde(default)]
+    pub output_example: String,
+    #[serde(default)]
     pub provider_id: String,
     #[serde(default)]
     pub model: String,
@@ -234,6 +238,8 @@ pub async fn upsert_profile(
         name: input.name.trim().to_owned(),
         description: input.description.trim().to_owned(),
         prompt: input.prompt.trim().to_owned(),
+        output_template: input.output_template.trim().to_owned(),
+        output_example: input.output_example.trim().to_owned(),
         provider_id: input.provider_id.trim().to_owned(),
         model: input.model.trim().to_owned(),
         built_in: existing.as_ref().is_some_and(|profile| profile.built_in),

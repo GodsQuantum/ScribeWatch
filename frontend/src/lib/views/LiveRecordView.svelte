@@ -55,6 +55,78 @@
   let chainInitialized=false;
   let language='';
   let structureProfileId='';
+  let medicalReportEnabled=false;
+  let patientSurname='';
+  let patientForename='';
+  let patientBirthDate='';
+  let practitionerName='';
+  let practiceAddress='';
+  let practiceContact='';
+  let pdfDestination:FileSystemDirectoryHandle|undefined;
+  let pdfDestinationLabel='';
+  type LivePreset={
+    name:string;transcriptionChain:TranscriptionRoute[];language:string;
+    structureProfileId:string;outputMode:'computer'|'server';outputDir:string;
+    frontmatter:boolean;paragraphs:boolean;medicalReportEnabled:boolean;
+    audioRetentionMode:'none'|'server'|'client';audioServerDir:string;
+  };
+  const presetStorageKey='scribewatch.live.presets.v1';
+  let presets:LivePreset[]=[];
+  let presetName='';
+  let presetSelected='';
+  function savePreset(){
+    const name=presetName.trim().slice(0,64);
+    if(!name){notify('error','Nom de profil requis');return;}
+    const item:LivePreset={
+      name,transcriptionChain:structuredClone(transcriptionChain),language,
+      structureProfileId,outputMode,outputDir,frontmatter,paragraphs,
+      medicalReportEnabled,audioRetentionMode,audioServerDir
+    };
+    presets=[...presets.filter(p=>p.name!==name),item].slice(-30);
+    try{localStorage.setItem(presetStorageKey,JSON.stringify(presets));presetSelected=name;
+      notify('success','Profil de session enregistre sans donnees patient.');
+    }catch(e){notify('error','Enregistrement du profil impossible');}
+  }
+  function applyPreset(name:string){
+    presetSelected=name;
+    const p=presets.find(p=>p.name===name);
+    if(!p)return;
+    transcriptionChain=structuredClone(p.transcriptionChain);
+    chainInitialized=true;
+    language=p.language;structureProfileId=p.structureProfileId;
+    outputMode=p.outputMode;outputDir=p.outputDir;
+    frontmatter=p.frontmatter;paragraphs=p.paragraphs;
+    medicalReportEnabled=p.medicalReportEnabled;
+    audioRetentionMode=p.audioRetentionMode;audioServerDir=p.audioServerDir;
+  }
+  function deletePreset(){
+    if(!presetSelected)return;
+    presets=presets.filter(p=>p.name!==presetSelected);
+    localStorage.setItem(presetStorageKey,JSON.stringify(presets));
+    presetSelected='';presetName='';
+  }
+
+  async function choosePdfFolder(){
+    if(!localDirectoryAvailable)return;
+    try{
+      pdfDestination=await (window as any).showDirectoryPicker({mode:'readwrite'}) as FileSystemDirectoryHandle;
+      pdfDestinationLabel=pdfDestination.name;
+    }catch(error){
+      if(!(error instanceof DOMException&&error.name==='AbortError'))
+        notify('error',error instanceof Error?error.message:String(error));
+    }
+  }
+  function enableMedicalReport(checked:boolean){
+    medicalReportEnabled=checked;
+    if(checked){
+      const dual=structureProfiles.find(p=>p.id==='medical-dual-audience-report'&&p.providerId);
+      const letter=structureProfiles.find(p=>p.id==='patient-consultation-report'&&p.providerId);
+      const dental=structureProfiles.find(p=>p.id==='dental-consultation'&&p.providerId);
+      const general=structureProfiles.find(p=>p.id==='medical-consultation'&&p.providerId);
+      const current=structureProfiles.find(p=>p.id===structureProfileId);
+      if(!current?.providerId)structureProfileId=(dual??letter??dental??general)?.id??'';
+    }
+  }
   let frontmatter=true;
   let paragraphs=true;
 
@@ -429,9 +501,29 @@
     if(!current||current.status!=='done')return;
     exporting=format;
     try{
-      const result=await api.jobExport(current.id,format);
-      await saveMarkdownLocally(result.filename,result.blob);
-      notify('success',`${format.toUpperCase()} export saved.`);
+      if(format==='pdf'&&medicalReportEnabled){
+        const {createMedicalPdf,medicalFilename,uniqueMedicalFilename}=await import('$lib/medical-report');
+        const source=await api.jobMarkdown(current.id);
+        const sourceMarkdown=await source.blob.text();
+        // Content-derived link to the separately preserved Markdown note, not a signature.
+        const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(sourceMarkdown));
+        const sourceDocumentSha256=Array.from(new Uint8Array(digest),value=>value.toString(16).padStart(2,'0')).join('');
+        const patient={surname:patientSurname,forename:patientForename,dateOfBirth:patientBirthDate,
+          practitioner:practitionerName,practiceAddress,practiceContact,
+          sourceSessionRef:current.quick?.live?.sessionId??current.id,
+          sourceDocumentSha256,structuredProfile:current.structuredProfileName,structuredModel:current.structuredModel};
+        const sessionMs=current.quick?.live?.startedAtMs??current.createdAtMs;
+        const sessionDate=Number.isFinite(sessionMs)&&sessionMs>0?new Date(sessionMs):new Date();
+        const blob=await createMedicalPdf(sourceMarkdown,patient,sessionDate);
+        const target=pdfDestination??(localDirectoryAvailable?await (window as any).showDirectoryPicker({mode:'readwrite'}) as FileSystemDirectoryHandle:undefined);
+        const filename=target?await uniqueMedicalFilename(target,medicalFilename(patient,sessionDate)):medicalFilename(patient,sessionDate);
+        await saveResponseToDirectory(new Response(blob),filename,target,window);
+        notify('success','Brouillon PDF créé. Vérifier les faits, archiver le Markdown source et faire valider par le praticien.');
+      }else{
+        const result=await api.jobExport(current.id,format);
+        await saveMarkdownLocally(result.filename,result.blob);
+        notify('success',format.toUpperCase()+' export saved.');
+      }
     }catch(error){notify('error',error instanceof Error?error.message:String(error));}
     finally{exporting='';}
   }
@@ -478,6 +570,10 @@
   }
 
   onMount(()=>{
+    try{
+      const stored=JSON.parse(localStorage.getItem(presetStorageKey)||'[]');
+      if(Array.isArray(stored))presets=stored.filter(p=>p&&typeof p.name==='string'&&Array.isArray(p.transcriptionChain)).slice(-30);
+    }catch{presets=[];}
     secureContext=window.isSecureContext;
     unsubscribeController=controller.subscribe(applySnapshot);
     localProxyPlatform=detectLocalProxyPlatform(navigator as Navigator & {userAgentData?:{platform?:string}});
@@ -660,6 +756,33 @@
           <span class="help">The profile creates an additional structured view. The complete transcript remains in the same Markdown file.</span>
         </div>
 
+        <div class="subsection stack">
+          <strong>Profil de sortie de la session</strong>
+          <div class="grid two">
+            <div class="field"><label for="live-preset">Profil enregistre</label><select id="live-preset" class="select" value={presetSelected} on:change={(e)=>applyPreset(e.currentTarget.value)} disabled={recording}><option value="">Configuration manuelle</option>{#each presets as preset}<option value={preset.name}>{preset.name}</option>{/each}</select></div>
+            <div class="field"><label for="live-preset-name">Nom du profil</label><input id="live-preset-name" class="input" bind:value={presetName} disabled={recording} placeholder="Consultation parodontale"/></div>
+          </div>
+          <div class="row wrap"><button class="btn compact" on:click={savePreset} disabled={recording||!presetName.trim()}>Enregistrer ce profil</button>{#if presetSelected}<button class="btn compact" on:click={deletePreset} disabled={recording}>Supprimer le profil</button>{/if}</div>
+          <span class="help">Le profil conserve la chaine de transcription, les modeles et les destinations. Les identites des patients ne sont jamais sauvegardees dans ces profils.</span>
+          <span class="help">Transcription et modele de structuration : selections ci-dessus.</span>
+          <label class="check"><input type="checkbox" checked={medicalReportEnabled} on:change={(e)=>enableMedicalReport(e.currentTarget.checked)} disabled={recording}/> Compte rendu de consultation (PDF)</label>
+          {#if medicalReportEnabled}
+            <div class="notice compact"><strong>Brouillon a faire valider par le praticien.</strong><span>La transcription originale reste disponible. Les donnees patient ne sont pas enregistrees dans les preferences.</span></div>
+            {#if !structureProfileId}<span class="help">Pour une synthese medicale, associer un LLM au profil medical dans AI structure profiles. Sinon le PDF contiendra la transcription brute.</span>{/if}
+            <div class="grid two">
+              <div class="field"><label for="patient-last">Nom (facultatif)</label><input id="patient-last" class="input" autocomplete="off" bind:value={patientSurname}/></div>
+              <div class="field"><label for="patient-first">Prenom (facultatif)</label><input id="patient-first" class="input" autocomplete="off" bind:value={patientForename}/></div>
+              <div class="field"><label for="patient-dob">Date de naissance</label><input id="patient-dob" class="input" type="date" bind:value={patientBirthDate}/></div>
+              <div class="field"><label for="patient-doctor">Praticien</label><input id="patient-doctor" class="input" autocomplete="off" bind:value={practitionerName}/></div>
+              <div class="field"><label for="practice-address">Adresse du cabinet (facultative)</label><input id="practice-address" class="input" autocomplete="off" bind:value={practiceAddress} placeholder="Adresse complète" /></div>
+              <div class="field"><label for="practice-contact">Contact professionnel (facultatif)</label><input id="practice-contact" class="input" autocomplete="off" bind:value={practiceContact} placeholder="Téléphone ou e-mail" /></div>
+            </div>
+            <div class="row wrap"><button class="btn compact" on:click={choosePdfFolder} disabled={!localDirectoryAvailable}>Dossier PDF</button><span class="help">{pdfDestinationLabel||'Choisir au moment de la sauvegarde'}</span></div>
+            <span class="help">Profil recommandé : « Compte rendu médical — patient + dossier (traçabilité) ». Le PDF est un brouillon à valider par le praticien ; conserver la source de l'enregistrement séparément. Les informations du formulaire patient/cabinet sont ajoutées localement au PDF.</span>
+            {#if audioRetentionMode==='none'}<span class="help">Attention : aucune copie audio permanente. Pour documenter les échanges, choisir explicitement une conservation de l'audio si elle est autorisée ; le PDF seul ne certifie pas les propos.</span>{/if}
+            <span class="help">Nom automatique du PDF : 3 lettres NOM + 3 lettres PRENOM + date. Rendu local sur cet ordinateur, sans Pandoc.</span>
+          {/if}
+        </div>
         <div class="subsection stack">
           <strong>Destination</strong>
           <div class="segmented"><button disabled={recording} class:active={outputMode==='server'} on:click={()=>outputMode='server'}>Server folder</button><button disabled={recording} class:active={outputMode==='computer'} on:click={()=>outputMode='computer'}>This computer</button></div>

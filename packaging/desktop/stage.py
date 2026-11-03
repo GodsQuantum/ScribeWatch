@@ -48,6 +48,21 @@ def main() -> None:
                "CFBundleShortVersionString":version,"CFBundleVersion":version,
                "CFBundlePackageType":"APPL","LSMinimumSystemVersion":"11.0",
                "NSHighResolutionCapable":True}
+        # Apple Finder/Dock icon from the same canonical SVG-rendered artwork.
+        artwork=repo/"packaging"/"desktop"/"assets"/"app.png"
+        iconset=resources/"AppIcon.iconset"
+        iconset.mkdir()
+        import subprocess
+        for size in (16,32,128,256,512):
+            for scale in (1,2):
+                pixels=size*scale
+                dest=iconset/f"icon_{size}x{size}{'@2x' if scale==2 else ''}.png"
+                subprocess.run(["sips","-s","format","png","-z",str(pixels),str(pixels),
+                    str(artwork),"--out",str(dest)],check=True,stdout=subprocess.DEVNULL)
+        subprocess.run(["iconutil","-c","icns",str(iconset),
+            "-o",str(resources/"AppIcon.icns")],check=True)
+        shutil.rmtree(iconset)
+        plist["CFBundleIconFile"]="AppIcon"
         with (resources.parent/"Info.plist").open("wb") as file:
             plistlib.dump(plist,file)
         for path in (launcher_dest,bin_dir/(package+"-server"),bin_dir/"ffmpeg",bin_dir/"ffprobe"):
