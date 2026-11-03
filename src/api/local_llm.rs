@@ -332,7 +332,7 @@ fn local_host(headers: &HeaderMap) -> bool {
             .is_some_and(|port| port.parse::<u16>().is_ok())
 }
 
-fn same_origin(headers: &HeaderMap) -> bool {
+pub(super) fn same_origin(headers: &HeaderMap) -> bool {
     let Some(origin) = headers.get(header::ORIGIN).and_then(|x| x.to_str().ok()) else {
         return false;
     };

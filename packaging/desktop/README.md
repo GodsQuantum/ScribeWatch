@@ -25,3 +25,48 @@ in the system's default browser and runs a loopback-only service.
   require separate integration tests. CI runners may lack compatible GPUs.
 - Cloud9-Speaches pairing is available in the existing app UI; it does
   not imply that Cloud9-Speaches has itself been packaged on Windows/macOS.
+
+## ScribeWatch standalone with optional native AI engines (candidate)
+
+The Windows x64 full standalone installer contains ScribeWatch, the verified
+Cloud9-Speaches native transcribe.cpp/FastAPI executable, and upstream llama.cpp
+native CPU/Vulkan/NVIDIA CUDA variants. Model weights are not included.
+The previous slim ScribeWatch installer remains supported and unchanged.
+
+Within ScribeWatch > AI profiles > Moteurs intégrés, both STT and LLM may be
+independently selected as External (default), Internal or Disabled. Selecting
+Internal starts a native child process only after user confirmation, bound to
+127.0.0.1:38005 (STT) or 127.0.0.1:38080 (LLM). Switching to External or
+Disabled stops the owned child but does not delete external providers or data.
+Only previously enabled internal engines restart on application startup.
+There is no extra persistent system service.
+
+The STT model UI reuses Cloud9-Speaches native model APIs and single HF cache:
+Whisper, Parakeet Ultra, Qwen3-ASR, Nemotron and custom GGUF quantizations.
+The optional pinned ScribeWatch acoustic pack contains the Whisper Turbo
+model and French aligner with SHA checks. The LLM engine reuses upstream
+llama.cpp router mode with --models-max 1, --models-memory-margin 512,
+--sleep-idle-seconds 45, -c 8192. Windows attempts CUDA if the NVIDIA
+driver is detected, then Vulkan, then CPU. Physical GPU support still
+requires on-device verification. The load-time memory margin does not
+measure unrelated external VRAM pressure; idle unloading happens natively.
+Neither engine unloads the model in the middle of an active request.
+
+The native input assembler standalone_bundle.py accepts pre-downloaded,
+pinned and SHA256-checked releases, rejects ZIP path traversal/symlinks,
+and produces BUNDLED-RUNTIMES-SHA256.json. Setting SCRIBEWATCH_EMBEDDED_DIR
+in the existing native build pipeline adds the exact verified binaries to
+a special standalone installer; without it, the slim installer is unchanged.
+
+Certification gates:
+1. Rust, frontend, native manager, and secure archive assembler unit tests.
+2. Actual ScribeWatch backend + fake engines on localhost; mode transitions,
+   model discovery and preservation of external providers.
+3. Actual Windows NSIS install, launcher smoke, start real packaged STT and
+   LLM servers, verify endpoints, stop both and uninstall.
+4. Physical microphone and GPU quality/VRAM/latency testing; code signing.
+
+Do not claim the full installer ready until gate 3 is verified on an
+exact pinned release source. Full packaging initially targets Windows x64.
+Mac/Linux retain their existing slim builds until complete native bundles
+pass their own independent CI. No patient materials are used in tests.

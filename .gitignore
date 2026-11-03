@@ -29,3 +29,8 @@
 /docs/superpowers/
 
 /.worktrees/
+
+# Disposable downloaded native artifacts for local full-bundle CI
+.cache-native/
+
+.native-cache/

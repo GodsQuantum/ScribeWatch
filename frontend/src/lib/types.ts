@@ -206,3 +206,14 @@ export interface BrowseResponse {
   entries: BrowseEntry[];
   roots: string[];
 }
+
+export type EmbeddedKind='stt'|'llm';
+export type EmbeddedMode='internal'|'external'|'disabled';
+export interface EmbeddedRuntimeStatus {
+  desktop:boolean;
+  engines:Array<{
+    kind:EmbeddedKind;name:string;mode:EmbeddedMode;
+    bundled:boolean;running:boolean;endpoint:string;
+  }>;
+  download:{status:string;model:string};
+}

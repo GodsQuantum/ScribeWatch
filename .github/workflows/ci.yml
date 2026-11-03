@@ -30,6 +30,11 @@ jobs:
       - run: cargo +1.98.0 fmt --all -- --check
       - run: cargo +1.98.0 clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo +1.98.0 test --locked --all-targets
+      - name: Embedded STT and LLM lifecycle (actual server, fake models)
+        run: |
+          cargo +1.98.0 build --locked --bin scribewatch
+          python3 -m unittest discover -s packaging/desktop -p test_embedded_runtime.py -v
+          python3 -m unittest discover -s packaging/desktop -p test_standalone_bundle.py -v
 
   frontend:
     runs-on: ubuntu-24.04

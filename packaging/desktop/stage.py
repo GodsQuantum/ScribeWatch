@@ -17,6 +17,7 @@ def main() -> None:
     for k in ("repo","server","launcher","ffmpeg","output"):
         ap.add_argument("--"+k,required=True,type=Path)
     ap.add_argument("--platform",required=True,choices=("windows","macos"))
+    ap.add_argument("--engines",type=Path,help="Validated native engines asset tree for full standalone only")
     x=ap.parse_args()
     repo=x.repo.resolve(strict=True)
     manifest=tomllib.loads((repo/"Cargo.toml").read_text())
@@ -42,6 +43,18 @@ def main() -> None:
     frontend=repo/"frontend"/"build"
     assert (frontend/"index.html").exists()
     shutil.copytree(frontend,resources/"frontend")
+    if x.engines is not None:
+        embedded=x.engines.resolve(strict=True)
+        if not (embedded/"speaches"/("Cloud9-Speaches"+suffix)).is_file():
+            raise SystemExit("Full installer missing actual bundled STT executable")
+        if not (
+            (embedded/"llm"/"cpu"/("llama-server"+suffix)).is_file()
+            or (embedded/"llm"/("llama-server"+suffix)).is_file()
+        ):
+            raise SystemExit("Full installer missing native LLM CPU fallback")
+        if not (embedded/"BUNDLED-RUNTIMES-SHA256.json").is_file():
+            raise SystemExit("Full installer requires manifest of verified source archives")
+        shutil.copytree(embedded,bin_dir/"engines")
     if not win:
         plist={"CFBundleName":app,"CFBundleDisplayName":app,
                "CFBundleExecutable":app,"CFBundleIdentifier":"io.github.GodsQuantum."+app,

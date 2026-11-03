@@ -53,9 +53,16 @@ def main() -> None:
         if APP=="autosubs":
             assert "subtitles" in filters and "ass" in filters, "FFmpeg libass/subtitles is mandatory for AutoSubs"
         verify_real_media(ffmpeg, ffprobe, needs_subtitles=APP=="autosubs")
-        run(sys.executable,ROOT/"packaging"/"desktop"/"stage.py",
+        optional_engines=os.environ.get("SCRIBEWATCH_EMBEDDED_DIR")
+        if optional_engines and APPNAME!="ScribeWatch":
+            raise RuntimeError("Standalone dual-engine packaging is ScribeWatch-only")
+        stage_args = [
             "--repo",ROOT,"--platform",OS,"--server",SERVER,
-            "--launcher",LAUNCHER,"--ffmpeg",FF,"--output",stage)
+            "--launcher",LAUNCHER,"--ffmpeg",FF,"--output",stage
+        ]
+        if optional_engines:
+            stage_args.extend(["--engines",Path(optional_engines)])
+        run(sys.executable,ROOT/"packaging"/"desktop"/"stage.py",*stage_args)
         DIST.mkdir(parents=True,exist_ok=True)
         env=os.environ.copy()
         env[APP.upper()+"_PORT"]=PORT
@@ -66,7 +73,7 @@ def main() -> None:
                 r"C:\Program Files\NSIS\makensis.exe"]
             installer=next((x for x in candidates if x and Path(x).exists()),None)
             assert installer, "NSIS makensis unavailable"
-            output=DIST/(APPNAME+"-"+VERSION+"-windows-amd64-setup.exe")
+            output=DIST/(APPNAME+"-"+VERSION+"-windows-amd64"+("-standalone" if optional_engines else "")+"-setup.exe")
             run(installer,"/V2","/DAPP_NAME="+APPNAME,"/DAPP_VERSION="+VERSION,
                 "/DSTAGING="+str(stage),"/DOUTPUT="+str(output),
                 "/DAPP_ICON="+str(ROOT/"packaging"/"desktop"/"assets"/"app.ico"),
@@ -79,6 +86,13 @@ def main() -> None:
             assert binary.is_file(), "NSIS did not install launcher"
             run(binary,"--check-install",env=env)
             run(binary,"--smoke",env=env)
+            if optional_engines:
+                run(
+                    sys.executable,
+                    ROOT/"packaging"/"desktop"/"standalone_real_smoke.py",
+                    "--installed", installed,
+                    env=env,
+                )
             run(installed/"Uninstall.exe","/S")
             # NSIS invokes an uninstaller copy from %TEMP%. The outer process
             # can return before the actual removal process finishes.
@@ -96,7 +110,7 @@ def main() -> None:
                     run("codesign","--force","--sign","-","--timestamp=none",file)
             run("codesign","--force","--sign","-","--timestamp=none",bundle)
             run("codesign","--verify","--deep","--strict",bundle)
-            output=DIST/(APPNAME+"-"+VERSION+"-"+VARIANT+".dmg")
+            output=DIST/(APPNAME+"-"+VERSION+"-"+VARIANT+("-standalone" if optional_engines else "")+".dmg")
             run("hdiutil","create","-volname",APPNAME,"-format","UDZO","-srcfolder",stage,output)
             mount=Path(tempfile.mkdtemp(prefix="trio-dmg-mount-"))
             try:
