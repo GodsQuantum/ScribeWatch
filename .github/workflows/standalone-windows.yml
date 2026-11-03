@@ -36,6 +36,7 @@ jobs:
         run: |
           python -m unittest discover -s packaging/desktop -p test_standalone_bundle.py -v
           python -m unittest discover -s packaging/desktop -p test_standalone_stage.py -v
+          python -m unittest discover -s packaging/desktop -p test_standalone_payload.py -v
           python -m unittest discover -s packaging/desktop -p test_media_smoke.py -v
           python -m unittest discover -s packaging/desktop -p test_installer_dependencies.py -v
 

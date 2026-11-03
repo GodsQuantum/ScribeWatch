@@ -74,10 +74,17 @@ def main() -> None:
             installer=next((x for x in candidates if x and Path(x).exists()),None)
             assert installer, "NSIS makensis unavailable"
             output=DIST/(APPNAME+"-"+VERSION+"-windows-amd64"+("-standalone" if optional_engines else "")+"-setup.exe")
-            run(installer,"/V2","/DAPP_NAME="+APPNAME,"/DAPP_VERSION="+VERSION,
+            installer_args=[
+                "/V2","/DAPP_NAME="+APPNAME,"/DAPP_VERSION="+VERSION,
                 "/DSTAGING="+str(stage),"/DOUTPUT="+str(output),
                 "/DAPP_ICON="+str(ROOT/"packaging"/"desktop"/"assets"/"app.ico"),
-                ROOT/"packaging"/"desktop"/"installer.nsi")
+            ]
+            if optional_engines:
+                payload=FF/"standalone-payload.zip"
+                run(sys.executable,ROOT/"packaging"/"desktop"/"standalone_payload.py",
+                    "--stage",stage,"--output",payload)
+                installer_args.append("/DARCHIVE_PAYLOAD="+str(payload))
+            run(installer,*installer_args,ROOT/"packaging"/"desktop"/"installer.nsi")
             assert output.is_file()
             installed=Path(tempfile.gettempdir())/("trio-installed-"+APPNAME)
             assert not installed.exists(), "Installer test directory already exists"

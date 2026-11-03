@@ -21,7 +21,14 @@ OutFile "${OUTPUT}"
 InstallDir "$LOCALAPPDATA\Programs\${APP_NAME}"
 InstallDirRegKey HKCU "Software\GodsQuantum\${APP_NAME}" "InstallPath"
 RequestExecutionLevel user
-SetCompressor /SOLID lzma
+!ifdef ARCHIVE_PAYLOAD
+  ; Full bundle exceeds stock NSIS 2 GiB mmap limit for raw input.
+  ; Embed a compressed payload inside one exe, and use built-in Windows tar.
+  SetCompressor zlib
+  SetCompress off
+!else
+  SetCompressor /SOLID lzma
+!endif
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -31,7 +38,22 @@ SetCompressor /SOLID lzma
 Section "Install" Main
  SetShellVarContext current
  SetOutPath "$INSTDIR"
- File /r "${STAGING}\*.*"
+!ifdef ARCHIVE_PAYLOAD
+  File /oname=_ScribeWatch_payload.zip "${ARCHIVE_PAYLOAD}"
+  IfFileExists "$SYSDIR\tar.exe" 0 unpack_error
+  DetailPrint "Extracting included ASR and LLM engines..."
+  nsExec::ExecToLog '"$SYSDIR\tar.exe" -xf "$INSTDIR\_ScribeWatch_payload.zip" -C "$INSTDIR"'
+  Pop $0
+  StrCmp $0 "0" unpack_success
+unpack_error:
+  DetailPrint "Unable to unpack standalone files."
+  Delete "$INSTDIR\_ScribeWatch_payload.zip"
+  Abort "ScribeWatch standalone extraction failed."
+unpack_success:
+  Delete "$INSTDIR\_ScribeWatch_payload.zip"
+!else
+  File /r "${STAGING}\*.*"
+!endif
  WriteUninstaller "$INSTDIR\Uninstall.exe"
  CreateDirectory "$SMPROGRAMS\${APP_NAME}"
  CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_NAME}.exe"

@@ -52,6 +52,13 @@ requires on-device verification. The load-time memory margin does not
 measure unrelated external VRAM pressure; idle unloading happens natively.
 Neither engine unloads the model in the middle of an active request.
 
+The Windows full installer uses a compressed ZIP payload **inside the same
+single setup.exe**, extracted by built-in Windows 11 tar.exe at installation.
+This avoids upstream NSIS's fixed ~2 GiB mmap limit without using a separate
+installer/data file or shipping another archive extractor. The slim installer
+continues using the original direct NSIS file packaging. Both modes have
+real native install/smoke/uninstall CI gates.
+
 The native input assembler standalone_bundle.py accepts pre-downloaded,
 pinned and SHA256-checked releases, rejects ZIP path traversal/symlinks,
 and produces BUNDLED-RUNTIMES-SHA256.json. Setting SCRIBEWATCH_EMBEDDED_DIR
