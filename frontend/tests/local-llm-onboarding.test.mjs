@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-const root = new URL('../../', import.meta.url);
+const root = new URL('../', import.meta.url);
 const read = (file) => readFileSync(new URL(file, root), 'utf8');
 
 test('provider wizard exposes local discovery and explicit opt-in install', () => {
-  const ui = read('frontend/src/lib/views/AiProfilesView.svelte');
+  const ui = read('src/lib/views/AiProfilesView.svelte');
   assert.match(ui, /scanLocalEngines/);
   assert.match(ui, /useEngine/);
   assert.match(ui, /discoverDraft/);
@@ -18,7 +18,7 @@ test('provider wizard exposes local discovery and explicit opt-in install', () =
 });
 
 test('onboard discovery uses the ScribeWatch API and does not send transcripts', () => {
-  const client = read('frontend/src/lib/api.ts');
+  const client = read('src/lib/api.ts');
   for (const path of [
     '/api/v1/llm-local',
     '/api/v1/llm-local/discover',
@@ -32,7 +32,7 @@ test('onboard discovery uses the ScribeWatch API and does not send transcripts',
 });
 
 test('Windows installer requires explicit UI confirmation and desktop gate', () => {
-  const ui = read('frontend/src/lib/views/AiProfilesView.svelte');
+  const ui = read('src/lib/views/AiProfilesView.svelte');
   assert.match(ui, /desktopAvailable/);
   assert.match(ui, /isWindows/);
   assert.match(ui, /confirm\('Install AMD Lemonade Server/);
@@ -41,8 +41,8 @@ test('Windows installer requires explicit UI confirmation and desktop gate', () 
 });
 
 test('recommended models are selected explicitly via the local provider API', () => {
-  const ui = read('frontend/src/lib/views/AiProfilesView.svelte');
-  const client = read('frontend/src/lib/api.ts');
+  const ui = read('src/lib/views/AiProfilesView.svelte');
+  const client = read('src/lib/api.ts');
   assert.match(ui, /confirm\('Download '/);
   assert.match(ui, /api\.llmInstallModel\(installModel\)/);
   assert.match(ui, /lfm3-1\.7b/);
