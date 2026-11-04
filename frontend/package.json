@@ -11,17 +11,18 @@
     "test": "node --test tests/*.test.mjs"
   },
   "devDependencies": {
-    "@sveltejs/adapter-static": "3.0.10",
-    "@sveltejs/kit": "2.70.3",
-    "@sveltejs/vite-plugin-svelte": "7.3.0",
+    "@sveltejs/adapter-static": "4.0.1",
+    "@sveltejs/kit": "3.1.1",
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@types/node": "24.19.2",
     "@typescript/native": "npm:typescript@7.0.2",
-    "svelte": "5.56.10",
+    "svelte": "5.57.2",
     "svelte-check": "4.7.6",
     "typescript": "~6.0.3",
-    "vite": "8.2.2"
+    "vite": "8.2.4"
   },
   "overrides": {
-    "cookie": "0.7.2"
+    "deepmerge": "4.1.1"
   },
   "dependencies": {
     "pdf-lib": "1.17.1"
