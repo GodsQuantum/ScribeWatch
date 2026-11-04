@@ -1,0 +1,79 @@
+name: Verify and sign immutable RC7 release artifacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  verify-and-attest:
+    if: github.ref == 'refs/heads/main' && github.repository == 'GodsQuantum/ScribeWatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Verify released files and original source tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=desktop-v0.5.3-rc.7
+          SHA=c993b5deea56060f22ee624e265dfedc755601e7
+          target="$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json targetCommitish --jq '.targetCommitish')"
+          test "$target" = "$SHA"
+          source="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
+          test "$source" = "$SHA"
+          mkdir -p release
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D release -p '*.exe' -p '*.dmg' -p '*.AppImage'
+          test "$(find release -maxdepth 1 -type f | wc -l)" -eq 6
+          cat > expected-sha256.txt <<'SHA256EOF'
+          c37e9511930b7fc179fb2c3adf3f4ce310dc209c0054ecbad306d7a34661b916  release/ScribeWatch-0.5.3-aarch64.AppImage
+          c6f90ec374d2f57d9ef1b1bbfcc9c90fcadf2d88b653c3a02226696d149ec8f0  release/ScribeWatch-0.5.3-darwin-amd64.dmg
+          b73d0676d81d439951259c8903b9afe70f9e4d8b1fce6ad48e56f31d298e3b28  release/ScribeWatch-0.5.3-darwin-arm64.dmg
+          fa3a22744970dd7c1ff4e0796a01cb81994c225bddb9e65a5c6e11a0ebfc935a  release/ScribeWatch-0.5.3-windows-amd64-setup.exe
+          fbe3db0b7d81db2a05aba171abfec55d85534e5ccae67ed10324a686244d06e9  release/ScribeWatch-0.5.3-windows-amd64-standalone-setup.exe
+          5099c8e20eac745845a9bdbede592304ed5c84949de82cb5ff5e058250ba5ae4  release/ScribeWatch-0.5.3-x86_64.AppImage
+          SHA256EOF
+          sha256sum -c expected-sha256.txt
+          cat > verification-predicate.json <<'PREDICATEEOF'
+          {
+            "scope": "release-artifact-integrity-verified",
+            "buildCommit": "c993b5deea56060f22ee624e265dfedc755601e7",
+            "releaseTag": "desktop-v0.5.3-rc.7",
+            "originalCiRuns": ["41735443830", "41735444041", "41735443976"],
+            "notCodeSigning": true,
+            "notOriginalBuildProvenance": true
+          }
+          PREDICATEEOF
+          echo RELEASE_SHA256_AND_TAG_VERIFICATION_PASS
+
+      - name: Sign release verification with Sigstore
+        id: signed
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: 'release/*'
+          predicate-type: 'https://github.com/GodsQuantum/ScribeWatch/attestation/release-verification/v1'
+          predicate-path: verification-predicate.json
+
+      - name: Verify signature and publish bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE: ${{ steps.signed.outputs.bundle-path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$BUNDLE"
+          for file in release/*; do
+            gh attestation verify "$file" --repo "$GITHUB_REPOSITORY" \
+              --predicate-type 'https://github.com/GodsQuantum/ScribeWatch/attestation/release-verification/v1' \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/attest-rc7.yml" >/dev/null
+          done
+          cp "$BUNDLE" ScribeWatch-0.5.3-RC7-release-verification.sigstore.json
+          gh release upload desktop-v0.5.3-rc.7 \
+            ScribeWatch-0.5.3-RC7-release-verification.sigstore.json \
+            -R "$GITHUB_REPOSITORY"
+          echo SIGSTORE_SIGNED_RELEASE_VERIFICATION_PUBLISHED_PASS
