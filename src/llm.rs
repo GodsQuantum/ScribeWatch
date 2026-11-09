@@ -599,6 +599,71 @@ fn split_chunks(transcript: &str) -> Vec<String> {
     split_chunks_at_limit(transcript, CHUNK_CHAR_LIMIT)
 }
 
+fn is_retryable_clinical_context_error(error: &anyhow::Error) -> bool {
+    let message = error.to_string().to_ascii_lowercase();
+    message.contains("llm output truncated")
+        || (message.contains("llm http 400")
+            && (message.contains("context") || message.contains("too many tokens")))
+}
+
+/// Retry only a truncated passage at a smaller size. Earlier, a long
+/// consultation could fail entirely after a single output token cutoff.
+async fn clinical_sections(
+    state: &AppState,
+    provider: &LlmProvider,
+    model: &str,
+    system: &str,
+    transcript: &str,
+    char_budget: usize,
+    token: &CancellationToken,
+) -> Result<String> {
+    let mut pending: std::collections::VecDeque<String> =
+        split_chunks_at_limit(transcript, char_budget).into();
+    let mut sections = Vec::new();
+    let mut attempts = 0usize;
+    while let Some(chunk) = pending.pop_front() {
+        attempts += 1;
+        if attempts > 96 {
+            bail!("Clinical report exceeded safe retry limit");
+        }
+        if token.is_cancelled() {
+            bail!("cancelled");
+        }
+        let prompt = format!(
+            "Rédige cette partie de la consultation en français. Conserve précisément \
+numéros dentaires, chiffres, constats, négations, conditions, décisions réellement \
+prises, options et conseils pratiques décrits. Les autres parties sont rédigées \
+séparément. Ne tire aucune conclusion globale et n'invente aucune identité, \
+prescription ou décision. Texte Markdown terminé.\n\n\
+<transcription-partie>\n{chunk}\n</transcription-partie>"
+        );
+        match call_chat(state, provider, model, system, &prompt, token).await {
+            Ok(section) => sections.push(format!(
+                "## Partie {} — déroulement de la consultation\n\n{section}",
+                sections.len() + 1
+            )),
+            Err(error) if is_retryable_clinical_context_error(&error) => {
+                if chunk.chars().count() <= 2_800 {
+                    return Err(error.context("Clinical section still too long after splitting"));
+                }
+                let split_at = (chunk.chars().count() / 2).max(1024);
+                let pieces = split_chunks_at_limit(&chunk, split_at);
+                if pieces.len() < 2 {
+                    return Err(error.context("Unable to split a truncated clinical section"));
+                }
+                for piece in pieces.into_iter().rev() {
+                    pending.push_front(piece);
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    if sections.is_empty() {
+        bail!("No completed clinical sections");
+    }
+    Ok(sections.join("\n\n"))
+}
+
 pub async fn validate_profile_selection(
     state: &AppState,
     profile_id: Option<&str>,
@@ -718,7 +783,7 @@ pub async fn structure_transcript(
     };
 
     let markdown = if input_characters <= direct_budget && fits_native_context {
-        call_chat(
+        match call_chat(
             state,
             &provider,
             &profile.model,
@@ -726,43 +791,40 @@ pub async fn structure_transcript(
             &full_user,
             token,
         )
-        .await?
+        .await
+        {
+            Ok(report) => report,
+            Err(error) if is_dental && is_retryable_clinical_context_error(&error) => {
+                let part_budget = direct_budget
+                    .saturating_sub(profile_system.chars().count())
+                    .clamp(12_000, CHUNK_CHAR_LIMIT);
+                clinical_sections(
+                    state,
+                    &provider,
+                    &profile.model,
+                    &profile_system,
+                    transcript,
+                    part_budget,
+                    token,
+                )
+                .await?
+            }
+            Err(error) => return Err(error),
+        }
     } else if is_dental {
-        // Every passage is turned into a full clinical section, with no
-        // destructive final summarization of its evidence. This fallback
-        // preserves the whole consultation when the machine cannot fit it
-        // in one LLM context.
-        let per_part_budget = direct_budget
+        let part_budget = direct_budget
             .saturating_sub(profile_system.chars().count())
             .clamp(12_000, CHUNK_CHAR_LIMIT);
-        let chunks = split_chunks_at_limit(transcript, per_part_budget);
-        let mut sections = Vec::with_capacity(chunks.len());
-        for (index, chunk) in chunks.iter().enumerate() {
-            let prompt = format!(
-                "Rédige exclusivement la portion {}/{} de ce même compte rendu de consultation. \
-Conserve chaque observation, option, condition, chiffre, négation et conseil précis mentionné \
-dans ce passage. Les autres passages seront rédigés séparément : aucune conclusion \
-globale, aucune information extrapolée. Réponse en Markdown complet, sans identité inventée.\n\n\
-<transcription-partie>\n{}\n</transcription-partie>",
-                index + 1,
-                chunks.len(),
-                chunk
-            );
-            let section = call_chat(
-                state,
-                &provider,
-                &profile.model,
-                &profile_system,
-                &prompt,
-                token,
-            )
-            .await?;
-            sections.push(format!(
-                "## Partie {} — déroulement de la consultation\n\n{section}",
-                index + 1
-            ));
-        }
-        sections.join("\n\n")
+        clinical_sections(
+            state,
+            &provider,
+            &profile.model,
+            &profile_system,
+            transcript,
+            part_budget,
+            token,
+        )
+        .await?
     } else {
         let chunks = split_chunks(transcript);
         let mut evidence = Vec::with_capacity(chunks.len());
@@ -915,6 +977,22 @@ mod tests {
         assert!(is_dental_profile("dental-consultation-complete-fr"));
         assert!(is_dental_profile("dental-consultation"));
         assert!(!is_dental_profile("meeting-minutes"));
+    }
+
+    #[test]
+    fn clinical_context_retry_filters_only_safe_recoverable_failures() {
+        assert!(is_retryable_clinical_context_error(&anyhow!(
+            "LLM output truncated at token/context limit"
+        )));
+        assert!(is_retryable_clinical_context_error(&anyhow!(
+            "LLM HTTP 400: input exceeds context window"
+        )));
+        assert!(!is_retryable_clinical_context_error(&anyhow!(
+            "LLM HTTP 401"
+        )));
+        assert!(!is_retryable_clinical_context_error(&anyhow!(
+            "Network failure"
+        )));
     }
 
     #[test]
