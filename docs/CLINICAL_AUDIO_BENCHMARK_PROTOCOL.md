@@ -47,3 +47,9 @@ Bibliographie méthodologique (aucune donnée patient) :
 - Latif et al., *Evaluating Robustness of LLM-Based Ambient Scribes for SOAP Note Generation*, CHIL/PMLR 2026, https://proceedings.mlr.press/v333/latif26a.html — alignement des faits à la référence puis vérification des ajouts contre la transcription.
 - Dahlberg et al., *Measuring the quality of AI-generated clinical notes*, Artificial Intelligence in Medicine 2026, DOI 10.1016/j.artmed.2026.103421 — limites des métriques ROUGE/BLEU, évaluation sémantique et humaine combinées.
 - Munnangi et al., *FactEHR*, MLHC/PMLR 2025, https://proceedings.mlr.press/v298/munnangi25a.html — décomposition atomique et preuve d'implication des faits cliniques.
+
+## Streaming et locuteurs : contraintes Parakeet Ultra (vérifiées 2026-11-09)
+
+Selon la documentation actuelle de transcribe.cpp, Parakeet Ultra est un modèle **offline** avec segmentation interne VAD et horodatage ; le streaming à cache est prévu pour certains autres modèles, pas pour Ultra. La famille Parakeet ne fournit pas de diarisation dans l'API transcribe.cpp. Ne pas prétendre que les mots apparaissant en direct dans ScribeWatch proviennent d'un véritable moteur Parakeet Ultra streaming, ni attribuer les propos au patient ou au praticien sans preuve.
+
+Mesurer la latence jusqu'au **PDF final** avant de remplacer le meilleur modèle offline par un modèle streaming. Les indications de vitesse « premier texte » ne prouvent pas un gain de qualité ni un gain de temps final. Référence technique à revalider lors des mises à jour : https://github.com/handy-computer/transcribe.cpp/blob/main/docs/models/parakeet.md
