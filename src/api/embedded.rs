@@ -19,8 +19,8 @@ use std::{
     fs::OpenOptions,
     net::TcpListener,
     path::{Path, PathBuf},
-    process::Stdio,
-    sync::Arc,
+    process::{Command as StdCommand, Stdio},
+    sync::{Arc, OnceLock},
     time::Duration,
 };
 use tokio::{
@@ -41,10 +41,168 @@ const PACK_MODELS: &[&str] = &[
     "handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf",
 ];
 const LLM_SUGGESTIONS: &[&str] = &[
-    "LiquidAI/LFM3-1.7B-GGUF:Q4_K_M",
+    "unsloth/Qwen3.5-2B-GGUF:Q4_K_M",
     "unsloth/Qwen3.5-4B-GGUF:Q4_K_M",
     "unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
+    "unsloth/Phi-4-mini-instruct-GGUF:Q4_K_M",
+    "ggml-org/gemma-3-4b-it-GGUF:Q4_K_M",
 ];
+
+// Use the upstream llama.cpp server on every supported desktop OS: no
+// extra model manager and no GPU-specific custom daemon. Memory heuristics
+// select a safe default; expert overrides are opt-in and range checked.
+// Selecting the best *model* still requires clinical evaluation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LlmRuntimePlan {
+    context_tokens: u32,
+    kv_cache: &'static str,
+}
+
+fn memory_mib_from_nvidia() -> Option<u64> {
+    let output = StdCommand::new("nvidia-smi")
+        .args(["--query-gpu=memory.total", "--format=csv,noheader,nounits"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| line.trim().parse::<u64>().ok())
+        .max()
+}
+
+fn system_memory_mib() -> Option<u64> {
+    #[cfg(target_os = "linux")]
+    {
+        let meminfo = std::fs::read_to_string("/proc/meminfo").ok()?;
+        return meminfo
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("MemTotal:")
+                    .and_then(|rest| rest.split_whitespace().next())
+                    .and_then(|kb| kb.parse::<u64>().ok())
+            })
+            .map(|kb| kb / 1024);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let output = StdCommand::new("sysctl")
+            .args(["-n", "hw.memsize"])
+            .output()
+            .ok()?;
+        return String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .parse::<u64>()
+            .ok()
+            .map(|bytes| bytes / 1024 / 1024);
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // Caching and timing diagnostics stay in the existing native process.
+        // CIM is available on supported Windows installations; failure simply
+        // selects conservative defaults rather than preventing startup.
+        let output = StdCommand::new("powershell.exe")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1MB)",
+            ])
+            .output()
+            .ok()?;
+        return String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .parse::<u64>()
+            .ok();
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    {
+        None
+    }
+}
+
+fn llm_runtime_plan(
+    gpu_mib: Option<u64>,
+    ram_mib: Option<u64>,
+    context_override: Option<&str>,
+    kv_override: Option<&str>,
+) -> LlmRuntimePlan {
+    // On Apple's unified memory or low-dedicated-VRAM GPUs (including AMD
+    // integrated graphics), usable context depends primarily on system RAM.
+    let dedicated_gpu = gpu_mib.filter(|mib| *mib >= 2_048);
+    let memory_budget = dedicated_gpu.or_else(|| ram_mib.map(|mib| mib / 2));
+    let context_tokens = match memory_budget {
+        // With no dedicated accelerator and only 8 GiB RAM, preserve headroom
+        // for the OS, model weights, transcription engine and PDF renderer.
+        _ if dedicated_gpu.is_none() && ram_mib.is_some_and(|mib| mib <= 8_192) => 16_384,
+        Some(mib) if mib >= 24_576 => 131_072,
+        Some(mib) if mib >= 16_384 => 98_304,
+        Some(mib) if mib >= 12_288 => 65_536,
+        Some(mib) if mib >= 8_192 => 49_152,
+        Some(mib) if mib >= 6_144 => 32_768,
+        Some(mib) if mib >= 3_840 => 24_576,
+        Some(_) => 16_384,
+        None => 16_384,
+    };
+    let context_tokens = context_override
+        .and_then(|raw| raw.parse::<u32>().ok())
+        .filter(|tokens| (8_192..=131_072).contains(tokens) && tokens % 1024 == 0)
+        .unwrap_or(context_tokens);
+    let kv_cache = match kv_override {
+        Some("q4_0") => "q4_0",
+        Some("q8_0") => "q8_0",
+        Some("f16") => "f16",
+        _ if memory_budget.is_some_and(|mib| mib >= 12_288) => "q8_0",
+        _ => "q4_0",
+    };
+    LlmRuntimePlan {
+        context_tokens,
+        kv_cache,
+    }
+}
+
+static HOST_LLM_RUNTIME: OnceLock<LlmRuntimePlan> = OnceLock::new();
+
+fn host_llm_runtime_plan() -> LlmRuntimePlan {
+    *HOST_LLM_RUNTIME.get_or_init(|| {
+        llm_runtime_plan(
+            memory_mib_from_nvidia(),
+            system_memory_mib(),
+            std::env::var("SCRIBEWATCH_LLM_CONTEXT_TOKENS")
+                .ok()
+                .as_deref(),
+            std::env::var("SCRIBEWATCH_LLM_KV_CACHE").ok().as_deref(),
+        )
+    })
+}
+
+pub(crate) fn embedded_llm_context_tokens() -> usize {
+    host_llm_runtime_plan().context_tokens as usize
+}
+
+fn llm_runtime_arguments(plan: LlmRuntimePlan) -> Vec<String> {
+    vec![
+        "--models-max".into(),
+        "1".into(),
+        "--models-memory-margin".into(),
+        "512".into(),
+        "--sleep-idle-seconds".into(),
+        "45".into(),
+        "--ctx-size".into(),
+        plan.context_tokens.to_string(),
+        "--cache-type-k".into(),
+        plan.kv_cache.into(),
+        "--cache-type-v".into(),
+        plan.kv_cache.into(),
+        "--flash-attn".into(),
+        "auto".into(),
+        "--gpu-layers".into(),
+        "99".into(),
+        "--parallel".into(),
+        "1".into(),
+    ]
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -302,19 +460,14 @@ impl EmbeddedManager {
                         &kind.port().to_string(),
                         "--models-dir",
                     ])
-                    .arg(&models)
-                    .args([
-                        "--models-max",
-                        "1",
-                        "--models-memory-margin",
-                        "512",
-                        "--sleep-idle-seconds",
-                        "45",
-                        "-c",
-                        "8192",
-                        "-ngl",
-                        "99",
-                    ]);
+                    .arg(&models);
+                    let plan = host_llm_runtime_plan();
+                    cmd.args(llm_runtime_arguments(plan));
+                    tracing::info!(
+                        context_tokens = plan.context_tokens,
+                        kv_cache = plan.kv_cache,
+                        "Embedded llama.cpp runtime configured"
+                    );
                     cmd.env("LLAMA_CACHE", cache);
                 }
             }
@@ -871,6 +1024,51 @@ mod tests {
         assert!(!valid_hf_repo("a/b/c:Q4"));
         assert!(!allowed_model(EngineKind::Stt, "unknown/repo"));
     }
+    #[test]
+    fn windows_four_gig_gpu_uses_tested_quantized_24k_context() {
+        let plan = llm_runtime_plan(Some(4096), Some(16_384), None, None);
+        assert_eq!(plan.context_tokens, 24_576);
+        assert_eq!(plan.kv_cache, "q4_0");
+        let args = llm_runtime_arguments(plan);
+        assert!(args.windows(2).any(|pair| pair == ["--ctx-size", "24576"]));
+        assert!(
+            args.windows(2)
+                .any(|pair| pair == ["--cache-type-v", "q4_0"])
+        );
+        assert!(args.windows(2).any(|pair| pair == ["--flash-attn", "auto"]));
+        assert!(args.windows(2).any(|pair| pair == ["--parallel", "1"]));
+    }
+
+    #[test]
+    fn different_hardware_profiles_are_portable() {
+        let cpu_only = llm_runtime_plan(None, Some(8_192), None, None);
+        assert_eq!(cpu_only.context_tokens, 16_384);
+        assert_eq!(cpu_only.kv_cache, "q4_0");
+        let high_memory_cpu = llm_runtime_plan(None, Some(65_536), None, None);
+        assert_eq!(high_memory_cpu.context_tokens, 131_072);
+        assert_eq!(high_memory_cpu.kv_cache, "q8_0");
+        let discrete_gpu = llm_runtime_plan(Some(8192), Some(32_768), None, None);
+        assert_eq!(discrete_gpu.context_tokens, 49_152);
+        assert_eq!(discrete_gpu.kv_cache, "q4_0");
+    }
+
+    #[test]
+    fn environment_overrides_are_bounded_and_validated() {
+        let plan = llm_runtime_plan(Some(4096), Some(16_384), Some("32768"), Some("q8_0"));
+        assert_eq!(plan.context_tokens, 32_768);
+        assert_eq!(plan.kv_cache, "q8_0");
+        let unsafe_plan = llm_runtime_plan(
+            Some(4096),
+            Some(16_384),
+            Some("9999999999999"),
+            Some("nonsense"),
+        );
+        assert_eq!(unsafe_plan.context_tokens, 24_576);
+        assert_eq!(unsafe_plan.kv_cache, "q4_0");
+        let non_multiple = llm_runtime_plan(Some(4096), Some(16_384), Some("20000"), None);
+        assert_eq!(non_multiple.context_tokens, 24_576);
+    }
+
     #[test]
     fn runtime_urls_are_loopback_and_separate() {
         assert!(EngineKind::Stt.url().starts_with("http://127.0.0.1:"));

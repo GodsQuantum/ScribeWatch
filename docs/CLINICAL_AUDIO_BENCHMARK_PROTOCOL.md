@@ -24,3 +24,13 @@ Tester une **unique application ScribeWatch Windows autonome** sur le matériel 
 Tableau : candidat, backend/version, modèle/quantification, streaming oui/non, durée audio, temps ASR à froid/à chaud, latence premier texte, temps LLM, temps PDF final, VRAM/RAM max, score d'erreur **uniquement si transcription revue**, défauts critiques, statut PASS/FAIL/BLOCKED.
 
 **Ne pas publier les données brutes ni l'échantillon médical en exemple produit.**
+
+## Optimisation après baseline — chaque modèle doit avoir sa meilleure configuration
+
+- Baseline: même transcription ASR intégrale et Q4_K_M, génération achevée normalement et temps d'inférence mesuré, sans résumé final supprimant des faits.
+- Accélération et contexte natifs: compter les tokens de transcription, prompt et réserve de sortie; adapter CUDA/Vulkan/CPU, KV q4_0 ou q8_0, contexte à la VRAM réelle, sans supposer que la présence d'une DLL prouve l'accélération.
+- Prompts par modèle: sécurité générique commune, puis consignes différentes pour Qwen, Phi et Gemma en fonction des erreurs réellement observées. Ne jamais coder en dur un fait de la consultation ni fournir la référence médicale à un générateur ou correcteur.
+- Comparaison sur des documents intégralement terminés: même source, temps cumulé de toutes les passes, PDF A4 de format identique. Un texte tronqué ou des sections fusionnées destructivement ne sont pas des candidats finis.
+- Vérification bidirectionnelle: décomposer le document corrigé en faits atomiques pour vérifier omissions, contradictions et inversions ; chercher ensuite les ajouts propres au candidat dans la transcription pour distinguer ajouts justifiés et hallucinations. Priorité aux dents, chiffres, négations, actes/propositions, risques, médicaments et suivi.
+- Second passage possible: relire la transcription originale avec le brouillon sans accéder au document de référence. Mesurer son coût et vérifier qu'il améliore réellement la fidélité. Une ressemblance lexicale élevée ne certifie pas la validité clinique.
+- Confidentialité: seuls les prompts génériques et le protocole sont versionnables dans Git. Les identifiants, transcriptions, grilles médicales et sorties restent dans Benchmark-prive, jamais dans des artefacts publics.
