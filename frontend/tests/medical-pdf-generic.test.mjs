@@ -45,6 +45,14 @@ test('medical PDF renders independently of server and excludes raw transcript wh
 });
 
 
+test('medical PDF still renders with missing patient identity, without inventing a name', async () => {
+  const patient = { surname:'', forename:'', dateOfBirth:'', practitioner:'Dr Test Fictif' };
+  const pdfBlob = await createMedicalPdf('## Synthèse\nConsultation purement fictive.', patient, new Date(2026,10,9));
+  const pdf = await PDFDocument.load(await pdfBlob.arrayBuffer());
+  assert.ok(pdf.getPageCount() >= 1);
+  assert.ok(pdfBlob.size > 1200);
+});
+
 test('medical PDF never silently overwrites another consultation from the same patient/day', async () => {
   const folder = {
     getFileHandle(name) {

@@ -65,6 +65,26 @@
   let practitionerName='';
   let practiceAddress='';
   let practiceContact='';
+  let consultationDate='';
+  const practiceIdentityKey='scribewatch.practice.identity.v1';
+  // Save only the cabinet profile, never names/dates of patients.
+  function savePracticeIdentity(){
+    try{
+      localStorage.setItem(practiceIdentityKey,JSON.stringify({
+        practitioner:practitionerName.trim().slice(0,160),
+        address:practiceAddress.trim().slice(0,240),
+        contact:practiceContact.trim().slice(0,200),
+      }));
+      notify('success','Cabinet mémorisé sur ce PC, sans information patient.');
+    }catch{notify('error','Impossible de mémoriser le cabinet.');}
+  }
+  function clearPracticeIdentity(){
+    try{
+      localStorage.removeItem(practiceIdentityKey);
+      practitionerName='';practiceAddress='';practiceContact='';
+      notify('success','Profil du cabinet retiré de cet ordinateur.');
+    }catch{notify('error','Impossible de retirer le profil du cabinet.');}
+  }
   let pdfDestination:FileSystemDirectoryHandle|undefined;
   let pdfDestinationLabel='';
   type LivePreset={
@@ -520,9 +540,13 @@
           sourceDocumentSha256,structuredProfile:current.structuredProfileName,structuredModel:current.structuredModel};
         const sessionMs=current.quick?.live?.startedAtMs??current.createdAtMs;
         const sessionDate=Number.isFinite(sessionMs)&&sessionMs>0?new Date(sessionMs):new Date();
-        const blob=await createMedicalPdf(sourceMarkdown,patient,sessionDate);
+        // A reprocessed recording may be older than the processing date.
+        const dateOverride=/^\d{4}-\d{2}-\d{2}$/.test(consultationDate)
+          ?new Date(consultationDate+'T12:00:00'):undefined;
+        const documentDate=dateOverride&&!Number.isNaN(dateOverride.getTime())?dateOverride:sessionDate;
+        const blob=await createMedicalPdf(sourceMarkdown,patient,documentDate);
         const target=pdfDestination??(localDirectoryAvailable?await (window as any).showDirectoryPicker({mode:'readwrite'}) as FileSystemDirectoryHandle:undefined);
-        const filename=target?await uniqueMedicalFilename(target,medicalFilename(patient,sessionDate)):medicalFilename(patient,sessionDate);
+        const filename=target?await uniqueMedicalFilename(target,medicalFilename(patient,documentDate)):medicalFilename(patient,documentDate);
         await saveResponseToDirectory(new Response(blob),filename,target,window);
         notify('success','Brouillon PDF créé. Vérifier les faits, archiver le Markdown source et faire valider par le praticien.');
       }else{
@@ -580,6 +604,14 @@
       const stored=JSON.parse(localStorage.getItem(presetStorageKey)||'[]');
       if(Array.isArray(stored))presets=stored.filter(p=>p&&typeof p.name==='string'&&Array.isArray(p.transcriptionChain)).slice(-30);
     }catch{presets=[];}
+    try{
+      const saved=JSON.parse(localStorage.getItem(practiceIdentityKey)||'null');
+      if(saved&&typeof saved==='object'&&!Array.isArray(saved)){
+        if(typeof saved.practitioner==='string')practitionerName=saved.practitioner.slice(0,160);
+        if(typeof saved.address==='string')practiceAddress=saved.address.slice(0,240);
+        if(typeof saved.contact==='string')practiceContact=saved.contact.slice(0,200);
+      }
+    }catch{/* Local profile optional. No patient identity is ever loaded here. */}
     secureContext=window.isSecureContext;
     unsubscribeController=controller.subscribe(applySnapshot);
     localProxyPlatform=detectLocalProxyPlatform(navigator as Navigator & {userAgentData?:{platform?:string}});
@@ -782,7 +814,13 @@
               <div class="field"><label for="patient-doctor">Praticien</label><input id="patient-doctor" class="input" autocomplete="off" bind:value={practitionerName}/></div>
               <div class="field"><label for="practice-address">Adresse du cabinet (facultative)</label><input id="practice-address" class="input" autocomplete="off" bind:value={practiceAddress} placeholder="Adresse complète" /></div>
               <div class="field"><label for="practice-contact">Contact professionnel (facultatif)</label><input id="practice-contact" class="input" autocomplete="off" bind:value={practiceContact} placeholder="Téléphone ou e-mail" /></div>
+              <div class="field"><label for="consultation-date">Date de consultation (si différente de la date d'enregistrement)</label><input id="consultation-date" class="input" type="date" bind:value={consultationDate}/></div>
             </div>
+            <div class="row wrap">
+              <button class="btn compact" on:click={savePracticeIdentity} disabled={!practitionerName.trim()}>Mémoriser le cabinet sur cet ordinateur</button>
+              <button class="btn compact" on:click={clearPracticeIdentity}>Effacer ce profil de cabinet</button>
+            </div>
+            <span class="help">Seules les coordonnées du praticien et du cabinet sont réutilisables sur ce PC. Nom, prénom, naissance et date de consultation ne sont jamais conservés dans le profil de cabinet.</span>
             <div class="row wrap"><button class="btn compact" on:click={choosePdfFolder} disabled={!localDirectoryAvailable}>Dossier PDF</button><span class="help">{pdfDestinationLabel||'Choisir au moment de la sauvegarde'}</span></div>
             <span class="help">Profil recommandé : « Compte rendu médical — patient + dossier (traçabilité) ». Le PDF est un brouillon à valider par le praticien ; conserver la source de l'enregistrement séparément. Les informations du formulaire patient/cabinet sont ajoutées localement au PDF.</span>
             {#if audioRetentionMode==='none'}<span class="help">Attention : aucune copie audio permanente. Pour documenter les échanges, choisir explicitement une conservation de l'audio si elle est autorisée ; le PDF seul ne certifie pas les propos.</span>{/if}
