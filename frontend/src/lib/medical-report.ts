@@ -70,10 +70,11 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
   const navy=rgb(.11,.19,.24),teal=rgb(.08,.4,.42),muted=rgb(.42,.46,.5);
   let page!:PDFPage;let y=0;const pages:PDFPage[]=[];
   const addPage=()=>{
-    page=pdf.addPage([W,H]);pages.push(page);y=H-53;
-    page.drawText('SCRIBEWATCH / DOCUMENT CLINIQUE',{x:M,y,size:8,font:bold,color:teal});
-    page.drawLine({start:{x:M,y:y-11},end:{x:W-M,y:y-11},thickness:.8,color:rgb(.82,.86,.87)});
-    y-=34;
+    page=pdf.addPage([W,H]);pages.push(page);y=H-60;
+    page.drawRectangle({x:0,y:H-37,width:W,height:37,color:navy});
+    page.drawRectangle({x:0,y:H-40,width:W,height:3,color:teal});
+    page.drawText('SCRIBEWATCH    /    COMPTE RENDU CLINIQUE',{x:M,y:H-24,size:9,font:bold,color:rgb(1,1,1)});
+    y-=17;
   };
   const ensure=(height:number)=>{if(y-height<67)addPage();};
   const draw=(text:string,style:'title'|'section'|'body'|'bullet'|'table'='body')=>{
@@ -120,9 +121,9 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
   };
   addPage();
   const dateLabel=new Intl.DateTimeFormat('fr-FR',{dateStyle:'long'}).format(date);
-  page.drawText('Date : '+safe(dateLabel,bold),{x:M,y,size:10,font:bold,color:navy});
-  y-=34;
-  const columnStart=y;
+  page.drawText('DATE DE CONSULTATION  /  '+safe(dateLabel,bold),{x:M,y,size:10,font:bold,color:navy});
+  y-=30;
+  let columnStart=y;
   const drawColumn=(x:number,label:string,lines:string[],width:number):number=>{
     if(!lines.some(Boolean))return columnStart;
     let at=columnStart;
@@ -135,16 +136,32 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     }
     return at;
   };
-  const left=drawColumn(M,'PRATICIEN',[
-    patient.practitioner?.trim()||'',
+  const practiceLines=[
+    patient.practitioner?.trim()||'Praticien à renseigner',
     patient.practiceAddress?.trim()||'',
     patient.practiceContact?.trim()||''
-  ],220);
-  const right=drawColumn(M+285,'PATIENT',[
-    [patient.forename.trim(),patient.surname.trim().toLocaleUpperCase('fr-FR')].filter(Boolean).join(' '),
-    patient.dateOfBirth?'Date de naissance : '+(patient.dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)?patient.dateOfBirth.split('-').reverse().join('/'):patient.dateOfBirth):''
-  ],contentWidth-285);
-  y=Math.min(left,right)-14;
+  ];
+  const patientName=[patient.forename.trim(),patient.surname.trim().toLocaleUpperCase('fr-FR')].filter(Boolean).join(' ')||'Identité à renseigner';
+  const patientLines=[
+    patientName,
+    'Date de naissance : '+(patient.dateOfBirth
+      ?(patient.dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)
+        ?patient.dateOfBirth.split('-').reverse().join('/'):patient.dateOfBirth)
+      :'à renseigner')
+  ];
+  // Size the metadata panel for long addresses: no clipping or text overlap.
+  const lineCount=(lines:string[],width:number)=>lines.filter(Boolean)
+    .reduce((sum,line)=>sum+wrap(line,regular,10,width).length,0);
+  const panelHeight=Math.max(94,45+14*Math.max(lineCount(practiceLines,210),lineCount(patientLines,200)));
+  ensure(panelHeight+25);
+  columnStart=y;
+  page.drawRectangle({x:M-8,y:columnStart-panelHeight+17,width:contentWidth+16,height:panelHeight,
+    color:rgb(.945,.975,.973),borderColor:rgb(.81,.86,.85),borderWidth:.7});
+  page.drawLine({start:{x:M+270,y:columnStart-panelHeight+22},
+    end:{x:M+270,y:columnStart+12},thickness:.7,color:rgb(.82,.87,.86)});
+  const left=drawColumn(M+5,'PRATICIEN',practiceLines,210);
+  const right=drawColumn(M+285,'PATIENT',patientLines,200);
+  y=Math.min(left,right)-15;
   page.drawLine({start:{x:M,y},end:{x:W-M,y},thickness:.8,color:rgb(.77,.82,.84)});
   y-=26;
   draw('Compte rendu de consultation','title');
