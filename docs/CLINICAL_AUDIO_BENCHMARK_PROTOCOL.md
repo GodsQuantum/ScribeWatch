@@ -34,3 +34,16 @@ Tableau : candidat, backend/version, modèle/quantification, streaming oui/non, 
 - Vérification bidirectionnelle: décomposer le document corrigé en faits atomiques pour vérifier omissions, contradictions et inversions ; chercher ensuite les ajouts propres au candidat dans la transcription pour distinguer ajouts justifiés et hallucinations. Priorité aux dents, chiffres, négations, actes/propositions, risques, médicaments et suivi.
 - Second passage possible: relire la transcription originale avec le brouillon sans accéder au document de référence. Mesurer son coût et vérifier qu'il améliore réellement la fidélité. Une ressemblance lexicale élevée ne certifie pas la validité clinique.
 - Confidentialité: seuls les prompts génériques et le protocole sont versionnables dans Git. Les identifiants, transcriptions, grilles médicales et sorties restent dans Benchmark-prive, jamais dans des artefacts publics.
+
+## Métriques de fidélité clinique — évaluation multicouche (2026)
+
+Pour chaque transcription source et compte rendu corrigé par le praticien, enregistrer deux axes distincts :
+
+1. **Rappel des faits de référence** : décomposer le compte rendu corrigé en assertions atomiques (numéro de dent, constat, conseil, risque, option conditionnelle, décision, acte effectué, négation, chiffre). Vérifier leur présence dans la transcription source avant de sanctionner le LLM : un fait absent du texte ASR doit être traité comme limitation ASR, pas automatiquement comme omission du LLM. Mesurer la couverture par priorité clinique et signaler omissions et contradictions.
+2. **Précision des affirmations du candidat** : décomposer le rapport généré en assertions atomiques, puis confronter celles qui ne sont pas dans la référence au texte ASR complet. Les ajouts peuvent être justifiés par la transcription même s'ils ne figurent pas dans la référence. Distinguer ajout pertinent, ajout non étayé, erreur chiffrée, attribution erronée, négation inversée et soins proposés transformés en soins effectués.
+3. **Évaluation finale** : échelle de gravité (critique, majeur, mineur), fidélité clinique, lisibilité française, complétude PDF, temps **cumulé** de toutes les passes et ressources. Le score lexical automatisé n'est qu'un contrôle d'alerte ; un second évaluateur LLM ne remplace pas la relecture médicale du praticien.
+
+Bibliographie méthodologique (aucune donnée patient) :
+- Latif et al., *Evaluating Robustness of LLM-Based Ambient Scribes for SOAP Note Generation*, CHIL/PMLR 2026, https://proceedings.mlr.press/v333/latif26a.html — alignement des faits à la référence puis vérification des ajouts contre la transcription.
+- Dahlberg et al., *Measuring the quality of AI-generated clinical notes*, Artificial Intelligence in Medicine 2026, DOI 10.1016/j.artmed.2026.103421 — limites des métriques ROUGE/BLEU, évaluation sémantique et humaine combinées.
+- Munnangi et al., *FactEHR*, MLHC/PMLR 2025, https://proceedings.mlr.press/v298/munnangi25a.html — décomposition atomique et preuve d'implication des faits cliniques.
