@@ -72,18 +72,36 @@ fn memory_mib_from_nvidia() -> Option<u64> {
         .max()
 }
 
+fn parse_cgroup_memory_limit_mib(text: &str) -> Option<u64> {
+    text.trim()
+        .parse::<u64>()
+        .ok()
+        .map(|bytes| bytes / 1024 / 1024)
+        .filter(|mib| *mib >= 1_024 && *mib < 1_048_576)
+}
+
 fn system_memory_mib() -> Option<u64> {
     #[cfg(target_os = "linux")]
     {
         let meminfo = std::fs::read_to_string("/proc/meminfo").ok()?;
-        return meminfo
+        let host_memory_mib = meminfo
             .lines()
             .find_map(|line| {
                 line.strip_prefix("MemTotal:")
                     .and_then(|rest| rest.split_whitespace().next())
                     .and_then(|kb| kb.parse::<u64>().ok())
             })
-            .map(|kb| kb / 1024);
+            .map(|kb| kb / 1024)?;
+        // An LXC/Docker guest may have much less RAM than /proc/meminfo
+        // exposes. Use the cgroup limit when present to avoid OOM.
+        let cgroup_mib = [
+            "/sys/fs/cgroup/memory.max",
+            "/sys/fs/cgroup/memory/memory.limit_in_bytes",
+        ]
+        .iter()
+        .filter_map(|path| std::fs::read_to_string(path).ok())
+        .find_map(|raw| parse_cgroup_memory_limit_mib(&raw));
+        return Some(cgroup_mib.map_or(host_memory_mib, |limit| host_memory_mib.min(limit)));
     }
     #[cfg(target_os = "macos")]
     {
@@ -1037,6 +1055,14 @@ mod tests {
         );
         assert!(args.windows(2).any(|pair| pair == ["--flash-attn", "auto"]));
         assert!(args.windows(2).any(|pair| pair == ["--parallel", "1"]));
+    }
+
+    #[test]
+    fn cgroup_limit_parser_skips_unlimited_and_tiny_values() {
+        assert_eq!(parse_cgroup_memory_limit_mib("max"), None);
+        assert_eq!(parse_cgroup_memory_limit_mib("8589934592\n"), Some(8192));
+        assert_eq!(parse_cgroup_memory_limit_mib("18446744073709551615"), None);
+        assert_eq!(parse_cgroup_memory_limit_mib("1048576"), None);
     }
 
     #[test]
