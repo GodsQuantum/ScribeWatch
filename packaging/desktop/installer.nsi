@@ -61,6 +61,9 @@ unpack_success:
  WriteRegStr HKCU "Software\GodsQuantum\${APP_NAME}" "InstallPath" "$INSTDIR"
  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\GodsQuantum-${APP_NAME}" "DisplayName" "${APP_NAME}"
  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\GodsQuantum-${APP_NAME}" "DisplayVersion" "${APP_VERSION}"
+ WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\GodsQuantum-${APP_NAME}" "DisplayIcon" "$INSTDIR\${APP_NAME}.exe,0"
+ WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\GodsQuantum-${APP_NAME}" "Publisher" "GodsQuantum"
+ WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\GodsQuantum-${APP_NAME}" "InstallLocation" "$INSTDIR"
  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\GodsQuantum-${APP_NAME}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
 SectionEnd
 Section "Uninstall"

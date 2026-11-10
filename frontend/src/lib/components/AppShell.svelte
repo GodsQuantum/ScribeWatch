@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { api } from '$lib/api';
   import { initLocale, locale, localize, setLocale, type Locale } from '$lib/i18n';
   import type { Job, Space, SpaceKind, SpaceMembership } from '$lib/types';
 
@@ -7,6 +8,7 @@
   type Theme='night'|'arctic'|'slate'|'sand'|'violet';
   export let active:View='home';
   export let onnav:(view:View)=>void=()=>{};
+  export let onlocale:()=>Promise<void>=async()=>{};
   export let spaces:Space[]=[];
   export let jobs:Job[]=[];
   export let assignments:SpaceMembership[]=[];
@@ -63,7 +65,8 @@
     try{localStorage.setItem('scribewatch:theme',value);}catch{/* private mode */}
   }
   onMount(()=>{
-    initLocale();
+    const initialLocale=initLocale();
+    void api.syncBuiltInProfileLocale(initialLocale).then(()=>onlocale()).catch(()=>{});
     try{
       const saved=localStorage.getItem('scribewatch:theme');
       if(saved&&allowedThemes.has(saved as Theme))applyTheme(saved as Theme);
@@ -77,7 +80,16 @@
     window.addEventListener('keydown',shortcut);
     return()=>window.removeEventListener('keydown',shortcut);
   });
-  function changeLocale(event:Event){setLocale((event.currentTarget as HTMLSelectElement).value as Locale);}
+  async function changeLocale(event:Event){
+    const chosen=(event.currentTarget as HTMLSelectElement).value as Locale;
+    setLocale(chosen);
+    try{
+      await api.syncBuiltInProfileLocale(chosen);
+      await onlocale();
+    }catch(error){
+      console.warn('Unable to synchronize built-in AI prompt language:',error);
+    }
+  }
   async function addSpace(){
     if(savingSpace||!newSpaceName.trim())return;
     savingSpace=true;

@@ -12,6 +12,7 @@ pub mod llm;
 pub mod markdown;
 pub mod pipeline;
 mod pipeline_quick;
+mod profile_locale;
 pub mod provider;
 pub mod quick;
 pub mod state;
