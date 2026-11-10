@@ -104,3 +104,13 @@ Brouillon de **lettre de consultation dentaire en français**, fidèle à une tr
 - Ensuite comparer les autres modèles retenus avec un protocole commun et des réglages familiaux, puis vérifier microphone → ASR → modèle → PDF sur les deux PC du cabinet. Aucun rapport n'est utilisable cliniquement avant validation du praticien.
 
 Fichier de statut unique : ce document. Le pointeur racine HANDOFF_CURRENT.md demeure inchangé ; les traces médicales et scripts de benchmarking restent privés.
+
+## CAB2 — contrôle clinique et comparaison Atomic (11/11/2026)
+- CAB2 vérifié : ScribeWatch opérationnel avec cinq profils et 31 jobs. Modèle dentaire Qwen3.5-4B Q4_K_M. Binaire Windows déployé : sha256 2be54d2b1aa2e9ef6cf0b48c046635b4dc21dcec9f47565fe6a50c62c25e8b37.
+- Document patient : suppression du texte d'audit, références de documents, identifiants techniques ; contrôle factuel en interne. Les assertions non supportées sont filtrées, non certifiées.
+- Atomic Chat 2.3.5 Windows et backends CUDA PrismML/TurboQuant sont installés séparément dans le répertoire QA de ScribeWatch. TurboQuant KV turbo3 ; les poids ternaires exigent PrismML. Production ScribeWatch inchangée.
+- Benchmark : transcription Parakeet Ultra originale réutilisée, référence PDF jamais fournie au générateur. Matrice et PDFs privés dans /srv/storage/cloud/arezki/Documents/ScribeWatch/Benchmark-prive/LLM-2026-11-09/CT700/Cab2-Model-Comparison-20261110/. Le score de couverture est lexical et non une validation clinique.
+- Meilleur rappel du panel actuel Qwen3.5 4B, 81.6% lexical, mais des affirmations inventées ont été détectées. Bonsai 9B 67.8% en direct ou 66.7% via Atomic (497s), et variante Bonsai 27B PTQ1_0 charge mais reste lente. Qwen3.5 9B Atomic+TurboQuant a dépassé 1100s sans livrer, donc rejeté sous cette config.
+- Qwen3.6 14B A3B MoE test court sous TurboQuant : 0.68 tok/s, langue française inadéquate ; ne pas tenter la génération longue. Les essais suivants passent un contrôle court vitesse/mémoire avant rédaction complète.
+- Stockage CAB2 : suppression ciblée des archives déjà installées, nettoyage des fichiers de staging hors ScribeWatch, et tâche hebdomadaire de purge uniquement des fichiers partiels et logs QA périmés. Aucun modèle actif, résultat clinique ou backup supprimé.
+- Windows 11 25H2 est en attente de redémarrage Windows Update ; ne pas redémarrer pendant les tests. CAB1 non modifié. Qualification clinique toujours non atteinte.

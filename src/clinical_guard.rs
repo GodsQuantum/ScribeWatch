@@ -13,10 +13,13 @@ pub enum ReviewReason {
     ConditionalExamPresentedAsMandatory,
     UnverifiedDentalCausality,
     UnverifiedProcedureDuration,
+    PersonalContactInBody,
+    UnverifiedAnesthesiaType,
+    UnverifiedAnatomicalClaim,
 }
 
 impl ReviewReason {
-    fn description(self) -> &'static str {
+    pub(crate) fn description(self) -> &'static str {
         match self {
             Self::UnconfirmedAppointment => "rendez-vous annoncé comme confirmé sans preuve claire",
             Self::ProcedureContradictsNegativeIndication => {
@@ -44,6 +47,11 @@ impl ReviewReason {
             Self::UnverifiedProcedureDuration => {
                 "durée attribuée à un secteur sans confirmation dans la source"
             }
+            Self::PersonalContactInBody => {
+                "donnée d'identité à laisser exclusivement dans l'en-tête"
+            }
+            Self::UnverifiedAnesthesiaType => "type d'anesthésie absent de la transcription",
+            Self::UnverifiedAnatomicalClaim => "affirmation anatomique absente de la transcription",
         }
     }
 }
@@ -377,6 +385,55 @@ fn conditional_exam_presented_as_mandatory(source: &str, line: &str) -> bool {
     })
 }
 
+fn unsupported_anesthesia_type(source: &str, line: &str) -> bool {
+    line.contains("anesthesie generale") && !source.contains("anesthesie generale")
+}
+
+fn unsupported_gingival_anatomy(source: &str, line: &str) -> bool {
+    (line.contains("gencive") || line.contains("gingiv"))
+        && (line.contains("non vascularis") || line.contains("non-vascularis"))
+        && !(source.contains("non vascularis") || source.contains("non-vascularis"))
+}
+
+fn personal_contact_in_body(original_line: &str) -> bool {
+    // A separate, controlled form supplies the recipient's identity.
+    // Prevent accidental leakage of addresses, phone numbers or email
+    // handles from an ASR hallucination into the clinical letter's body.
+    let tokens = original_line.split_whitespace().collect::<Vec<_>>();
+    let has_email = tokens.iter().any(|word| {
+        let stripped = word.trim_matches(|c: char| c == ',' || c == ';' || c == '(' || c == ')');
+        stripped.contains('@') && stripped.contains('.')
+    });
+    let has_street_address = tokens.windows(2).any(|pair| {
+        let number = pair[0].trim_matches(|c: char| !c.is_ascii_digit());
+        (1..=4).contains(&number.len())
+            && number.chars().all(|c| c.is_ascii_digit())
+            && [
+                "rue",
+                "avenue",
+                "boulevard",
+                "impasse",
+                "allée",
+                "allee",
+                "route",
+                "chemin",
+            ]
+            .contains(&fold(pair[1]).trim_matches(|c: char| !c.is_alphabetic()))
+    });
+    // Generic French ten-digit phone; ignore tooth codes and dosages.
+    let digit_run = original_line.chars().filter(|c| c.is_ascii_digit()).count();
+    let phone = digit_run >= 10
+        && tokens.windows(5).any(|group| {
+            let text = group.join("");
+            let digits = text
+                .chars()
+                .filter(|c| c.is_ascii_digit())
+                .collect::<String>();
+            digits.len() == 10 && digits.starts_with('0')
+        });
+    has_email || has_street_address || phone
+}
+
 fn suspicious_pulp_condition(line: &str) -> bool {
     // Pure high-risk review trigger, NOT a clinical rule or correction:
     // do not infer a root-canal procedure from a sentence that explicitly
@@ -474,6 +531,12 @@ pub fn screen_clinical_report(source: &str, markdown: &str) -> ScreenResult {
             Some(ReviewReason::ConflictingHistory)
         } else if fdi_laterality_conflict(&plain) {
             Some(ReviewReason::InconsistentDentalLaterality)
+        } else if unsupported_anesthesia_type(&source, &plain) {
+            Some(ReviewReason::UnverifiedAnesthesiaType)
+        } else if unsupported_gingival_anatomy(&source, &plain) {
+            Some(ReviewReason::UnverifiedAnatomicalClaim)
+        } else if personal_contact_in_body(line) {
+            Some(ReviewReason::PersonalContactInBody)
         } else if unverified_clinician_name(&source, line) {
             Some(ReviewReason::UnverifiedClinicianName)
         } else if unconfirmed_performed_care(&source, &plain) {
@@ -494,34 +557,14 @@ pub fn screen_clinical_report(source: &str, markdown: &str) -> ScreenResult {
                 line: idx + 1,
                 reason,
             });
-            // Never publish the unverified claim as a patient-facing fact.
-            if line.trim().starts_with('|') {
-                let columns = line.trim().trim_matches('|').split('|').count();
-                let mut replacement = vec![
-                    "À confirmer".to_string(),
-                    format!("Information écartée : {}", reason.description()),
-                ];
-                replacement.resize(columns.max(2), "—".into());
-                kept.push(format!("| {} |", replacement.join(" | ")));
-            } else {
-                kept.push(format!(
-                    "**À confirmer avant validation** — formulation clinique écartée ({}).",
-                    reason.description()
-                ));
-            }
+            // Exclude the unsupported assertion from the patient document.
+            // The structured ReviewFinding remains available separately
+            // (and a privacy-preserving line/reason is logged by the caller).
+            // Never introduce audit instructions or validation notes into
+            // patient prose or treatment tables.
         } else {
             kept.push(line.to_owned());
         }
-    }
-    if !findings.is_empty() {
-        kept.push(String::new());
-        kept.push("## Éléments à vérifier par le praticien".to_owned());
-        kept.push(format!(
-            "{} passage(s) à risque ont été écartés du brouillon. \
-La transcription originale reste disponible pour vérifier le contexte et restituer \
-l'information correcte. **Ne pas utiliser ce document sans relecture clinique.**",
-            findings.len()
-        ));
     }
     ScreenResult {
         markdown: kept.join("\n"),
@@ -549,6 +592,57 @@ mod tests {
                 .markdown
                 .contains("D'autres conseils ont été discutés")
         );
+    }
+
+    #[test]
+    fn general_anaesthesia_cannot_be_invented_from_local_anaesthesia() {
+        let source = "Pour le soin fictif, une anesthésie locale est possible.";
+        let suspect = "Une anesthésie générale sera nécessaire.";
+        let result = screen_clinical_report(source, suspect);
+        assert_eq!(result.findings.len(), 1);
+        assert_eq!(
+            result.findings[0].reason,
+            ReviewReason::UnverifiedAnesthesiaType
+        );
+        assert!(!result.markdown.contains(suspect));
+        let supported = "Une anesthésie générale a été évoquée pour cette éventualité.";
+        assert!(
+            screen_clinical_report(supported, supported)
+                .findings
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn unsupported_anatomical_assertion_stays_out_of_patient_letter() {
+        let source = "Les gencives sont légèrement inflammatoires.";
+        let suspect = "Les gencives sont des muqueuses non vascularisées.";
+        let result = screen_clinical_report(source, suspect);
+        assert_eq!(result.findings.len(), 1);
+        assert_eq!(
+            result.findings[0].reason,
+            ReviewReason::UnverifiedAnatomicalClaim
+        );
+        assert!(result.markdown.trim().is_empty());
+    }
+
+    #[test]
+    fn patient_identifiers_go_only_to_controlled_pdf_header() {
+        let source = "Consultation fictive sur une carie.";
+        for unsafe_note in [
+            "Le patient habite au 24 rue Imaginaire.",
+            "Contact du patient: exemple@test.invalid.",
+        ] {
+            let note = format!("## Bilan clinique\n{unsafe_note}\nCarie à surveiller.");
+            let result = screen_clinical_report(source, &note);
+            assert_eq!(result.findings.len(), 1);
+            assert_eq!(
+                result.findings[0].reason,
+                ReviewReason::PersonalContactInBody
+            );
+            assert!(!result.markdown.contains(unsafe_note));
+            assert!(result.markdown.contains("Carie à surveiller."));
+        }
     }
 
     #[test]
@@ -675,10 +769,11 @@ troubles du sommeil depuis trois semaines, c'est important.";
             screened
                 .markdown
                 .lines()
-                .filter(|line| line.starts_with("| À confirmer"))
+                .filter(|line| line.starts_with('|'))
                 .count(),
             2
         );
+        assert!(!screened.markdown.contains("Éléments à vérifier"));
     }
 
     #[test]
@@ -697,7 +792,7 @@ troubles du sommeil depuis trois semaines, c'est important.";
     fn next_visit_for_another_topic_does_not_prove_future_brushing() {
         let source = "La prochaine consultation permettra de soigner une carie.\\n\\nAujourd'hui je vais vous montrer la technique de brossage.";
         let note = "La technique de brossage sera expliquée à la prochaine consultation.";
-        let screened = screen_clinical_report(source.replace("\\n", "\n").as_str(), note);
+        let screened = screen_clinical_report(&source.replace("\\n", "\n"), note);
         assert_eq!(
             screened.findings[0].reason,
             ReviewReason::UnverifiedFutureConsultation
