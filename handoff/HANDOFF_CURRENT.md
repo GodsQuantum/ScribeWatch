@@ -76,6 +76,15 @@ Brouillon de **lettre de consultation dentaire en français**, fidèle à une tr
 - Backend de sécurité recompilé Windows SHA256 f7ce791b8f7e31b2511519d879b71893935a8cfb5582cf17a5afe94f9daf7e40 et installé sur CabinetDentaire2 après sauvegarde et arrêt/reprise contrôlés du modèle via API native. Vérification déploiement PASS : 30 jobs historiques conservés, GUI interactive, /ready et llama.cpp contexte 24 576 ; rollback conservé dans qa-cab2-20261110/rollback-guard.
 - Prochaine étape : améliorer l'exhaustivité et la fidélité des recommandations, conditions et actes sans inversion ni omissions importantes avant présentation du PDF de production. Si le 4B local n'atteint pas le niveau nécessaire, signaler sa limite. Cab1 et Qwen3.8 toujours différés jusqu'à validation de Cab2.
 
+## Qwen3.8 Distill — 10 novembre 2026
+
+- Exécution demandée : empero-ai/Qwen3.8-4B-Distill-GGUF:Q4_K_M (modèle communautaire Qwen3.5-4B distillé, GGUF Apache-2.0), téléchargé via POST /models de llama.cpp natif sur CabinetDentaire2. La version Qwen3.5-4B antérieure reste installée pour rollback.
+- Test synthétique Windows : activation chat_template_kwargs.enable_thinking=false ; réponse française avec condition pulpe conservable vs infection préservée, finish_reason=stop, aucun raisonnement parasite.
+- Correctif backend ScribeWatch : traitement déterministe et sans bloc de raisonnement aussi pour Qwen3.8 ; consignes modèle génériques pour respecter faits distants, conditions, raisonnement et longueur adaptative, sans insérer la référence patient dans les prompts.
+- Build Windows SHA256 2916b0104f16931bd8cd66d9c865ad903ae200927c289379d0f544383f1267fc installé sur CabinetDentaire2 après sauvegarde ; santé, contexte 24 576, 30 anciens jobs préservés. Profil dentaire lié au modèle Qwen3.8 (Qwen3.5 rollback disponible).
+- Job en cours sur audio d'origine du cabinet (Parakeet Ultra puis Qwen3.8), identifiant privé b018c09f-b450-4a62-a0fc-b1be20fb03d1. **Ne pas certifier qualité clinique sans inspecter résultat réel**, contradictions et données omises. PDF doit être exporté par frontend/src/lib/medical-report.ts en production (sans mentions de test) et présenté au demandeur même si relecture encore nécessaire.
+- Git et handoff : conserver un seul canonique, pas de données patient, de transcription, ni de référence PDF dans Git.
+
 ## Décisions et suite
 
 - Les recherches sur le « lost in the middle » et l'évaluation clinique en 2025–2026 confirment que la capacité du contexte seule ne garantit pas la couverture. Un découpage temporel indépendant peut perdre des relations entre faits éloignés ; rechercher d'abord des extraits thématiques avec citations à la source.

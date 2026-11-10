@@ -359,6 +359,8 @@ fn dental_model_guidance(model: &str, locale: &str) -> &'static str {
     let model = model.to_ascii_lowercase();
     if model.contains("qwen3.5-2b") {
         "MODÈLE COMPACT : reste strictement factuel, sans extrapolation clinique. Sépare chaque constat explicite, chaque option conditionnelle, les soins réellement accomplis et les conseils précisément donnés. Ne remplis jamais les informations manquantes par un fait plausible. Préserve tous les numéros de dents, les négations et les chiffres. Couvre aussi la fin de l'enregistrement. Évite les rubriques génériques et les répétitions."
+    } else if model.contains("qwen3.8-4b") {
+        "MODÈLE QWEN DISTILL 4B : traite la consultation comme un raisonnement clinique continu. Relie les éléments éloignés portant sur les mêmes dents ou symptômes, sans changer la chronologie des décisions. Pour chaque thème abordé, conserve les constats, douleurs, mesures, incertitudes, explications causales, possibilités avec leurs conditions EXACTES, gestes déjà effectués, prescriptions réellement données et étapes proposées. Une pulpe conservable ne justifie pas automatiquement une dévitalisation ; ne transforme aucune possibilité en certitude. Distingue explicitement les soins prioritaires des soins secondaires et ce qui reste à convenir. À la fin, vérifie silencieusement chaque fait important contre la transcription, sans écrire cette vérification. Aucun quota de mots, de pages ou de titres."
     } else if model.contains("qwen3.5-4b") || model.contains("qwen3.5-9b") {
         "MODÈLE DÉTAILLÉ : utilise la transcription entière, vérifie les thèmes abordés en fin d'entretien, conserve les raisonnements et mécanismes réellement expliqués par le praticien, les risques, alternatives, conditions et conseils pratiques exacts. Vérifie avant de conclure qu'aucun nom, âge, date, acte, ordonnance ou décision n'a été inventé. N'inverse jamais une négation."
     } else if model.contains("phi-4-mini") {
@@ -479,7 +481,7 @@ fn content_text(value: &Value) -> Option<String> {
 }
 
 /// Built-in localhost llama.cpp needs a bounded response and a non-thinking
-/// template for hybrid Qwen3.5 models. Other OpenAI-compatible providers must
+/// template for hybrid Qwen3.5 / Qwen3.8-distill models. Other OpenAI-compatible providers must
 /// retain their original request semantics.
 fn chat_request_body(endpoint: &str, model: &str, system: &str, user: &str) -> Value {
     let mut body = json!({
@@ -495,7 +497,8 @@ fn chat_request_body(endpoint: &str, model: &str, system: &str, user: &str) -> V
         // Sufficient for a detailed consultation while preventing runaway
         // generations. The server reserves its own input/context budget.
         body["max_tokens"] = json!(LOCAL_LLM_OUTPUT_TOKENS);
-        if model.to_ascii_lowercase().contains("qwen3.5") {
+        let model_family = model.to_ascii_lowercase();
+        if model_family.contains("qwen3.5") || model_family.contains("qwen3.8") {
             body["chat_template_kwargs"] = json!({"enable_thinking": false});
             // Deterministic low-temperature decoding is crucial for factual
             // summaries on small local models; llama.cpp otherwise falls
@@ -1177,6 +1180,23 @@ mod tests {
         assert!(p.model.is_empty());
         assert!(p.output_example.is_empty());
         assert!(validate_profile(&p).is_ok());
+    }
+
+    #[test]
+    fn embedded_qwen38_chat_is_nonthinking_and_complete_budget() {
+        let body = chat_request_body(
+            "http://127.0.0.1:38080/v1/chat/completions",
+            "empero-ai/Qwen3.8-4B-Distill-GGUF:Q4_K_M",
+            "Clinical source only.",
+            "Fictional transcript.",
+        );
+        assert_eq!(body["chat_template_kwargs"]["enable_thinking"], false);
+        assert_eq!(body["temperature"], 0.1);
+        assert_eq!(body["top_p"], 0.9);
+        assert_eq!(body["max_tokens"], LOCAL_LLM_OUTPUT_TOKENS);
+        let guidance = dental_model_guidance("empero-ai/Qwen3.8-4B-Distill-GGUF:Q4_K_M", "fr");
+        assert!(guidance.contains("Aucun quota"));
+        assert!(guidance.contains("dévitalisation"));
     }
 
     #[test]
