@@ -31,14 +31,38 @@ export async function uniqueMedicalFilename(directory:FileSystemDirectoryHandle,
   throw new Error('Too many reports with the same name in this directory');
 }
 
+/** Suppress internal review/audit metadata from patient-facing reports.
+ * The original source and findings are preserved privately by the backend.
+ * Never remove an ordinary clinical "à confirmer" or a patient follow-up.
+ */
+export function patientFacingMedicalBody(body:string):string{
+  const internal=/^#{1,3}\s+(?:Éléments? à vérifier par le praticien|À confirmer par le praticien|Références documentaires(?:\s*\([^)]*\))?|Contrôle interne(?: de qualité)?|Audit clinique interne)\s*$/i;
+  // Defence in depth: PDF header receives identity from the user-controlled
+  // form. Do not carry contact coordinates hallucinated by a local model
+  // over into clinical paragraphs, even when the backend is bypassed.
+  const contact=/\b\d{1,4}\s+(?:rue|avenue|boulevard|impasse|allée|allee|route|chemin)\b|[\w.+-]+@[\w.-]+\.[a-z]{2,}|\b0[1-9](?:[ .-]*\d{2}){4}\b/i;
+  let suppress=false;
+  const kept:string[]=[];
+  for(const line of body.split('\n')){
+    const trimmed=line.trim();
+    if(internal.test(trimmed)){suppress=true;continue;}
+    if(suppress && /^#{1,3}\s+/.test(trimmed))suppress=false;
+    if(suppress)continue;
+    if(contact.test(trimmed))continue;
+    if(/(?:formulation clinique écartée|information écartée\s*:|passage\(s\) à risque ont été écartés)/i.test(trimmed))continue;
+    kept.push(line);
+  }
+  return kept.join('\n').trim();
+}
+
 export function structuredMedicalBody(text:string):string{
   const matched=text.match(/^## Structured notes\s*([\s\S]*?)(?=^## Transcript\s*$|(?![\s\S]))/m);
-  if(matched?.[1]?.trim())return matched[1].trim();
+  if(matched?.[1]?.trim())return patientFacingMedicalBody(matched[1]);
   const cleaned=text.replace(/^---\s*\n[\s\S]*?\n---\s*\n/,'').trim();
   // A provider may return the completed clinical Markdown directly, without
   // the old "Structured notes" transport wrapper. Never relabel it as raw ASR.
   if(/^#{1,3}\s+/.test(cleaned) && !/^#{1,3}\s+Transcript\b/im.test(cleaned))
-    return cleaned;
+    return patientFacingMedicalBody(cleaned);
   return '## Transcription non structurée - à vérifier\n\n'+cleaned;
 }
 function safe(text:string,font:PDFFont):string {
@@ -117,7 +141,7 @@ export function wrapRichText(text:string,normal:PDFFont,strong:PDFFont,size:numb
 export async function createMedicalPdf(markdown:string,patient:PatientMetadata,date=new Date()):Promise<Blob>{
   const pdf=await PDFDocument.create();
   pdf.setTitle('Compte rendu de consultation');pdf.setCreator('ScribeWatch');
-  if(patient.sourceSessionRef)pdf.setSubject('Brouillon non validé ; référence de session '+patient.sourceSessionRef);
+  // Source IDs, model names and checksums must never appear in patient PDFs.
   const regular=await pdf.embedFont(StandardFonts.Helvetica);
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
   const W=595.28,H=841.89,M=49,contentWidth=W-2*M;
@@ -265,22 +289,9 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     else if(/^[-*]\s/.test(line)||/^\d+[.)]\s/.test(line))draw('• '+line.replace(/^(?:[-*]|\d+[.)])\s+/,''),'bullet');
     else draw(line);
   }
-  if(patient.sourceSessionRef||patient.sourceDocumentSha256||patient.structuredProfile||patient.structuredModel){
-    y-=8;
-    draw('Références documentaires (brouillon non validé)','section');
-    if(patient.sourceSessionRef)draw('Session source : '+patient.sourceSessionRef);
-    if(patient.structuredProfile)draw('Profil de mise en forme : '+patient.structuredProfile);
-    if(patient.structuredModel)draw('Modèle de rédaction : '+patient.structuredModel);
-    if(patient.sourceDocumentSha256)draw('SHA-256 du Markdown source : '+patient.sourceDocumentSha256);
-    draw("L’empreinte sert à comparer la note Markdown archivée. Elle ne certifie pas l’audio, l’identité des intervenants, le contenu des propos ni la validation clinique.");
-  }
   for(let i=0;i<pages.length;i++){
     const p=pages[i];
     p.drawLine({start:{x:M,y:53},end:{x:W-M,y:53},thickness:.7,color:rgb(.78,.83,.84)});
-    const footer=patient.sourceSessionRef
-      ? 'Brouillon - validation du praticien requise | Réf. '+patient.sourceSessionRef.slice(0,12)
-      : 'Brouillon - validation obligatoire par le praticien';
-    p.drawText(footer,{x:M,y:37,size:7.8,font:regular,color:muted});
     const n='Page '+(i+1)+' / '+pages.length;
     p.drawText(n,{x:W-M-bold.widthOfTextAtSize(n,8),y:37,size:8,font:bold,color:muted});
   }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMedicalPdf, medicalFilename, structuredMedicalBody, uniqueMedicalFilename, wrapRichText } from '../src/lib/medical-report.ts';
+import { createMedicalPdf, medicalFilename, structuredMedicalBody, uniqueMedicalFilename, wrapRichText, patientFacingMedicalBody } from '../src/lib/medical-report.ts';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 
 test('medical PDF renders independently of server and excludes raw transcript when structured', async () => {
@@ -35,7 +35,7 @@ test('medical PDF renders independently of server and excludes raw transcript wh
   const pdf = await PDFDocument.load(await blob.arrayBuffer());
   assert.ok(pdf.getPageCount() >= 1);
   assert.equal(pdf.getTitle(), 'Compte rendu de consultation');
-  assert.match(pdf.getSubject(), /session-2026-11-03-A/);
+  assert.equal(pdf.getSubject(), undefined);
   const page=pdf.getPages()[0];
   assert.ok(page.getSize().width>590);
 
@@ -44,6 +44,25 @@ test('medical PDF renders independently of server and excludes raw transcript wh
   assert.ok(pdf.getPageCount() < 8, 'Simple consultation should not spill into excessive pages');
 });
 
+
+test('private audit sections are excluded from patient body',() => {
+  const body=[
+    '## Examen',
+    'Une indication clinique habituelle.',
+    '## Éléments à vérifier par le praticien',
+    'Audit privé non exportable.',
+    '## Suites',
+    'Un suivi à discuter.',
+    'Contact: exemple@test.invalid.',
+    'Adresse: 24 rue Imaginaire.',
+    '## Références documentaires',
+    'Source interne non exportable.'
+  ].join('\n');
+  const rendered=patientFacingMedicalBody(body);
+  assert.match(rendered,/Une indication/);
+  assert.match(rendered,/Un suivi/);
+  assert.doesNotMatch(rendered,/Audit privé|Références documentaires|Source interne|exemple@test|rue Imaginaire/);
+});
 
 test('medical PDF still renders with missing patient identity, without inventing a name', async () => {
   const patient = { surname:'', forename:'', dateOfBirth:'', practitioner:'Dr Test Fictif' };
