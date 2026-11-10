@@ -5,47 +5,51 @@ import {readFileSync} from 'node:fs';
 const root = new URL('../', import.meta.url);
 const read = (file) => readFileSync(new URL(file, root), 'utf8');
 
-test('provider wizard exposes local discovery and explicit opt-in install', () => {
+test('AI page uses native llama.cpp and optional Atomic Chat instead of recommending Lemonade', () => {
   const ui = read('src/lib/views/AiProfilesView.svelte');
   assert.match(ui, /scanLocalEngines/);
   assert.match(ui, /useEngine/);
   assert.match(ui, /discoverDraft/);
-  assert.match(ui, /confirm\('Install AMD Lemonade Server/);
-  assert.match(ui, /installRecommendedModel/);
-  assert.match(ui, /LFM3-1\.7B Q4_K_M/);
-  assert.match(ui, /Qwen3\.5-4B Q4_K_M/);
-  assert.match(ui, /isWindows/);
+  assert.match(ui, /Atomic Chat/);
+  assert.match(ui, /llama\.cpp/);
+  assert.match(ui, /openModelsDirectory/);
+  assert.match(ui, /Lister les modèles disponibles/);
+  assert.doesNotMatch(ui, />Install Lemonade/);
 });
 
-test('onboard discovery uses the ScribeWatch API and does not send transcripts', () => {
+test('discovery and model directory use ScribeWatch desktop API without transmitting notes', () => {
   const client = read('src/lib/api.ts');
   for (const path of [
     '/api/v1/llm-local',
     '/api/v1/llm-local/discover',
-    '/api/v1/llm-local/pull',
-    '/api/v1/llm-local/downloads',
-    '/api/v1/llm-local/install-engine',
+    '/api/v1/embedded/llm/models-directory/open',
+    '/api/v1/embedded/download',
   ]) {
-    assert.ok(client.includes(path), 'Missing API path: ' + path);
+    assert.ok(client.includes(path), 'Missing API path: '+path);
   }
-  assert.ok(!client.slice(client.indexOf('llmLocalEngines:'), client.indexOf('structureProfiles:')).includes('transcript'));
+  const slice=client.slice(client.indexOf('llmLocalEngines:'),client.indexOf('structureProfiles:'));
+  assert.ok(!slice.includes('transcript'));
 });
 
-test('Windows installer requires explicit UI confirmation and desktop gate', () => {
-  const ui = read('src/lib/views/AiProfilesView.svelte');
-  assert.match(ui, /desktopAvailable/);
-  assert.match(ui, /isWindows/);
-  assert.match(ui, /confirm\('Install AMD Lemonade Server/);
-  assert.match(ui, /api\.llmInstallEngine\(\)/);
-  assert.match(ui, /Install Lemonade \+ LFM3/);
+test('local GGUF folder opening is deliberate and native-only', () => {
+  const ui=read('src/lib/views/AiProfilesView.svelte');
+  assert.match(ui,/api\.openLocalLlmModelsDirectory\(\)/);
+  assert.match(ui,/Ouvrir le dossier GGUF/);
+  assert.match(ui,/--models-dir/);
 });
 
-test('recommended models are selected explicitly via the local provider API', () => {
+test('Parakeet Ultra is preferred in both recording and quick transcription', () => {
+  const live=read('src/lib/views/LiveRecordView.svelte');
+  const quick=read('src/lib/views/QuickTranscribeView.svelte');
+  assert.match(live,/parakeet\.ultra/i);
+  assert.match(quick,/parakeet\.ultra/i);
+  assert.match(quick,/markdownDestination/);
+  assert.match(live,/markdownDestination/);
+});
+
+test('manually dropped GGUF models are visible after explicit refresh', () => {
+  const backend = read('../src/api/embedded.rs');
   const ui = read('src/lib/views/AiProfilesView.svelte');
-  const client = read('src/lib/api.ts');
-  assert.match(ui, /confirm\('Download '/);
-  assert.match(ui, /api\.llmInstallModel\(installModel\)/);
-  assert.match(ui, /lfm3-1\.7b/);
-  assert.match(ui, /qwen3\.5-4b/);
-  assert.match(client, /llmInstallModel:.*\/api\/v1\/llm-local\/pull/);
+  assert.match(backend, /\/models\?reload=1/);
+  assert.match(ui, /sans redémarrer ScribeWatch/);
 });

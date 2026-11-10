@@ -238,7 +238,18 @@ pub async fn sync_profile_locale(
 }
 
 pub async fn list_profiles(State(state): State<AppState>) -> Json<Vec<StructureProfile>> {
-    let mut profiles = state.structure_profiles.read().await.clone();
+    let canonical = llm::builtin_profiles()
+        .into_iter()
+        .map(|profile| profile.id)
+        .collect::<std::collections::HashSet<_>>();
+    let mut profiles = state
+        .structure_profiles
+        .read()
+        .await
+        .iter()
+        .filter(|profile| !profile.built_in || canonical.contains(&profile.id))
+        .cloned()
+        .collect::<Vec<_>>();
     profiles.sort_by(|left, right| {
         right
             .built_in

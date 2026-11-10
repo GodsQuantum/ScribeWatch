@@ -16,7 +16,7 @@ const LEMONADE: &str = "http://127.0.0.1:13305";
 const MAX_RESPONSE: usize = 1024 * 1024;
 const LIMIT: usize = 128;
 const RUNTIMES: [(&str, u16); 4] = [
-    ("Lemonade Server", 13305),
+    ("Atomic Chat", 1337),
     ("LM Studio", 1234),
     ("Ollama", 11434),
     ("llama.cpp / Llama-Windows", 8080),
@@ -140,6 +140,7 @@ async fn probe(client: &Client, name: &'static str, port: u16) -> Option<Engine>
     // Prefer the native LM Studio catalog because it also exposes unloaded models.
     let paths: &[&str] = match name {
         "LM Studio" => &["/api/v1/models", "/v1/models"],
+        "Atomic Chat" => &["/v1/models"],
         "Ollama" => &["/v1/models", "/api/tags"],
         _ => &["/v1/models"],
     };

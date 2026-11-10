@@ -51,8 +51,8 @@
   let animationFrame=0;
   let levels=Array(20).fill(0.08) as number[];
 
-  let outputMode:'computer'|'server'='server';
-  let outputDir='/media/notes';
+  let outputMode:'computer'|'server'='computer';
+  let outputDir='';
   let picker=false;
   let transcriptionChain:TranscriptionRoute[]=[{providerId:'',model:''}];
   let chainInitialized=false;
@@ -84,6 +84,16 @@
       practitionerName='';practiceAddress='';practiceContact='';
       notify('success','Profil du cabinet retiré de cet ordinateur.');
     }catch{notify('error','Impossible de retirer le profil du cabinet.');}
+  }
+  let markdownDestination:FileSystemDirectoryHandle|undefined;
+  let markdownDestinationLabel='';
+  async function chooseMarkdownFolder(){
+    if(!localDirectoryAvailable)return;
+    try{
+      markdownDestination=await (window as any).showDirectoryPicker({mode:'readwrite'}) as FileSystemDirectoryHandle;
+      markdownDestinationLabel=markdownDestination?.name??'';
+    }catch(e){if(!(e instanceof DOMException&&e.name==='AbortError'))
+      notify('error',e instanceof Error?e.message:String(e));}
   }
   let pdfDestination:FileSystemDirectoryHandle|undefined;
   let pdfDestinationLabel='';
@@ -143,12 +153,9 @@
     medicalReportEnabled=checked;
     if(checked){
       const premium=structureProfiles.find(p=>p.id==='dental-consultation-complete-fr'&&p.providerId);
-      const dual=structureProfiles.find(p=>p.id==='medical-dual-audience-report'&&p.providerId);
-      const letter=structureProfiles.find(p=>p.id==='patient-consultation-report'&&p.providerId);
-      const dental=structureProfiles.find(p=>p.id==='dental-consultation'&&p.providerId);
       const general=structureProfiles.find(p=>p.id==='medical-consultation'&&p.providerId);
       const current=structureProfiles.find(p=>p.id===structureProfileId);
-      if(!current?.providerId || current?.id==='dental-consultation')structureProfileId=(premium??dual??letter??dental??general)?.id??'';
+      if(!current?.providerId)structureProfileId=(premium??general)?.id??'';
     }
   }
   let frontmatter=true;
@@ -182,7 +189,7 @@
   const exportFormats:ExportFormat[]=['md','txt','html','docx','odt','pdf'];
 
   $: if(!chainInitialized&&providers.length){
-    const provider=providers.find((candidate)=>candidate.enabled)??providers[0];
+    const provider=providers.find((candidate)=>candidate.enabled && /parakeet.ultra/i.test(candidate.model))??providers.find((candidate)=>candidate.enabled)??providers[0];
     transcriptionChain=[{providerId:provider.id,model:provider.model}];
     chainInitialized=true;
   }
@@ -552,7 +559,7 @@
         notify('success','Brouillon PDF créé. Vérifier les faits, archiver le Markdown source et faire valider par le praticien.');
       }else{
         const result=await api.jobExport(current.id,format);
-        await saveMarkdownLocally(result.filename,result.blob);
+        await saveResponseToDirectory(new Response(result.blob),result.filename,markdownDestination,window);
         notify('success',format.toUpperCase()+' export saved.');
       }
     }catch(error){notify('error',error instanceof Error?error.message:String(error));}
@@ -790,7 +797,7 @@
           <label for="live-structure">AI structure <span class="muted">optional</span></label>
           <select id="live-structure" class="select" bind:value={structureProfileId} disabled={recording}>
             <option value="">None — deterministic transcript only</option>
-            {#each structureProfiles.filter((profile)=>!!profile.providerId) as profile}<option value={profile.id}>{profile.name}</option>{/each}
+            {#each structureProfiles as profile}<option value={profile.id} disabled={!profile.providerId}>{profile.name}{profile.providerId?'':' — fournisseur LLM à configurer'}</option>{/each}
           </select>
           <span class="help">The profile creates an additional structured view. The complete transcript remains in the same Markdown file.</span>
         </div>
@@ -823,18 +830,18 @@
             </div>
             <span class="help">Seules les coordonnées du praticien et du cabinet sont réutilisables sur ce PC. Nom, prénom, naissance et date de consultation ne sont jamais conservés dans le profil de cabinet.</span>
             <div class="row wrap"><button class="btn compact" on:click={choosePdfFolder} disabled={!localDirectoryAvailable}>Dossier PDF</button><span class="help">{pdfDestinationLabel||'Choisir au moment de la sauvegarde'}</span></div>
-            <span class="help">Profil recommandé : « Compte rendu médical — patient + dossier (traçabilité) ». Le PDF est un brouillon à valider par le praticien ; conserver la source de l'enregistrement séparément. Les informations du formulaire patient/cabinet sont ajoutées localement au PDF.</span>
+            <span class="help">Choisissez « Consultation dentaire » ou « Consultation médicale » selon le rendez-vous. Le PDF est un brouillon à valider par le praticien ; conserver la source de l'enregistrement séparément. Les informations du formulaire patient/cabinet sont ajoutées localement au PDF.</span>
             {#if audioRetentionMode==='none'}<span class="help">Attention : aucune copie audio permanente. Pour documenter les échanges, choisir explicitement une conservation de l'audio si elle est autorisée ; le PDF seul ne certifie pas les propos.</span>{/if}
             <span class="help">Nom automatique du PDF : 3 lettres NOM + 3 lettres PRENOM + date. Rendu local sur cet ordinateur, sans Pandoc.</span>
           {/if}
         </div>
         <div class="subsection stack">
           <strong>Destination</strong>
-          <div class="segmented"><button disabled={recording} class:active={outputMode==='server'} on:click={()=>outputMode='server'}>Server folder</button><button disabled={recording} class:active={outputMode==='computer'} on:click={()=>outputMode='computer'}>This computer</button></div>
+          <div class="segmented"><button disabled={recording} class:active={outputMode==='server'} on:click={()=>outputMode='server'} >Dossier ScribeWatch (sur ce PC si installé)</button><button disabled={recording} class:active={outputMode==='computer'} on:click={()=>outputMode='computer'}>Dossier choisi via navigateur</button></div>
           {#if outputMode==='server'}
             <div class="field"><label for="live-output">Markdown destination</label><div class="path-control"><input id="live-output" class="input mono" value={outputDir} readonly placeholder="Choose a folder" /><button class="btn" disabled={recording} on:click={()=>picker=true}>Browse</button></div></div>
           {:else}
-            <div class="client-output-note"><span>⌁</span><div><strong>{localDirectoryAvailable?'Save into a local folder after transcription':'Download the result after transcription'}</strong><p>Browser security requires the final local save to remain an explicit action.</p></div></div>
+            <div class="client-output-note"><span>⌁</span><div><strong>{markdownDestinationLabel||'Choisir le dossier des notes (.md, .txt, etc.)'}</strong><p>Le dossier peut être choisi avant l’enregistrement ; le fichier est sauvegardé lors de l’export. Sans accès aux dossiers, téléchargement classique.</p></div>{#if localDirectoryAvailable}<button class="btn compact" disabled={recording} on:click={chooseMarkdownFolder}>Choisir le dossier</button>{/if}</div>
           {/if}
           <div class="row wrap"><label class="check"><input type="checkbox" bind:checked={frontmatter} disabled={recording}/> YAML properties</label><label class="check"><input type="checkbox" bind:checked={paragraphs} disabled={recording}/> Readable deterministic paragraphs</label></div>
         </div>

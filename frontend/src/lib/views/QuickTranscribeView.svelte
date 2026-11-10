@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api } from '$lib/api';
-  import { canSaveToDirectory, saveMarkdownLocally } from '$lib/local-save';
+  import { canSaveToDirectory, saveResponseToDirectory } from '$lib/local-save';
   import PathPicker from '$lib/components/PathPicker.svelte';
   import TranscriptionChainEditor from '$lib/components/TranscriptionChainEditor.svelte';
   import type { ExportFormat, Job, Provider, QuickOptions, StructureProfile, TranscriptionRoute } from '$lib/types';
@@ -15,6 +15,15 @@
 
   let sourceMode:'computer'|'server'='computer';
   let outputMode:'computer'|'server'='computer';
+  let markdownDestination:FileSystemDirectoryHandle|undefined;
+  let markdownDestinationLabel='';
+  async function chooseMarkdownFolder(){
+    if(!localDirectoryAvailable)return;
+    try{
+      markdownDestination=await (window as any).showDirectoryPicker({mode:'readwrite'}) as FileSystemDirectoryHandle;
+      markdownDestinationLabel=markdownDestination?.name??'';
+    }catch(e){if(!(e instanceof DOMException&&e.name==='AbortError'))notify('error',e instanceof Error?e.message:String(e));}
+  }
   let localFile:File|null=null;
   let serverFile='';
   let outputDir='';
@@ -33,7 +42,7 @@
   const exportFormats:ExportFormat[]=['md','txt','html','docx','odt','pdf'];
 
   $: if(!chainInitialized&&providers.length){
-    transcriptionChain=[{providerId:providers.find((provider)=>provider.enabled)?.id??providers[0].id,model:''}];
+    transcriptionChain=[{providerId:providers.find((provider)=>provider.enabled&&/parakeet.ultra/i.test(provider.model))?.id??providers.find((provider)=>provider.enabled)?.id??providers[0].id,model:''}];
     chainInitialized=true;
   }
   $: current=submitted ? (jobs.find((job)=>job.id===submitted?.id)??submitted) : undefined;
@@ -72,7 +81,7 @@
     exporting=format;
     try{
       const result=await api.jobExport(current.id,format);
-      const method=await saveMarkdownLocally(result.filename,result.blob);
+      const method=await saveResponseToDirectory(new Response(result.blob),result.filename,markdownDestination,window);
       notify('success',method==='directory'?format.toUpperCase()+' saved to your folder.':format.toUpperCase()+' downloaded.');
     }catch(e){notify('error',e instanceof Error?e.message:String(e));}
     finally{exporting='';}
@@ -90,7 +99,7 @@
     <section class="card quick-card">
       <div class="card-body stack">
         <div class="quick-step"><span>01</span><div><strong>Choose your audio</strong><p>Upload from this computer or use a file already mounted on the server.</p></div></div>
-        <div class="segmented source-tabs"><button class:active={sourceMode==='computer'} on:click={()=>{sourceMode='computer';submitted=undefined}}>This computer</button><button class:active={sourceMode==='server'} on:click={()=>{sourceMode='server';submitted=undefined}}>Server</button></div>
+        <div class="segmented source-tabs"><button class:active={sourceMode==='computer'} on:click={()=>{sourceMode='computer';submitted=undefined}}>Choisir un audio depuis le navigateur</button><button class:active={sourceMode==='server'} on:click={()=>{sourceMode='server';submitted=undefined}}>Audio déjà présent dans ScribeWatch</button></div>
         {#if sourceMode==='computer'}
           <label class="drop-zone" class:drag on:dragover={(e)=>{e.preventDefault();drag=true}} on:dragleave={()=>drag=false} on:drop={dropped}>
             <input type="file" accept="audio/*,.m4a,.flac,.ogg,.opus,.aac,.wma,.aiff,.aif,.caf,.webm" on:change={(e)=>chooseFile(e.currentTarget.files?.[0])} />
@@ -106,17 +115,17 @@
         <TranscriptionChainEditor value={transcriptionChain} {providers} {notify} onchange={(routes)=>transcriptionChain=routes} />
         <div class="grid two">
           <div class="field"><label for="quick-language">Language</label><input id="quick-language" class="input" bind:value={language} placeholder="auto, fr, en…" /></div>
-          <div class="field"><label for="quick-structure">AI structure <span class="muted">optional</span></label><select id="quick-structure" class="select" bind:value={structureProfileId}><option value="">None — transcript only</option>{#each structureProfiles.filter((profile)=>!!profile.providerId) as profile}<option value={profile.id}>{profile.name}</option>{/each}</select><span class="help">Adds a structured view and always preserves the full transcript.</span></div>
+          <div class="field"><label for="quick-structure">AI structure <span class="muted">optional</span></label><select id="quick-structure" class="select" bind:value={structureProfileId}><option value="">None — transcript only</option>{#each structureProfiles as profile}<option value={profile.id} disabled={!profile.providerId}>{profile.name}{profile.providerId?'':' — sans LLM'}</option>{/each}</select><span class="help">Adds a structured view and always preserves the full transcript.</span></div>
         </div>
         <button class="advanced-toggle" on:click={()=>advanced=!advanced} aria-expanded={advanced}>{advanced?'−':'+'} Advanced</button>
         {#if advanced}<div class="advanced-panel"><label class="check"><input type="checkbox" bind:checked={frontmatter} /> YAML / Obsidian properties</label><label class="check"><input type="checkbox" bind:checked={paragraphs} /> Readable deterministic paragraphs</label><span class="help">Uses Unicode sentence boundaries and length rules only. No LLM rewrites the transcript.</span></div>{/if}
 
         <div class="quick-step"><span>03</span><div><strong>Save the note</strong><p>Publish on the server or bring the Markdown back to this computer.</p></div></div>
-        <div class="segmented source-tabs"><button class:active={outputMode==='computer'} on:click={()=>outputMode='computer'}>This computer</button><button class:active={outputMode==='server'} on:click={()=>outputMode='server'}>Server folder</button></div>
+        <div class="segmented source-tabs"><button class:active={outputMode==='computer'} on:click={()=>outputMode='computer'}>Dossier choisi via navigateur</button><button class:active={outputMode==='server'} on:click={()=>outputMode='server'}>Dossier géré par ScribeWatch</button></div>
         {#if outputMode==='server'}
           <div class="field"><label for="quick-output-dir">Markdown destination</label><div class="path-control"><input id="quick-output-dir" class="input mono" value={outputDir} readonly placeholder="Choose a notes folder" /><button class="btn" on:click={()=>picker='output'}>Browse</button></div></div>
         {:else}
-          <div class="client-output-note"><span>⌁</span><div><strong>{localDirectoryAvailable?'Save directly into a local folder':'Download the .md file'}</strong><p>{localDirectoryAvailable?'After transcription, choose the local folder from the Save button.':'This HTTP/browser context cannot write directly to folders; the Markdown will download normally.'}</p></div></div>
+          <div class="client-output-note"><span>⌁</span><div><strong>{markdownDestinationLabel||'Choisir un dossier avant la transcription'}</strong><p>Le résultat sera sauvegardé dans ce dossier au clic sur Export ; sinon téléchargement classique.</p></div>{#if localDirectoryAvailable}<button class="btn compact" on:click={chooseMarkdownFolder}>Choisir un dossier</button>{/if}</div>
         {/if}
         <button class="btn primary quick-submit" disabled={!canSubmit} on:click={submit}>{busy?'Uploading…':'Transcribe to Markdown →'}</button>
       </div>

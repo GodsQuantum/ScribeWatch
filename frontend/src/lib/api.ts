@@ -81,6 +81,7 @@ export const api = {
   deleteLlmProvider: (id: string) => request<void>(`/api/v1/llm-providers/${id}`, { method: 'DELETE' }),
   llmModels: (id: string) => request<{models:string[]}>(`/api/v1/llm-providers/${id}/models`),
   embeddedStatus: () => request<EmbeddedRuntimeStatus>('/api/v1/embedded/status'),
+  openLocalLlmModelsDirectory: () => request<{path:string;opened:boolean}>('/api/v1/embedded/llm/models-directory/open', {method:'POST'}),
   embeddedSetMode: (kind:'stt'|'llm',mode:'internal'|'external'|'disabled') =>
     request<EmbeddedRuntimeStatus>('/api/v1/embedded/mode', {
       method:'POST',body:JSON.stringify({kind,mode})
