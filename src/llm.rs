@@ -599,6 +599,41 @@ fn split_chunks_at_limit(transcript: &str, char_limit: usize) -> Vec<String> {
     chunks
 }
 
+/// Add only boundary context to each extraction passage. The leading
+/// context is explicitly marked non-extractable to avoid duplicated claims.
+/// Source passages remain unmodified and are still rechecked as a whole.
+fn extraction_chunks_with_overlap(
+    transcript: &str,
+    max_chars: usize,
+    overlap: usize,
+) -> Vec<String> {
+    let chunks = split_chunks_at_limit(transcript, max_chars);
+    let mut result = Vec::with_capacity(chunks.len());
+    for (idx, chunk) in chunks.iter().enumerate() {
+        if idx == 0 || overlap == 0 {
+            result.push(chunk.clone());
+            continue;
+        }
+        let tail: String = chunks[idx - 1]
+            .chars()
+            .rev()
+            .take(overlap)
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect();
+        let tail = tail.trim_start_matches(|c: char| !c.is_whitespace()).trim();
+        if tail.is_empty() {
+            result.push(chunk.clone());
+        } else {
+            result.push(format!(
+                "<raccord-contextuel-ne-pas-extraire>\n{tail}\n</raccord-contextuel-ne-pas-extraire>\n\n{chunk}"
+            ));
+        }
+    }
+    result
+}
+
 fn split_chunks(transcript: &str) -> Vec<String> {
     split_chunks_at_limit(transcript, CHUNK_CHAR_LIMIT)
 }
@@ -726,7 +761,7 @@ async fn clinical_evidence_report(
     transcript: &str,
     token: &CancellationToken,
 ) -> Result<String> {
-    let chunks = split_chunks_at_limit(transcript, 15_000);
+    let chunks = extraction_chunks_with_overlap(transcript, 15_000, 850);
     if chunks.len() <= 1 {
         bail!("Evidence ledger requires a segmented transcript");
     }
@@ -743,7 +778,7 @@ async fn clinical_evidence_report(
             bail!("cancelled");
         }
         let prompt = format!(
-            "Extraire TOUS les faits cliniques précis, propositions, risques, négations et conseils. Ne créer aucune information, ne diagnostiquer rien de plus.\n\n<transcription-partie>\n{}\n</transcription-partie>",
+            "Extraire les faits cliniques précis, propositions, risques, négations et conseils dans le passage principal. Le contexte de raccord sert UNIQUEMENT à résoudre les références et pronoms ; NE PAS en extraire de faits une seconde fois. Ne créer aucune information.\n\n<transcription-partie>\n{}\n</transcription-partie>",
             chunk
         );
         match call_chat(state, provider, model, &evidence_system, &prompt, token).await {
@@ -903,17 +938,7 @@ pub async fn structure_transcript(
         true
     };
 
-    let markdown = if prefers_evidence_ledger(&profile.id, &provider, transcript) {
-        clinical_evidence_report(
-            state,
-            &provider,
-            &profile.model,
-            &profile_system,
-            transcript,
-            token,
-        )
-        .await?
-    } else if input_characters <= direct_budget && fits_native_context {
+    let markdown = if input_characters <= direct_budget && fits_native_context {
         match call_chat(
             state,
             &provider,
@@ -942,6 +967,16 @@ pub async fn structure_transcript(
             }
             Err(error) => return Err(error),
         }
+    } else if prefers_evidence_ledger(&profile.id, &provider, transcript) {
+        clinical_evidence_report(
+            state,
+            &provider,
+            &profile.model,
+            &profile_system,
+            transcript,
+            token,
+        )
+        .await?
     } else if is_dental {
         let part_budget = direct_budget
             .saturating_sub(profile_system.chars().count())
@@ -1230,6 +1265,28 @@ mod tests {
         assert!(!chat_fits_context(15_105 + 2_000, 8_192));
         assert!(!chat_fits_context(usize::MAX, 131_072));
         assert!(!chat_fits_context(24_576, 24_576));
+    }
+
+    #[test]
+    fn evidence_extraction_overlap_keeps_cross_boundary_referents_and_full_source() {
+        let source = (0..1300)
+            .map(|n| format!("Phrase fictive {n}: rien de prescrit."))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let plain = split_chunks_at_limit(&source, 10_000);
+        let extended = extraction_chunks_with_overlap(&source, 10_000, 850);
+        assert!(extended.len() > 1);
+        assert_eq!(extended.len(), plain.len());
+        assert_eq!(extended[0], plain[0]);
+        for i in 1..extended.len() {
+            assert!(extended[i].contains("<raccord-contextuel-ne-pas-extraire>"));
+            assert!(extended[i].ends_with(&plain[i]));
+            assert!(extended[i].len() > plain[i].len());
+        }
+        assert_eq!(
+            plain.join(" ").split_whitespace().collect::<Vec<_>>(),
+            source.split_whitespace().collect::<Vec<_>>()
+        );
     }
 
     #[test]

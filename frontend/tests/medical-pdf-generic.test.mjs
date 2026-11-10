@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMedicalPdf, medicalFilename, structuredMedicalBody, uniqueMedicalFilename } from '../src/lib/medical-report.ts';
-import { PDFDocument } from 'pdf-lib';
+import { createMedicalPdf, medicalFilename, structuredMedicalBody, uniqueMedicalFilename, wrapRichText } from '../src/lib/medical-report.ts';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 
 test('medical PDF renders independently of server and excludes raw transcript when structured', async () => {
   const date = new Date(2026, 10, 3);
@@ -64,4 +64,31 @@ test('medical PDF never silently overwrites another consultation from the same p
   await assert.rejects(uniqueMedicalFilename({
     getFileHandle() {throw new DOMException('Denied','NotAllowedError')}
   },'EXEFIC_2026-11-03.pdf'), {name:'NotAllowedError'});
+});
+
+
+test('inline clinical highlights retain real bold spans after wrapping', async () => {
+  const pdf=await PDFDocument.create();
+  const normal=await pdf.embedFont(StandardFonts.Helvetica);
+  const heavy=await pdf.embedFont(StandardFonts.HelveticaBold);
+  const lines=wrapRichText('La **dent 46** présente une **lésion importante**. Vérifier.',normal,heavy,10,220);
+  const runs=lines.flat();
+  assert.ok(runs.some(x=>x.bold && x.text.includes('dent')));
+  assert.ok(runs.some(x=>x.bold && x.text.includes('46')));
+  assert.ok(runs.some(x=>!x.bold && x.text.includes('présente')));
+  const punctuated=wrapRichText('Un **fait**.',normal,heavy,10,220);
+  assert.equal(punctuated.flat().map(x=>x.text).join(''),'Un fait.');
+  const spaced=wrapRichText('Une **note** importante.',normal,heavy,10,220);
+  assert.equal(spaced.flat().map(x=>x.text).join(''),'Une note importante.');
+  for(const row of lines){
+    const measured=row.reduce((sum,x)=>sum+(x.bold?heavy:normal).widthOfTextAtSize(x.text,10),0);
+    assert.ok(measured<=220.5,'Rich text should fit the page width');
+  }
+});
+
+
+test('provider-native headings render as structured clinical notes, not raw ASR', () => {
+  const native='## Gencives\n\nLes **gencives** ont été examinées.\n\n## Suivi\n\nÀ vérifier.';
+  assert.equal(structuredMedicalBody(native),native);
+  assert.match(structuredMedicalBody('## Transcript\nParoles brutes'),/Transcription non structurée/);
 });

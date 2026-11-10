@@ -1,5 +1,5 @@
 /** Client-side medical PDF: no patient data sent to another PDF service. */
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, degrees, type PDFFont, type PDFPage } from 'pdf-lib';
 export interface PatientMetadata {
   surname:string;forename:string;dateOfBirth:string;
   practitioner?:string;practiceAddress?:string;practiceContact?:string;
@@ -34,10 +34,16 @@ export async function uniqueMedicalFilename(directory:FileSystemDirectoryHandle,
 export function structuredMedicalBody(text:string):string{
   const matched=text.match(/^## Structured notes\s*([\s\S]*?)(?=^## Transcript\s*$|(?![\s\S]))/m);
   if(matched?.[1]?.trim())return matched[1].trim();
-  return '## Transcription non structurée - à vérifier\n\n'+text.replace(/^---\s*\n[\s\S]*?\n---\s*\n/,'').trim();
+  const cleaned=text.replace(/^---\s*\n[\s\S]*?\n---\s*\n/,'').trim();
+  // A provider may return the completed clinical Markdown directly, without
+  // the old "Structured notes" transport wrapper. Never relabel it as raw ASR.
+  if(/^#{1,3}\s+/.test(cleaned) && !/^#{1,3}\s+Transcript\b/im.test(cleaned))
+    return cleaned;
+  return '## Transcription non structurée - à vérifier\n\n'+cleaned;
 }
 function safe(text:string,font:PDFFont):string {
-  const plain=text.replace(/\*\*([^*]+)\*\*/g,'$1').replace(/__([^_]+)__/g,'$1')
+  const plain=text.replace(/<br\s*\/?>/gi,' ; ').replace(/<[^>]+>/g,' ')
+    .replace(/\*\*([^*]+)\*\*/g,'$1').replace(/__([^_]+)__/g,'$1')
     .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').replace(/[`]/g,'');
   let out='';
   for(const char of plain){
@@ -60,6 +66,54 @@ function wrap(text:string,font:PDFFont,size:number,width:number):string[]{
   }
   if(line)lines.push(line);return lines;
 }
+type RichRun = {text:string; bold:boolean};
+/** Wrap Markdown strong emphasis with real bold font metrics, not stripped text. */
+export function wrapRichText(text:string,normal:PDFFont,strong:PDFFont,size:number,width:number):RichRun[][]{
+  const rows:RichRun[][]=[[]];let used=0;
+  const put=(value:string,isBold:boolean)=>{
+    if(!value)return;
+    const font=isBold?strong:normal,row=rows[rows.length-1],last=row[row.length-1];
+    if(last?.bold===isBold)last.text+=value;
+    else row.push({text:value,bold:isBold});
+    used+=font.widthOfTextAtSize(value,size);
+  };
+  const newline=()=>{
+    const row=rows[rows.length-1];
+    while(row.length && /^\s+$/.test(row[row.length-1].text))row.pop();
+    if(row.length)rows.push([]);
+    used=0;
+  };
+  const append=(original:string,isBold:boolean)=>{
+    // safe() normalizes content but trims spaces: restore segment boundaries
+    // so **bold**. and **bold** words keep their actual punctuation/spacing.
+    const lead=/^\s/.test(original),trail=/\s$/.test(original);
+    const core=safe(original,normal);
+    const cleaned=(lead?' ':'')+core+(trail?' ':'');
+    const font=isBold?strong:normal;
+    for(const token of cleaned.match(/\s+|\S+/g)||[]){
+      if(/^\s+$/.test(token)){
+        const last=rows[rows.length-1].at(-1);
+        if(used>0 && !last?.text.endsWith(' '))put(' ',false);
+        continue;
+      }
+      if(used && used+font.widthOfTextAtSize(token,size)>width)newline();
+      if(font.widthOfTextAtSize(token,size)<=width){put(token,isBold);continue;}
+      for(const char of token){
+        if(used && used+font.widthOfTextAtSize(char,size)>width)newline();
+        put(char,isBold);
+      }
+    }
+  };
+  for(const raw of text.split(/(\*\*[^*]+\*\*|__[^_]+__)/g).filter(Boolean)){
+    const bold=(raw.startsWith('**')&&raw.endsWith('**'))||(raw.startsWith('__')&&raw.endsWith('__'));
+    append(bold?raw.slice(2,-2):raw,bold);
+  }
+  for(const row of rows){
+    while(row.length && /^\s+$/.test(row[row.length-1].text))row.pop();
+  }
+  return rows.filter(row=>row.length);
+}
+
 export async function createMedicalPdf(markdown:string,patient:PatientMetadata,date=new Date()):Promise<Blob>{
   const pdf=await PDFDocument.create();
   pdf.setTitle('Compte rendu de consultation');pdf.setCreator('ScribeWatch');
@@ -67,25 +121,58 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
   const regular=await pdf.embedFont(StandardFonts.Helvetica);
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
   const W=595.28,H=841.89,M=49,contentWidth=W-2*M;
-  const navy=rgb(.11,.19,.24),teal=rgb(.08,.4,.42),muted=rgb(.42,.46,.5);
+  // Neutral print letter: avoid decorative app branding on medical correspondence.
+  const navy=rgb(.14,.16,.18),teal=rgb(.14,.16,.18),muted=rgb(.42,.46,.5);
   let page!:PDFPage;let y=0;const pages:PDFPage[]=[];
   const addPage=()=>{
-    page=pdf.addPage([W,H]);pages.push(page);y=H-60;
-    page.drawRectangle({x:0,y:H-37,width:W,height:37,color:navy});
-    page.drawRectangle({x:0,y:H-40,width:W,height:3,color:teal});
-    page.drawText('SCRIBEWATCH    /    COMPTE RENDU CLINIQUE',{x:M,y:H-24,size:9,font:bold,color:rgb(1,1,1)});
-    y-=17;
+    page=pdf.addPage([W,H]);pages.push(page);y=H-58;
   };
   const ensure=(height:number)=>{if(y-height<67)addPage();};
+  const sectionIcon=(label:string):'tooth'|'calendar'|'pill'|null=>{
+    if(/🦷|carie|gencive|dentaire|orthodont|sagesse|hygiène/i.test(label))return 'tooth';
+    if(/📅|prochaines étapes|suivi|rendez-vous/i.test(label))return 'calendar';
+    if(/💊|ordonnance|sommeil|médicament/i.test(label))return 'pill';
+    return null;
+  };
+  const drawSectionIcon=(kind:'tooth'|'calendar'|'pill',baseline:number)=>{
+    const x=M+1,cy=baseline+2;
+    if(kind==='tooth'){
+      page.drawSvgPath('M 4 2 C 1 2 0 6 2 11 C 3 14 4 20 7 20 C 9 20 8 14 11 14 C 14 14 13 20 16 20 C 19 20 19 14 20 11 C 22 6 20 2 17 2 C 14 2 13 5 11 5 C 9 5 7 2 4 2 Z',
+        {x,y:cy+8,scale:.62,borderColor:navy,borderWidth:.9,color:rgb(.96,.97,.98)});
+    }else if(kind==='calendar'){
+      page.drawRectangle({x:x+1,y:cy-8,width:12,height:12,borderColor:navy,borderWidth:.9});
+      page.drawLine({start:{x:x+1,y:cy},end:{x:x+13,y:cy},thickness:.8,color:navy});
+      page.drawCircle({x:x+4,y:cy-3,size:.75,color:navy});
+      page.drawCircle({x:x+9,y:cy-3,size:.75,color:navy});
+    }else{
+      page.drawEllipse({x:x+7,y:cy-2,xScale:7,yScale:4,rotate:degrees(-38),
+        color:rgb(.96,.97,.98),borderColor:navy,borderWidth:.9});
+      page.drawLine({start:{x:x+4,y:cy+1},end:{x:x+10,y:cy-5},thickness:.8,color:navy});
+    }
+  };
   const draw=(text:string,style:'title'|'section'|'body'|'bullet'|'table'='body')=>{
     const size=style==='title'?17:style==='section'?12:10.3;
     const font=style==='body'||style==='bullet'?regular:bold;
-    const indent=style==='bullet'?12:0,leading=size*1.43;
-    const lines=wrap(text,font,size,contentWidth-indent);
-    if(!lines.length)return;
+    const marker=style==='section'?sectionIcon(text):null;
+    const indent=(style==='bullet'?12:0)+(marker?18:0),leading=size*1.43;
+    const rich=(style==='body'||style==='bullet')?wrapRichText(text,regular,bold,size,contentWidth-indent):null;
+    const plain=rich?null:wrap(text,font,size,contentWidth-indent);
+    if(!(rich?.length||plain?.length))return;
     ensure(leading*2+8);
-    if(style==='title'||style==='section'){y-=9;ensure(16);page.drawLine({start:{x:M,y:y-3},end:{x:M+18,y:y-3},thickness:2,color:teal});y-=14;}
-    for(const line of lines){ensure(leading);page.drawText(line,{x:M+indent,y,size,font,color:style==='body'||style==='bullet'?navy:teal});y-=leading;}
+    if(style==='title'||style==='section'){y-=9;ensure(16);y-=7;}
+    if(marker)drawSectionIcon(marker,y);
+    for(let i=0;i<(rich?.length??plain?.length??0);i++){
+      ensure(leading);
+      if(rich){
+        let x=M+indent;
+        for(const run of rich[i]){
+          const selected=run.bold?bold:regular;
+          page.drawText(run.text,{x,y,size,font:selected,color:navy});
+          x+=selected.widthOfTextAtSize(run.text,size);
+        }
+      }else if(plain){page.drawText(plain[i],{x:M+indent,y,size,font,color:teal});}
+      y-=leading;
+    }
     y-=style==='title'||style==='section'?9:4;
   };
   const drawTable=(rows:string[][])=>{
@@ -155,17 +242,12 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
   const panelHeight=Math.max(94,45+14*Math.max(lineCount(practiceLines,210),lineCount(patientLines,200)));
   ensure(panelHeight+25);
   columnStart=y;
-  page.drawRectangle({x:M-8,y:columnStart-panelHeight+17,width:contentWidth+16,height:panelHeight,
-    color:rgb(.945,.975,.973),borderColor:rgb(.81,.86,.85),borderWidth:.7});
-  page.drawLine({start:{x:M+270,y:columnStart-panelHeight+22},
-    end:{x:M+270,y:columnStart+12},thickness:.7,color:rgb(.82,.87,.86)});
+  // Two plain columns as on a professional French consultation letter.
   const left=drawColumn(M+5,'PRATICIEN',practiceLines,210);
   const right=drawColumn(M+285,'PATIENT',patientLines,200);
   y=Math.min(left,right)-15;
   page.drawLine({start:{x:M,y},end:{x:W-M,y},thickness:.8,color:rgb(.77,.82,.84)});
   y-=26;
-  draw('Compte rendu de consultation','title');
-
   const body=structuredMedicalBody(markdown);
   const lines=body.split('\n');
   for(let i=0;i<lines.length;i++){
