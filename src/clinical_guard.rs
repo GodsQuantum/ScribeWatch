@@ -11,6 +11,8 @@ pub enum ReviewReason {
     UnconfirmedPerformedCare,
     UnverifiedFutureConsultation,
     ConditionalExamPresentedAsMandatory,
+    UnverifiedDentalCausality,
+    UnverifiedProcedureDuration,
 }
 
 impl ReviewReason {
@@ -35,6 +37,12 @@ impl ReviewReason {
             }
             Self::ConditionalExamPresentedAsMandatory => {
                 "examen conditionnel transformé en obligation non confirmée"
+            }
+            Self::UnverifiedDentalCausality => {
+                "condition d'un acte dentaire potentiellement inversée"
+            }
+            Self::UnverifiedProcedureDuration => {
+                "durée attribuée à un secteur sans confirmation dans la source"
             }
         }
     }
@@ -369,6 +377,38 @@ fn conditional_exam_presented_as_mandatory(source: &str, line: &str) -> bool {
     })
 }
 
+fn suspicious_pulp_condition(line: &str) -> bool {
+    // Pure high-risk review trigger, NOT a clinical rule or correction:
+    // do not infer a root-canal procedure from a sentence that explicitly
+    // states the pulp/nerve is not affected. The clinician must verify.
+    let claim_is_procedure = line.contains("devitalis")
+        || line.contains("pulpectomi")
+        || line.contains("traitement endodontique");
+    let claim_negates_pulp = [
+        "nerf non atteint",
+        "pulpe non atteinte",
+        "ne touche pas le nerf",
+        "n'atteint pas la pulpe",
+        "sans atteinte de la pulpe",
+    ]
+    .iter()
+    .any(|pattern| line.contains(pattern));
+    claim_is_procedure && claim_negates_pulp
+}
+
+fn unsupported_sector_duration(source: &str, line: &str) -> bool {
+    // A total brushing duration must not be multiplied by the number of
+    // quadrants/sectors. Flag if the source doesn't assert that mapping.
+    let unit = [
+        "minute par secteur",
+        "minutes par secteur",
+        "minute par quadrant",
+        "minutes par quadrant",
+    ];
+    let has_sector = unit.iter().any(|x| line.contains(x));
+    has_sector && !unit.iter().any(|x| source.contains(x))
+}
+
 fn fdi_laterality_conflict(line: &str) -> bool {
     // Accept only a very local expression such as "dent 24 (prémolaire droite)".
     // Do not silently convert unspecified numbering systems or the source.
@@ -442,6 +482,10 @@ pub fn screen_clinical_report(source: &str, markdown: &str) -> ScreenResult {
             Some(ReviewReason::UnverifiedFutureConsultation)
         } else if conditional_exam_presented_as_mandatory(&source, &plain) {
             Some(ReviewReason::ConditionalExamPresentedAsMandatory)
+        } else if suspicious_pulp_condition(&plain) {
+            Some(ReviewReason::UnverifiedDentalCausality)
+        } else if unsupported_sector_duration(&source, &plain) {
+            Some(ReviewReason::UnverifiedProcedureDuration)
         } else {
             None
         };
@@ -684,6 +728,36 @@ troubles du sommeil depuis trois semaines, c'est important.";
     }
 
     #[test]
+    fn pulp_conditional_inversion_is_quarantined() {
+        let source = "Pour ce cas fictif, si la pulpe est trop endommagée, on discutera un traitement endodontique ; sinon on conserve la vitalité.";
+        let suspect = "Si la pulpe non atteinte, on réalisera une dévitalisation.";
+        let result = screen_clinical_report(source, suspect);
+        assert_eq!(
+            result.findings[0].reason,
+            ReviewReason::UnverifiedDentalCausality
+        );
+        assert!(!result.markdown.contains("on réalisera une dévitalisation"));
+        let safe = "Le traitement endodontique reste une possibilité conditionnelle.";
+        assert!(screen_clinical_report(source, safe).findings.is_empty());
+    }
+
+    #[test]
+    fn a_total_brushing_time_is_not_silently_multiplied() {
+        let source = "Brossez toutes les dents pendant deux minutes au total.";
+        let suspect = "Brossez-vous deux minutes par secteur.";
+        let checked = screen_clinical_report(source, suspect);
+        assert_eq!(
+            checked.findings[0].reason,
+            ReviewReason::UnverifiedProcedureDuration
+        );
+        assert!(
+            screen_clinical_report("Deux minutes par secteur ont été expliquées.", suspect)
+                .findings
+                .is_empty()
+        );
+    }
+
+    #[test]
     fn no_source_only_and_no_leakage_to_generic_notes() {
         let markdown = "## Note\nUne réunion a été programmée.";
         assert!(screen_clinical_report("", markdown).findings.is_empty());
@@ -701,7 +775,14 @@ troubles du sommeil depuis trois semaines, c'est important.";
         // Only a relative path beneath the private benchmark root is accepted.
         assert!(!report_path.starts_with('/') && !report_path.contains(".."));
         let report = std::fs::read_to_string(base.join(report_path)).unwrap();
-        let screened = screen_clinical_report(&source, &report);
+        // A published ScribeWatch note contains both the generated document
+        // and the complete original transcript. Review the generated document
+        // only; the source transcript must never itself be quarantined.
+        let generated = report
+            .split_once("## Structured notes")
+            .map(|(_, rest)| rest.split("## Transcript").next().unwrap_or(rest))
+            .unwrap_or(&report);
+        let screened = screen_clinical_report(&source, generated);
         assert!(!screened.findings.is_empty());
         // No private excerpts, patient identity or claims in test output.
         eprintln!(
