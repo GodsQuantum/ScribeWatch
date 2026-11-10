@@ -24,7 +24,8 @@
 
 /runtime/
 
-/handoff/
+/handoff/*
+!/handoff/HANDOFF_CURRENT.md
 /research/raw/
 /docs/superpowers/
 
