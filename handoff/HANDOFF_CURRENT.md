@@ -66,6 +66,16 @@ Brouillon de **lettre de consultation dentaire en français**, fidèle à une tr
 - Les essais hors production avec long transcript complet, prompts successifs : ancien pilote 1 363 mots, couverture indicatrice 81,6 % ; premier adaptatif 770 mots, 64,4 % ; adaptatif compact 1 228 mots, 78,2 %. **Aucun de ces scores lexicaux ne prouve une fidélité médicale**, ils démontrent au contraire qu'il faut préserver toutes les explications utiles sans quotas de longueur. Le prompt livré est adaptatif, sans nombre cible de pages, de mots ou de sections.
 - **NE PAS basculer CabinetDentaire1** avant un PDF sans labels de benchmark, réellement exporté par le code ScribeWatch depuis le job de CabinetDentaire2, puis relecture utilisateur/clinicien et validation des faits significatifs. Le prochain modèle Qwen3.8 4B Distil reste explicitement différé jusqu'à validation de Qwen3.5 4B.
 
+## QA clinique réelle et correctifs de sûreté — 10 novembre 2026
+
+- Deux jobs réels Windows sur le même enregistrement local de 61 min 41 s : Parakeet Ultra a reproduit presque à l'identique la transcription déjà archivée. Aucune correction prédictive LLM libre retenue.
+- Premier job avec ancien llama.cpp orphelin à 8 192 tokens, non suivi par le nouveau backend : fallback thématique, 4 483 mots, 43 titres, 77 % de couverture lexicale indicative. Non acceptable.
+- Ancien moteur arrêté après contrôle de 0 job actif et vérification de son emplacement. Redémarrage par API native embedded/mode avec Origin local valide ; moteur désormais supervisé par ScribeWatch, contexte réel 24 576 tokens.
+- Second job réel avec 24 576 tokens : 1 390 mots, 13 titres, 72,4 % de couverture lexicale indicative, sans erreur technique. Présentation beaucoup plus concise, mais 12 éléments lexicaux pertinents absents et inversion critique entre état du nerf/pulpe et dévitalisation. Rejet comme compte rendu médical certifiable. Aucun PDF patient présenté comme validé.
+- Garde-fou natif étendu : détecte les formulations associant dévitalisation certaine à absence explicite d'atteinte pulpaire et la durée de brossage attribuée par secteur sans confirmation source. Mise en quarantaine, pas de correction médicale automatique. 148 tests Rust PASS, dont 20 tests du garde-fou ; trois alertes spécifiques sur la partie structurée du document Windows.
+- Backend de sécurité recompilé Windows SHA256 f7ce791b8f7e31b2511519d879b71893935a8cfb5582cf17a5afe94f9daf7e40 et installé sur CabinetDentaire2 après sauvegarde et arrêt/reprise contrôlés du modèle via API native. Vérification déploiement PASS : 30 jobs historiques conservés, GUI interactive, /ready et llama.cpp contexte 24 576 ; rollback conservé dans qa-cab2-20261110/rollback-guard.
+- Prochaine étape : améliorer l'exhaustivité et la fidélité des recommandations, conditions et actes sans inversion ni omissions importantes avant présentation du PDF de production. Si le 4B local n'atteint pas le niveau nécessaire, signaler sa limite. Cab1 et Qwen3.8 toujours différés jusqu'à validation de Cab2.
+
 ## Décisions et suite
 
 - Les recherches sur le « lost in the middle » et l'évaluation clinique en 2025–2026 confirment que la capacité du contexte seule ne garantit pas la couverture. Un découpage temporel indépendant peut perdre des relations entre faits éloignés ; rechercher d'abord des extraits thématiques avec citations à la source.
