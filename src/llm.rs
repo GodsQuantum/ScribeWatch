@@ -495,16 +495,17 @@ fn chat_request_body(endpoint: &str, model: &str, system: &str, user: &str) -> V
     body
 }
 
-fn chat_response_text(value: &Value) -> Result<String> {
-    if matches!(
-        value
-            .pointer("/choices/0/finish_reason")
-            .and_then(Value::as_str),
-        Some("length" | "max_tokens")
-    ) {
+fn chat_response_text(value: &Value, require_stop: bool) -> Result<String> {
+    let finish = value
+        .pointer("/choices/0/finish_reason")
+        .and_then(Value::as_str);
+    if matches!(finish, Some("length" | "max_tokens")) {
         bail!(
             "LLM output truncated at token/context limit; do not create a partial clinical report"
         );
+    }
+    if require_stop && finish != Some("stop") {
+        bail!("Embedded LLM did not confirm a complete response");
     }
     let text = content_text(value).ok_or_else(|| anyhow!("LLM response has no message content"))?;
     if text.is_empty() {
@@ -550,7 +551,10 @@ async fn call_chat(
     if !status.is_success() {
         bail!("LLM HTTP {status}: {value}");
     }
-    chat_response_text(&value)
+    chat_response_text(
+        &value,
+        is_local_embedded_llama(&provider.chat_completions_url),
+    )
 }
 
 fn split_chunks_at_limit(transcript: &str, char_limit: usize) -> Vec<String> {
@@ -662,6 +666,123 @@ prescription ou décision. Texte Markdown terminé.\n\n\
         bail!("No completed clinical sections");
     }
     Ok(sections.join("\n\n"))
+}
+
+/// This versioned profile opts into detailed whole-consultation grounding.
+/// The legacy dental profile and every external LLM retain their existing
+/// behavior. An example or clinician reference is NEVER supplied to the LLM.
+fn evidence_ledger_appropriate(
+    profile_id: &str,
+    is_embedded: bool,
+    transcript_characters: usize,
+    context_tokens: usize,
+) -> bool {
+    profile_id == "dental-consultation-complete-fr"
+        && is_embedded
+        && transcript_characters >= 30_000
+        // Final synthesis must fit the original source, detailed evidence
+        // and output; avoid spending several minutes extracting evidence
+        // only to discover that a 4 GiB machine cannot fit the combination.
+        && context_tokens >= 32_768
+}
+
+fn prefers_evidence_ledger(profile_id: &str, provider: &LlmProvider, transcript: &str) -> bool {
+    evidence_ledger_appropriate(
+        profile_id,
+        is_local_embedded_llama(&provider.chat_completions_url),
+        transcript.chars().count(),
+        crate::api::embedded::embedded_llm_context_tokens(),
+    )
+}
+
+fn clinical_evidence_system_prompt() -> String {
+    format!(
+        "{}\n\nEXTRACTION DE FAITS CLINIQUES : la transcription ASR peut comporter des erreurs. Extrais les faits et conseils réellement énoncés dans la partie fournie, y compris les détails techniques, numéros de dents, chiffres, surfaces, hypothèses, négations, risques, options conditionnelles, soins effectivement réalisés, décisions explicites et suites proposées. Pour chaque constat, préserve son attribution (patient rapporte, praticien constate, praticien explique ou propose) sans inventer de locuteur sûr lorsque la diarisation ne le permet pas. Aucune identité, profession, prescription ou décision devinée. Écris un inventaire factuel COMPLET en puces françaises, pas encore un compte rendu final. Ne remplace pas les conseils spécifiques par des généralités. La source de vérité reste la transcription complète. Terminer toutes les puces.",
+        fixed_system_prompt()
+    )
+}
+
+fn clinical_evidence_final_user(transcript: &str, ledger: &[String]) -> String {
+    let list = ledger
+        .iter()
+        .enumerate()
+        .map(|(index, evidence)| format!("### Segment {}\n{}", index + 1, evidence))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    format!(
+        "RÉDIGER LE COMPTE RENDU CLINIQUE FINAL COMPLET EN FRANÇAIS. La transcription complète est la seule source factuelle. L'inventaire par segments est une aide de relecture et peut contenir des erreurs : chaque fait doit être étayé par la transcription, et aucun fait absent ne doit être ajouté. Couvrir chaque sujet clinique pertinent des segments 1 à {count}, y compris la fin. Préserver dent et surface, chiffre, option, négation, risque, acte réalisé, décision, détail de conseil pratique et suite. N'inventer aucune identité ni prescription. Organise le document unique par rubriques Markdown ## thématiques, de façon suffisamment détaillée pour conserver tous les éléments réellement évoqués. Vérifie la correspondance de chaque fait extrait avec la transcription entière avant de l'utiliser. Vise environ 1 500 à 2 000 mots si et seulement si la source le justifie, sans inventer ni répéter des généralités pour augmenter la longueur. Les puces d'inventaire ne sont pas des preuves indépendantes. Pas de rubrique vide, pas de liste de fragments bruts. Finir intégralement le document.\n\n<transcription-source>\n{transcript}\n</transcription-source>\n\n<inventaire-a-verifier>\n{list}\n</inventaire-a-verifier>",
+        count = ledger.len()
+    )
+}
+
+/// Whole-transcript source-grounded "quality" route. The default quick route
+/// remains available, and under-sized contexts degrade to loss-preserving
+/// sections rather than a misleading partial final document.
+async fn clinical_evidence_report(
+    state: &AppState,
+    provider: &LlmProvider,
+    model: &str,
+    system: &str,
+    transcript: &str,
+    token: &CancellationToken,
+) -> Result<String> {
+    let chunks = split_chunks_at_limit(transcript, 15_000);
+    if chunks.len() <= 1 {
+        bail!("Evidence ledger requires a segmented transcript");
+    }
+    let evidence_system = clinical_evidence_system_prompt();
+    let mut pending: std::collections::VecDeque<String> = chunks.into();
+    let mut ledger = Vec::new();
+    let mut attempts = 0usize;
+    while let Some(chunk) = pending.pop_front() {
+        attempts += 1;
+        if attempts > 96 {
+            bail!("Clinical evidence extraction exceeded safe retry limit");
+        }
+        if token.is_cancelled() {
+            bail!("cancelled");
+        }
+        let prompt = format!(
+            "Extraire TOUS les faits cliniques précis, propositions, risques, négations et conseils. Ne créer aucune information, ne diagnostiquer rien de plus.\n\n<transcription-partie>\n{}\n</transcription-partie>",
+            chunk
+        );
+        match call_chat(state, provider, model, &evidence_system, &prompt, token).await {
+            Ok(evidence) => ledger.push(evidence),
+            Err(error) if is_retryable_clinical_context_error(&error) => {
+                if chunk.chars().count() <= 2_800 {
+                    return Err(error.context("Clinical evidence extraction remains truncated"));
+                }
+                let split_at = (chunk.chars().count() / 2).max(1_024);
+                let pieces = split_chunks_at_limit(&chunk, split_at);
+                if pieces.len() < 2 {
+                    return Err(error.context("Unable to split an incomplete evidence passage"));
+                }
+                for piece in pieces.into_iter().rev() {
+                    pending.push_front(piece);
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    let final_user = clinical_evidence_final_user(transcript, &ledger);
+    if !can_send_full_local_transcript(provider, model, system, &final_user, token).await {
+        // Keep all source portions in the completed output rather than
+        // silently omitting late passages to make an oversized prompt fit.
+        let budget = safe_direct_input_chars(provider)
+            .saturating_sub(system.chars().count())
+            .clamp(12_000, CHUNK_CHAR_LIMIT);
+        return clinical_sections(state, provider, model, system, transcript, budget, token).await;
+    }
+    match call_chat(state, provider, model, system, &final_user, token).await {
+        Ok(report) => Ok(report),
+        Err(error) if is_retryable_clinical_context_error(&error) => {
+            let budget = safe_direct_input_chars(provider)
+                .saturating_sub(system.chars().count())
+                .clamp(12_000, CHUNK_CHAR_LIMIT);
+            clinical_sections(state, provider, model, system, transcript, budget, token).await
+        }
+        Err(error) => Err(error),
+    }
 }
 
 pub async fn validate_profile_selection(
@@ -782,7 +903,17 @@ pub async fn structure_transcript(
         true
     };
 
-    let markdown = if input_characters <= direct_budget && fits_native_context {
+    let markdown = if prefers_evidence_ledger(&profile.id, &provider, transcript) {
+        clinical_evidence_report(
+            state,
+            &provider,
+            &profile.model,
+            &profile_system,
+            transcript,
+            token,
+        )
+        .await?
+    } else if input_characters <= direct_budget && fits_native_context {
         match call_chat(
             state,
             &provider,
@@ -921,6 +1052,20 @@ mod tests {
     }
 
     #[test]
+    fn embedded_llm_requires_explicit_stop_but_external_providers_remain_compatible() {
+        let missing = json!({"choices": [{
+            "message": {"content": "Incomplete response"}
+        }]});
+        assert!(chat_response_text(&missing, true).is_err());
+        assert!(chat_response_text(&missing, false).is_ok());
+        let refused = json!({"choices": [{
+            "finish_reason": "content_filter",
+            "message": {"content": "Not a completed report"}
+        }]});
+        assert!(chat_response_text(&refused, true).is_err());
+    }
+
+    #[test]
     fn incomplete_llm_response_cannot_be_exported_as_complete_report() {
         let truncated = json!({
             "choices": [{
@@ -929,7 +1074,7 @@ mod tests {
             }]
         });
         assert!(
-            chat_response_text(&truncated)
+            chat_response_text(&truncated, true)
                 .unwrap_err()
                 .to_string()
                 .contains("truncated")
@@ -940,7 +1085,7 @@ mod tests {
                 "message": {"content": "Full report"}
             }]
         });
-        assert_eq!(chat_response_text(&complete).unwrap(), "Full report");
+        assert_eq!(chat_response_text(&complete, true).unwrap(), "Full report");
     }
 
     #[test]
@@ -993,6 +1138,90 @@ mod tests {
         assert!(!is_retryable_clinical_context_error(&anyhow!(
             "Network failure"
         )));
+    }
+
+    #[test]
+    fn evidence_ledger_preflight_avoids_wasting_time_on_small_vram() {
+        assert!(!evidence_ledger_appropriate(
+            "dental-consultation-complete-fr",
+            true,
+            56_000,
+            24_576
+        ));
+        assert!(evidence_ledger_appropriate(
+            "dental-consultation-complete-fr",
+            true,
+            56_000,
+            32_768
+        ));
+        assert!(!evidence_ledger_appropriate(
+            "dental-consultation-complete-fr",
+            false,
+            56_000,
+            131_072
+        ));
+        assert!(!evidence_ledger_appropriate(
+            "dental-consultation",
+            true,
+            56_000,
+            131_072
+        ));
+    }
+
+    #[test]
+    fn premium_dental_ledger_runs_only_for_native_long_consultations() {
+        let local = LlmProvider {
+            id: "local".into(),
+            name: "ScribeWatch embedded".into(),
+            chat_completions_url: "http://127.0.0.1:38080/v1/chat/completions".into(),
+            model: "unsloth/Qwen3.5-4B-GGUF:Q4_K_M".into(),
+            api_key: String::new(),
+            timeout_seconds: 180,
+            enabled: true,
+        };
+        let mut external = local.clone();
+        external.chat_completions_url = "https://example.org/v1/chat/completions".into();
+        let long = "synthetic consultation ".repeat(2_000);
+        assert!(prefers_evidence_ledger(
+            "dental-consultation-complete-fr",
+            &local,
+            &long
+        ));
+        assert!(!prefers_evidence_ledger(
+            "dental-consultation",
+            &local,
+            &long
+        ));
+        assert!(!prefers_evidence_ledger(
+            "dental-consultation-complete-fr",
+            &external,
+            &long
+        ));
+        assert!(!prefers_evidence_ledger(
+            "dental-consultation-complete-fr",
+            &local,
+            "synthetic short consultation"
+        ));
+    }
+
+    #[test]
+    fn synthetic_evidence_ledger_prompt_preserves_complete_source_order() {
+        let transcript = "First passage: no care performed.\n\nLast passage: followup suggested.";
+        let ledger = vec![
+            "- Dentist explains options.".to_owned(),
+            "- Patient says they will consider it.".to_owned(),
+        ];
+        let final_user = clinical_evidence_final_user(transcript, &ledger);
+        assert!(final_user.contains(transcript));
+        assert!(final_user.contains("First passage: no care performed."));
+        assert!(final_user.contains("Last passage: followup suggested."));
+        assert!(
+            final_user.find("First passage").unwrap() < final_user.find("Last passage").unwrap()
+        );
+        assert!(final_user.contains("### Segment 1"));
+        assert!(final_user.contains("### Segment 2"));
+        assert!(final_user.contains("L'inventaire par segments"));
+        assert!(!final_user.contains("clinician-approved PDF"));
     }
 
     #[test]
