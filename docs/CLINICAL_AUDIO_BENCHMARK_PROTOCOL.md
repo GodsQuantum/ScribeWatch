@@ -53,3 +53,14 @@ Bibliographie méthodologique (aucune donnée patient) :
 Selon la documentation actuelle de transcribe.cpp, Parakeet Ultra est un modèle **offline** avec segmentation interne VAD et horodatage ; le streaming à cache est prévu pour certains autres modèles, pas pour Ultra. La famille Parakeet ne fournit pas de diarisation dans l'API transcribe.cpp. Ne pas prétendre que les mots apparaissant en direct dans ScribeWatch proviennent d'un véritable moteur Parakeet Ultra streaming, ni attribuer les propos au patient ou au praticien sans preuve.
 
 Mesurer la latence jusqu'au **PDF final** avant de remplacer le meilleur modèle offline par un modèle streaming. Les indications de vitesse « premier texte » ne prouvent pas un gain de qualité ni un gain de temps final. Référence technique à revalider lors des mises à jour : https://github.com/handy-computer/transcribe.cpp/blob/main/docs/models/parakeet.md
+
+
+## Profil natif de consultation dentaire complète
+
+Le profil intégré dental-consultation-complete-fr est une option de rédaction approfondie, distincte du profil historique. Aucun fait patient, exemple clinique réel ou référence de benchmark n'est intégré à son code.
+
+- Sur le moteur llama.cpp local, pour une consultation longue et un contexte d'au moins 32 768 tokens, ScribeWatch extrait les faits en segments chronologiques. En cas de troncature, il scinde et reprend uniquement le passage concerné. La rédaction finale relit la transcription intégrale et l'inventaire des faits, sans accès au PDF clinique de référence.
+- Sur des machines plus contraintes, il utilise une rédaction directe lorsque le texte tient dans le contexte, sinon des sections sans résumé destructeur. Il évite d'extraire préalablement des faits s'il sait que la synthèse finale dépassera le contexte.
+- Le moteur embarqué rejette les sorties tronquées ou dont la terminaison normale n'est pas confirmée. Les fournisseurs externes conservent leur comportement OpenAI-compatible.
+- La quantification du cache KV, les accélérations et le contexte sont sélectionnés via des capacités locales avec des réglages manuels encadrés. Chaque OS et GPU doit néanmoins passer un test d'accélération réel avant publication.
+- Ce mode peut être sensiblement plus lent : mesurer le temps bout en bout ASR, extraction, synthèse et PDF sur la machine cible. La vérification clinique par le praticien reste indispensable.

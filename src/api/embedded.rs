@@ -40,12 +40,13 @@ const PACK_MODELS: &[&str] = &[
     "handy-computer/Qwen3-ASR-0.6B-gguf",
     "handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf",
 ];
+// Preference order reflects full-transcript dental benchmarks, not file size.
+// Other Hugging Face GGUFs remain manually installable: do not promote models
+// whose clinical notes were too sparse or stopped at their output limit.
 const LLM_SUGGESTIONS: &[&str] = &[
-    "unsloth/Qwen3.5-2B-GGUF:Q4_K_M",
     "unsloth/Qwen3.5-4B-GGUF:Q4_K_M",
-    "unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
-    "unsloth/Phi-4-mini-instruct-GGUF:Q4_K_M",
-    "ggml-org/gemma-3-4b-it-GGUF:Q4_K_M",
+    "unsloth/Qwen3.5-2B-GGUF:Q4_K_M", // small-memory fallback; requires review
+    "unsloth/Qwen3.5-9B-GGUF:Q4_K_M", // larger-memory experimental option
 ];
 
 // Use the upstream llama.cpp server on every supported desktop OS: no
