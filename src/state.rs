@@ -34,12 +34,53 @@ impl AppState {
         let providers: Vec<Provider> = db.list("provider")?;
         let llm_providers: Vec<LlmProvider> = db.list("llm_provider")?;
         let mut structure_profiles: Vec<StructureProfile> = db.list("structure_profile")?;
-        let existing_profile_ids = structure_profiles
-            .iter()
-            .map(|profile| profile.id.clone())
-            .collect::<std::collections::HashSet<_>>();
-        for profile in crate::llm::builtin_profiles() {
-            if !existing_profile_ids.contains(&profile.id) {
+        // Retain legacy rows for historical jobs; expose only the five
+        // current built-ins. Repair only obviously mojibaked built-in text,
+        // preserving clinician-customized clean prompts and model bindings.
+        let default_llm = {
+            let enabled = llm_providers
+                .iter()
+                .filter(|p| p.enabled)
+                .collect::<Vec<_>>();
+            (enabled.len() == 1).then(|| enabled[0])
+        };
+        for builtin in crate::llm::builtin_profiles() {
+            if let Some(existing) = structure_profiles.iter_mut().find(|p| p.id == builtin.id) {
+                if existing.built_in {
+                    let garbled = [&existing.name, &existing.description, &existing.prompt]
+                        .iter()
+                        .any(|value| {
+                            value.contains('Ã')
+                                || value.contains('Â')
+                                || value.contains('�')
+                                || value.contains("â€")
+                        });
+                    let mut changed = false;
+                    if garbled {
+                        existing.name = builtin.name.clone();
+                        existing.description = builtin.description.clone();
+                        existing.prompt = builtin.prompt.clone();
+                        existing.output_template = builtin.output_template.clone();
+                        existing.output_example = builtin.output_example.clone();
+                        changed = true;
+                    }
+                    if existing.provider_id.is_empty() {
+                        if let Some(provider) = default_llm {
+                            existing.provider_id = provider.id.clone();
+                            existing.model = provider.model.clone();
+                            changed = true;
+                        }
+                    }
+                    if changed {
+                        db.upsert("structure_profile", &existing.id, existing)?;
+                    }
+                }
+            } else {
+                let mut profile = builtin;
+                if let Some(provider) = default_llm {
+                    profile.provider_id = provider.id.clone();
+                    profile.model = provider.model.clone();
+                }
                 db.upsert("structure_profile", &profile.id, &profile)?;
                 structure_profiles.push(profile);
             }

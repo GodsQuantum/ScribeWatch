@@ -292,6 +292,27 @@ Do not fabricate quotations. If you include a direct quote, copy it faithfully f
             built_in: true,
         },
     ]
+    .into_iter()
+    .filter(|profile| matches!(
+        profile.id.as_str(),
+        "dental-consultation-complete-fr"
+            | "medical-consultation"
+            | "meeting-minutes"
+            | "marketing-brainstorm"
+            | "general-structured-note"
+    ))
+    .map(|mut profile| {
+        profile.name = match profile.id.as_str() {
+            "dental-consultation-complete-fr" => "Consultation dentaire",
+            "medical-consultation" => "Consultation médicale",
+            "meeting-minutes" => "Réunion et entretien",
+            "marketing-brainstorm" => "Brainstorming",
+            "general-structured-note" => "Note structurée",
+            _ => unreachable!(),
+        }.to_owned();
+        profile
+    })
+    .collect()
 }
 
 pub fn validate_provider(provider: &LlmProvider) -> Result<()> {
@@ -1400,7 +1421,7 @@ mod tests {
     fn optional_template_and_example_are_just_style_not_transcript_evidence() {
         let mut profile = builtin_profiles()
             .into_iter()
-            .find(|p| p.id == "medical-dual-audience-report")
+            .find(|p| p.id == "medical-consultation")
             .unwrap();
         profile.output_template = "## Éléments vérifiables".into();
         profile.output_example =
@@ -1419,85 +1440,31 @@ mod tests {
     #[test]
     fn builtins_are_conservative_and_unique() {
         let profiles = builtin_profiles();
+        assert_eq!(profiles.len(), 5);
         let ids = profiles
             .iter()
-            .map(|profile| &profile.id)
+            .map(|p| p.id.as_str())
             .collect::<std::collections::HashSet<_>>();
-        assert_eq!(ids.len(), profiles.len());
+        assert_eq!(ids.len(), 5);
         for id in [
+            "dental-consultation-complete-fr",
             "medical-consultation",
-            "general-medical-consultation",
-            "dental-consultation",
-            "patient-consultation-report",
-            "medical-dual-audience-report",
+            "meeting-minutes",
+            "marketing-brainstorm",
+            "general-structured-note",
         ] {
-            assert!(
-                profiles.iter().any(|profile| profile.id == id),
-                "missing {id}"
-            );
+            assert!(ids.contains(id), "missing {id}");
         }
-        let general = profiles
-            .iter()
-            .find(|profile| profile.id == "general-medical-consultation")
-            .unwrap();
-        assert!(general.prompt.contains("Never derive a diagnosis"));
-        assert!(
-            general
-                .prompt
-                .contains("Verification required before filing")
-        );
-        assert!(
-            general
-                .prompt
-                .contains("must be verified by the responsible clinician")
-        );
-        let dual = profiles
-            .iter()
-            .find(|p| p.id == "medical-dual-audience-report")
-            .unwrap();
-        assert!(dual.prompt.contains("aucun consentement présumé"));
-        assert!(
-            dual.output_template
-                .contains("Éléments rapportés par le patient")
-        );
-        assert!(dual.output_example.is_empty());
-        let dual_request = structure_system_prompt(dual);
-        assert!(dual_request.contains("OPTIONAL OUTPUT TEMPLATE"));
-        assert!(!dual_request.contains("OPTIONAL EXAMPLE"));
-        let mut example_profile = dual.clone();
-        example_profile.output_example = "Un exemple fictif: 500 euros".into();
-        let example_request = structure_system_prompt(&example_profile);
-        assert!(example_request.contains("STYLE ONLY"));
-        assert!(example_request.contains("NEVER evidence"));
-        assert!(example_request.contains("Never reproduce example facts"));
-
-        let patient_letter = profiles
-            .iter()
-            .find(|profile| profile.id == "patient-consultation-report")
-            .unwrap();
-        assert!(!patient_letter.prompt.contains("DO NOT"));
-        assert!(patient_letter.prompt.contains("Never fabricate"));
-        assert!(patient_letter.prompt.contains("mandatory review"));
-        let dental = profiles
-            .iter()
-            .find(|profile| profile.id == "dental-consultation")
-            .unwrap();
-        assert!(dental.prompt.contains("Do not convert between FDI"));
-        assert!(dental.prompt.contains("Never derive a diagnosis"));
-        assert!(
-            dental
-                .prompt
-                .contains("Verification required before filing")
-        );
-        assert!(
-            dental
-                .prompt
-                .contains("must be verified by the responsible clinician")
-        );
         assert!(
             profiles
                 .iter()
-                .all(|profile| !profile.prompt.trim().is_empty())
+                .all(|p| p.built_in && !p.prompt.trim().is_empty())
         );
+        let dental = profiles
+            .iter()
+            .find(|p| p.id == "dental-consultation-complete-fr")
+            .unwrap();
+        assert!(dental.prompt.contains("LONGUEUR LIBRE ET PROPORTIONNÉE"));
+        assert!(dental.prompt.contains("conditions"));
     }
 }

@@ -642,6 +642,42 @@ fn llama_model_progress(document: &Value, id: &str) -> Option<String> {
     }
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelDirectoryResponse {
+    pub path: String,
+    pub opened: bool,
+}
+
+/// Open only the native desktop model directory, never an arbitrary path.
+/// The active llama.cpp router uses exactly this directory (--models-dir).
+pub async fn open_llm_models_directory(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> AppResult<Json<ModelDirectoryResponse>> {
+    require_desktop(&state.embedded, Some(&headers))?;
+    let directory = state.config.data_dir.join("embedded").join("llm-models");
+    std::fs::create_dir_all(&directory).map_err(|error| AppError::Internal(error.into()))?;
+    #[cfg(target_os = "windows")]
+    {
+        StdCommand::new("explorer.exe")
+            .arg(&directory)
+            .spawn()
+            .map_err(|error| AppError::Internal(error.into()))?;
+        Ok(Json(ModelDirectoryResponse {
+            path: directory.to_string_lossy().into_owned(),
+            opened: true,
+        }))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(Json(ModelDirectoryResponse {
+            path: directory.to_string_lossy().into_owned(),
+            opened: false,
+        }))
+    }
+}
+
 pub async fn status(State(state): State<AppState>) -> Json<RuntimeStatusResponse> {
     let mut download = state.embedded.download.read().await.clone();
     if (download.status == "download-started" || download.status.starts_with("downloading"))
@@ -734,9 +770,11 @@ pub async fn models(
     ApiPath(kind): ApiPath<EngineKind>,
 ) -> AppResult<Json<Value>> {
     require_desktop(&state.embedded, None)?;
+    // User-triggered refresh must rescan manually added local GGUF files.
+    // llama.cpp router supports ?reload=1 for on-demand catalog invalidation.
     let endpoint = match kind {
         EngineKind::Stt => "/v1/models",
-        EngineKind::Llm => "/models",
+        EngineKind::Llm => "/models?reload=1",
     };
     let response = http()?
         .get(format!("http://127.0.0.1:{}{endpoint}", kind.port()))

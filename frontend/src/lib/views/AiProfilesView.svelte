@@ -55,7 +55,7 @@
     try{
       providerModels=(await api.llmDiscoverDraft(providerDraft.chatCompletionsUrl,providerDraft.apiKey??'')).models;
       if(providerModels.length&&!providerModels.includes(providerDraft.model))providerDraft.model=providerModels[0];
-      if(!providerModels.length)notify('error','No installed chat models returned by this provider.');
+      if(!providerModels.length)notify('error','Le moteur répond, mais ne liste aucun modèle : vérifiez que les poids sont téléchargés et que l’URL est celle de /v1/chat/completions.');
     }catch(e){notify('error',e instanceof Error?e.message:String(e));}
     finally{discoveryBusy=false;}
   }
@@ -96,8 +96,8 @@
 
   let embedded:EmbeddedRuntimeStatus={desktop:false,engines:[],download:{status:'',model:''}};
   let embeddedBusy=false;
-  let selectedSTT='handy-computer/whisper-large-v3-turbo-gguf';
-  let selectedLLM='LiquidAI/LFM3-1.7B-GGUF:Q4_K_M';
+  let selectedSTT='handy-computer/parakeet-ultra-gguf';
+  let selectedLLM='empero-ai/Qwen3.8-4B-Distill-GGUF:Q4_K_M';
   let customLLM='';
   let asrSource='handy-computer/parakeet-ultra-gguf';
   let asrVariants:Array<{label:string;filename:string}>=[];
@@ -131,6 +131,13 @@
       notify('success','Installation du pack acoustique demandée.');
     }catch(e){notify('error',e instanceof Error?e.message:String(e));}
     finally{asrBusy=false;}
+  }
+
+  async function openModelsDirectory(){
+    try{
+      const result=await api.openLocalLlmModelsDirectory();
+      notify('success',result.opened?'Dossier GGUF ouvert dans l’Explorateur Windows.':'Dossier GGUF : '+result.path);
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
   }
 
   let embeddedSttModels:string[]=[];
@@ -184,7 +191,7 @@
     providerModels=[...embeddedLlmModels];
   }
   async function connectEmbeddedStt(){
-    const model=embeddedSttModels[0];
+    const model=embeddedSttModels.find(id=>/parakeet.ultra/i.test(id))??embeddedSttModels[0];
     if(!model){notify('error','Téléchargez puis sélectionnez un modèle de transcription.');return;}
     embeddedBusy=true;
     try{
@@ -287,6 +294,7 @@
       <button class="btn" disabled={embeddedBusy} on:click={refreshEmbedded}>Actualiser</button>
     </div>
     <div class="card-body stack">
+      <p class="muted small">Transcription recommandée : Parakeet Ultra (validée sur la consultation de référence). Les identifiants « handy-computer/... » désignent des modèles GGUF publics et ne signifient pas que Handy est utilisé ou installé.</p>
       <p class="muted small">ScribeWatch peut piloter ses moteurs internes sans installer de service système. Chaque moteur reste facultatif, et les fournisseurs externes déjà configurés ne sont jamais effacés.</p>
       {#if embedded.desktop}
         {#each embedded.engines as engine}
@@ -353,6 +361,7 @@
               <div class="field">
                 <label for="embedded-llm-choice">Modèle de rédaction</label>
                 <select id="embedded-llm-choice" class="select" bind:value={selectedLLM}>
+                  <option value="empero-ai/Qwen3.8-4B-Distill-GGUF:Q4_K_M">Qwen3.8 4B Distill · essai en cours</option>
                   <option value="LiquidAI/LFM3-1.7B-GGUF:Q4_K_M">Liquid LFM3 1.7B · léger</option>
                   <option value="unsloth/Qwen3.5-4B-GGUF:Q4_K_M">Qwen3.5 4B · équilibre</option>
                   <option value="unsloth/Qwen3.5-9B-GGUF:Q4_K_M">Qwen3.5 9B · qualité</option>
@@ -366,7 +375,9 @@
               <div class="row wrap">
                 <button class="btn" disabled={embeddedBusy} on:click={()=>downloadEmbedded('llm')}>Télécharger le modèle LLM</button>
                 <button class="btn" disabled={embeddedBusy||!embeddedLlmModels.length} on:click={selectEmbeddedLlm}>Préremplir le fournisseur LLM interne</button>
+                <button class="btn" disabled={embeddedBusy} on:click={openModelsDirectory}>Ouvrir le dossier GGUF</button>
               </div>
+              <p class="muted small">Ajoutez vos fichiers .gguf dans ce dossier : llama.cpp les découvre avec --models-dir. Pour les modèles multimodaux, regroupez le GGUF et mmproj dans un sous-dossier. Cliquez ensuite sur « Actualiser » pour relire les modèles, sans redémarrer ScribeWatch.</p>
               <p class="muted small">Le routeur intégré charge au plus un modèle à la fois, garde une marge GPU de 512 Mio et libère les poids après 45 s d'inactivité. Les poids ne sont pas intégrés dans le programme.</p>
             {/if}
           </div>
@@ -388,7 +399,7 @@
     </div>
     <div class="card-body stack">
       {#if desktopAvailable}
-        <p class="muted small">Native desktop: check Lemonade (13305), LM Studio (1234), Ollama (11434) and llama.cpp (8080). No download happens during detection.</p>
+        <p class="muted small">Détection locale : Atomic Chat (1337), LM Studio (1234), Ollama (11434) et llama.cpp (8080). Aucune installation automatique.</p>
         {#if detectedEngines.length}
           <div class="tag-list">
             {#each detectedEngines as engine}
@@ -400,30 +411,7 @@
         {:else}
           <span class="muted small">No local engine detected. Start a current engine or install one below.</span>
         {/if}
-        {#if isWindows}
-          <div class="stack">
-            <strong>Optional Windows engine installation</strong>
-            <p class="muted small">WinGet installs the official AMD Lemonade Server package only after your confirmation. Windows may display normal installer prompts.</p>
-            <div class="row wrap">
-              <button class="btn" disabled={installBusy} on:click={installEngine}>Install Lemonade + LFM3 (WinGet)</button>
-              <a href="https://github.com/lemonade-sdk/lemonade/releases/latest/download/lemonade.msi" target="_blank" rel="noopener noreferrer">Official MSI</a>
-            </div>
-          </div>
-        {/if}
-        {#if detectedEngines.some(engine=>engine.name==='Lemonade Server')}
-          <div class="stack">
-            <strong>Download a recommended LLM</strong>
-            <div class="row wrap">
-              <select class="select" bind:value={installModel} aria-label="Recommended LLM">
-                <option value="lfm3-1.7b">Liquid LFM3-1.7B Q4_K_M — small</option>
-                <option value="qwen3.5-4b">Qwen3.5-4B Q4_K_M — stronger</option>
-              </select>
-              <button class="btn primary" disabled={installBusy} on:click={installRecommendedModel}>Install selected model</button>
-              <button class="btn" disabled={installBusy} on:click={checkDownloads}>Check progress</button>
-            </div>
-            {#if downloadStatus}<p class="muted small">{downloadStatus}</p>{/if}
-          </div>
-        {/if}
+        <p class="muted small">Moteur intégré recommandé : llama.cpp, géré directement par ScribeWatch. Alternative facultative : Atomic Chat (API locale http://127.0.0.1:1337/v1/chat/completions) si déjà installé. Le moteur utilisé se choisit par fournisseur LLM, sans installer de deuxième service inutile.</p>
         {#if installStatus}<p class="muted small">{installStatus}</p>{/if}
       {:else}
         <p class="muted small">Automatic host discovery and installation are for the native desktop app only. In server deployments, enter your existing inference endpoint below.</p>
@@ -453,7 +441,8 @@
           </div>
           {#if providerModels.length}<div class="tag-list">{#each providerModels as model}<button class="chip-button" on:click={()=>providerDraft.model=model}>{model}</button>{/each}</div>{/if}
           <div class="form-actions">
-            {#if desktopAvailable}<button class="btn" disabled={discoveryBusy||!providerDraft.chatCompletionsUrl} on:click={discoverDraft}>Find models from URL</button>{/if}
+            {#if desktopAvailable}<button class="btn" disabled={discoveryBusy||!providerDraft.chatCompletionsUrl} on:click={discoverDraft}>Lister les modèles disponibles</button>{/if}
+            {#if desktopAvailable}<span class="help">Interroge uniquement l’API du moteur saisi ci-dessus, par exemple http://127.0.0.1:38080/v1/chat/completions. Une adresse Hugging Face n’est pas une API d’inférence.</span>{/if}
             {#if providerId}<button class="btn danger" on:click={removeProvider}>Delete</button><button class="btn" disabled={providerBusy} on:click={discoverProviderModels}>Discover models</button>{/if}
             <span class="spacer"></span><button class="btn primary" disabled={providerBusy||!providerDraft.name||!providerDraft.chatCompletionsUrl||!providerDraft.model} on:click={saveProvider}>Save provider</button>
           </div>
