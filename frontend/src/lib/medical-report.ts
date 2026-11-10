@@ -174,16 +174,19 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
       page.drawLine({start:{x:x+4,y:cy+1},end:{x:x+10,y:cy-5},thickness:.8,color:navy});
     }
   };
-  const draw=(text:string,style:'title'|'section'|'body'|'bullet'|'table'='body')=>{
-    const size=style==='title'?17:style==='section'?12:10.3;
+  const draw=(text:string,style:'title'|'section'|'subsection'|'body'|'bullet'|'table'='body')=>{
+    const size=style==='title'?17:style==='section'?12:style==='subsection'?10.8:10.3;
     const font=style==='body'||style==='bullet'?regular:bold;
     const marker=style==='section'?sectionIcon(text):null;
     const indent=(style==='bullet'?12:0)+(marker?18:0),leading=size*1.43;
     const rich=(style==='body'||style==='bullet')?wrapRichText(text,regular,bold,size,contentWidth-indent):null;
     const plain=rich?null:wrap(text,font,size,contentWidth-indent);
     if(!(rich?.length||plain?.length))return;
-    ensure(leading*2+8);
+    // Section and subsection headings must stay with at least two text lines.
+    // Avoid a heading being orphaned at the foot of an A4 page.
+    ensure((style==='section'||style==='subsection')?leading*4+18:leading*2+8);
     if(style==='title'||style==='section'){y-=9;ensure(16);y-=7;}
+    else if(style==='subsection'){y-=4;ensure(12);y-=4;}
     if(marker)drawSectionIcon(marker,y);
     for(let i=0;i<(rich?.length??plain?.length??0);i++){
       ensure(leading);
@@ -197,7 +200,7 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
       }else if(plain){page.drawText(plain[i],{x:M+indent,y,size,font,color:teal});}
       y-=leading;
     }
-    y-=style==='title'||style==='section'?9:4;
+    y-=style==='title'||style==='section'?9:style==='subsection'?6:4;
   };
   const drawTable=(rows:string[][])=>{
     if(!rows.length)return;
@@ -285,7 +288,7 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
         return bounded.split('|').map(value=>value.trim());
       });
       if(rows.length)drawTable(rows);
-    }else if(/^#{1,3}\s/.test(line))draw(line.replace(/^#{1,3}\s+/,''),'section');
+    }else if(/^#{1,3}\s/.test(line))draw(line.replace(/^#{1,3}\s+/,''),/^###\s/.test(line)?'subsection':'section');
     else if(/^[-*]\s/.test(line)||/^\d+[.)]\s/.test(line))draw('• '+line.replace(/^(?:[-*]|\d+[.)])\s+/,''),'bullet');
     else draw(line);
   }

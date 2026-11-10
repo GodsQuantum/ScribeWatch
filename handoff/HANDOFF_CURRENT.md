@@ -114,3 +114,10 @@ Fichier de statut unique : ce document. Le pointeur racine HANDOFF_CURRENT.md de
 - Qwen3.6 14B A3B MoE test court sous TurboQuant : 0.68 tok/s, langue française inadéquate ; ne pas tenter la génération longue. Les essais suivants passent un contrôle court vitesse/mémoire avant rédaction complète.
 - Stockage CAB2 : suppression ciblée des archives déjà installées, nettoyage des fichiers de staging hors ScribeWatch, et tâche hebdomadaire de purge uniquement des fichiers partiels et logs QA périmés. Aucun modèle actif, résultat clinique ou backup supprimé.
 - Windows 11 25H2 est en attente de redémarrage Windows Update ; ne pas redémarrer pendant les tests. CAB1 non modifié. Qualification clinique toujours non atteinte.
+
+## Ajustement PDF et audit compact — 11 novembre 2026
+- Rendu PDF ScribeWatch : sections et sous-sections hiérarchisées, titres conservés avec au moins deux lignes suivantes ; rendu A4 inspecté et plus aucun titre orphelin. Les dix PDF privés déjà disponibles ont été régénérés.
+- Frontend seul mis à jour sur CAB2 : HTTP 200, /ready PASS, 58 assets statiques ; rollback-layout-20261111 conservé, backend et profil dentaire Qwen3.5-4B inchangés.
+- Atomic Chat TurboQuant Qwen3.6-14B-A3B Q4_K_M : 0,68 token/s en micro-essai, qualité linguistique insuffisante ; essai de rapport long écarté. Ministral 3 3B Q6_K : 20,26 tok/s sur prompt synthétique court, lancement d'un vrai test long ; cette vitesse courte n'est pas la vitesse du compte rendu réel.
+- Inventaire Windows ScribeWatch hebdomadaire : 17 poids recensés, aucune suppression automatique de modèles ; purge sécurisée des fragments et logs inutiles seulement. Candidats supplémentaires téléchargés avec SHA-256 vérifié : Ministral 3 3B Q6_K et Gemma 4 E4B IQ3.
+- Dossier de livraison privé : scripts de matrice, PDFs de production par modèle, index hors PDF et création ZIP confidentiel. Scores de couverture lexical uniquement, praticien reste validateur des faits et de la syntaxe.
