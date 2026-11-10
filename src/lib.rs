@@ -1,5 +1,6 @@
 pub mod api;
 pub mod audio;
+mod clinical_guard;
 pub mod config;
 pub mod db;
 pub mod domain;

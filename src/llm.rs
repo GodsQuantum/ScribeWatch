@@ -1037,6 +1037,30 @@ pub async fn structure_transcript(
         .await?
     };
 
+    // Fail safely for a small set of high-confidence clinical contradictions.
+    // No LLM judge, provider calls or external resources; other profiles are unchanged.
+    let markdown = if profile.id == "dental-consultation-complete-fr" {
+        let screened = crate::clinical_guard::screen_clinical_report(transcript, &markdown);
+        if !screened.findings.is_empty() {
+            tracing::warn!(
+                count = screened.findings.len(),
+                "clinical draft flagged for mandatory verification"
+            );
+            for finding in &screened.findings {
+                // Only a static reason and local line number are logged:
+                // never log transcript content or generated medical claims.
+                tracing::debug!(
+                    line = finding.line,
+                    reason = ?finding.reason,
+                    "source-grounded clinical review flag"
+                );
+            }
+        }
+        screened.markdown
+    } else {
+        markdown
+    };
+
     Ok(StructureSuccess {
         markdown,
         profile_id: profile.id,
