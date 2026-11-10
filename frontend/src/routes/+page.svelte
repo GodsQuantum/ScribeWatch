@@ -100,7 +100,7 @@
   <meta name="theme-color" content="#09100f"/>
 </svelte:head>
 <AppShell {active} onnav={nav} {spaces} {jobs} {assignments} {selectedSpace}
-  onspace={chooseSpace} oncreateSpace={createSpace} ondeleteSpace={deleteSpace}
+  onspace={chooseSpace} oncreateSpace={createSpace} ondeleteSpace={deleteSpace} onlocale={loadAll}
   {searchQuery} onsearch={(value)=>searchQuery=value}>
   {#if initialError}<div class="page"><div class="notice danger"><strong>Cannot reach ScribeWatch.</strong><span>{initialError}</span><button class="btn" on:click={()=>loadAll(true)}>Retry</button></div></div>
   {:else if loading}<div class="page"><div class="empty loading-state">Loading ScribeWatch…</div></div>

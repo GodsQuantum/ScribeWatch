@@ -1,7 +1,7 @@
 use crate::{
     domain::{LlmProvider, LlmProviderView, StructureProfile},
     error::{AppError, AppResult},
-    llm,
+    llm, profile_locale,
     state::AppState,
 };
 use axum::{
@@ -195,6 +195,46 @@ pub async fn models(
     }
     let models = super::local_llm::model_ids(&value);
     Ok(Json(ModelsResponse { models }))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileLocaleInput {
+    locale: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileLocaleResponse {
+    updated_defaults: usize,
+    locale: String,
+}
+
+/// Synchronize only untouched built-in prompts with the interface language.
+/// Customized prompts, provider assignments and model selections survive.
+pub async fn sync_profile_locale(
+    State(state): State<AppState>,
+    Json(input): Json<ProfileLocaleInput>,
+) -> AppResult<Json<ProfileLocaleResponse>> {
+    if !profile_locale::SUPPORTED.contains(&input.locale.as_str()) {
+        return Err(AppError::BadRequest("unsupported interface locale".into()));
+    }
+    let mut profiles = state.structure_profiles.write().await;
+    let mut updated = 0;
+    for existing in profiles.iter_mut() {
+        if let Some(translation) = profile_locale::replacement_for_locale(existing, &input.locale) {
+            state
+                .db
+                .upsert("structure_profile", &translation.id, &translation)
+                .map_err(AppError::Internal)?;
+            *existing = translation;
+            updated += 1;
+        }
+    }
+    Ok(Json(ProfileLocaleResponse {
+        updated_defaults: updated,
+        locale: input.locale,
+    }))
 }
 
 pub async fn list_profiles(State(state): State<AppState>) -> Json<Vec<StructureProfile>> {

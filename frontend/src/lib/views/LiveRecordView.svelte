@@ -142,12 +142,13 @@
   function enableMedicalReport(checked:boolean){
     medicalReportEnabled=checked;
     if(checked){
+      const premium=structureProfiles.find(p=>p.id==='dental-consultation-complete-fr'&&p.providerId);
       const dual=structureProfiles.find(p=>p.id==='medical-dual-audience-report'&&p.providerId);
       const letter=structureProfiles.find(p=>p.id==='patient-consultation-report'&&p.providerId);
       const dental=structureProfiles.find(p=>p.id==='dental-consultation'&&p.providerId);
       const general=structureProfiles.find(p=>p.id==='medical-consultation'&&p.providerId);
       const current=structureProfiles.find(p=>p.id===structureProfileId);
-      if(!current?.providerId)structureProfileId=(dual??letter??dental??general)?.id??'';
+      if(!current?.providerId || current?.id==='dental-consultation')structureProfileId=(premium??dual??letter??dental??general)?.id??'';
     }
   }
   let frontmatter=true;

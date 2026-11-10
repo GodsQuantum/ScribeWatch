@@ -94,6 +94,10 @@ pub fn router() -> Router<AppState> {
             get(ai::list_profiles).post(ai::upsert_profile),
         )
         .route(
+            "/api/v1/structure-profiles/sync-locale",
+            post(ai::sync_profile_locale),
+        )
+        .route(
             "/api/v1/structure-profiles/{id}",
             delete(ai::delete_profile),
         )
