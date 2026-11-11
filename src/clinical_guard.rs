@@ -18,6 +18,7 @@ pub enum ReviewReason {
     UnverifiedAnatomicalClaim,
     ContradictedWisdomImpaction,
     UnsupportedFluorideOnlyCariesCare,
+    ConditionalPulpCareMadeMandatory,
 }
 
 impl ReviewReason {
@@ -59,6 +60,9 @@ impl ReviewReason {
             }
             Self::UnsupportedFluorideOnlyCariesCare => {
                 "fluor présenté comme seul soin d'une carie de sillon non reminéralisable"
+            }
+            Self::ConditionalPulpCareMadeMandatory => {
+                "possibilité de préserver la vitalité pulpaire remplacée par une dévitalisation systématique"
             }
         }
     }
@@ -560,7 +564,10 @@ fn unsupported_fluoride_only_caries_care(source: &str, line: &str) -> bool {
     .any(|phrase| source.contains(phrase));
     let caries_treatment = line.contains("traitement de la carie")
         || line.contains("soins de la carie")
-        || line.contains("traiter la carie");
+        || line.contains("traiter la carie")
+        || line.contains("arret du processus carieux")
+        || line.contains("stopper la carie")
+        || line.contains("guerir la carie");
     let fluoride_as_care = line.contains("application de fluor")
         || line.contains("fluorure pour remineralis")
         || line.contains("fluor pour remineralis");
@@ -575,6 +582,48 @@ fn unsupported_fluoride_only_caries_care(source: &str, line: &str) -> bool {
     .iter()
     .any(|phrase| line.contains(phrase));
     source_rejects && caries_treatment && fluoride_as_care && !accurately_qualified
+}
+
+fn conditional_pulp_care_made_mandatory(source: &str, line: &str) -> bool {
+    // Only quarantine an unconditional procedure when the ORIGINAL source
+    // clearly discusses a possible vitality-preserving attempt. The source
+    // can be noisy ASR: the prefix "vi" accommodates both "vivante" and
+    // a common transcription typo without inventing any clinical facts.
+    let source_allows_preservation = [
+        "garder la dent vi",
+        "conserver la vitalite",
+        "preserver la vitalite",
+        "preserver la dent vivante",
+        "essayer de sauver la dent",
+    ]
+    .iter()
+    .any(|phrase| source.contains(phrase));
+    let report_makes_mandatory = [
+        "devra etre devitalise",
+        "doit etre devitalise",
+        "sera obligatoirement devitalise",
+        "il faudra devitaliser",
+        "devitalisation obligatoire",
+    ]
+    .iter()
+    .any(|phrase| line.contains(phrase));
+    let conditions_mentioned =
+        line.contains("si ") && (line.contains("pulpe") || line.contains("nerf"));
+    let line_preserves_alternative = [
+        "en cas d'echec",
+        "apres echec",
+        "on essaie de garder",
+        "tenter de garder",
+        "essayer de conserver",
+        "possibilite de conserver",
+        "si la conservation echoue",
+    ]
+    .iter()
+    .any(|phrase| line.contains(phrase));
+    source_allows_preservation
+        && report_makes_mandatory
+        && conditions_mentioned
+        && !line_preserves_alternative
 }
 
 pub fn screen_clinical_report(source: &str, markdown: &str) -> ScreenResult {
@@ -619,6 +668,8 @@ pub fn screen_clinical_report(source: &str, markdown: &str) -> ScreenResult {
             Some(ReviewReason::ContradictedWisdomImpaction)
         } else if unsupported_fluoride_only_caries_care(&source, &plain) {
             Some(ReviewReason::UnsupportedFluorideOnlyCariesCare)
+        } else if conditional_pulp_care_made_mandatory(&source, &plain) {
+            Some(ReviewReason::ConditionalPulpCareMadeMandatory)
         } else if suspicious_pulp_condition(&plain) {
             Some(ReviewReason::UnverifiedDentalCausality)
         } else if unsupported_sector_duration(&source, &plain) {
@@ -995,6 +1046,50 @@ troubles du sommeil depuis trois semaines, c'est important.";
         );
         let ambiguous = "Nous avons discuté des caries et du fluor.";
         assert!(screen_clinical_report(ambiguous, bad).findings.is_empty());
+    }
+
+    #[test]
+    fn fluoride_only_is_not_cure_for_established_caries_in_different_words() {
+        let source = "Pour les lésions précoces au point de contact, du fluor peut aider. Une carie de sillon ne se reminéralise jamais.";
+        let unsafe_note = "Traitement envisagé : Application de fluor pour reminéralisation et arrêt du processus carieux.";
+        let screened = screen_clinical_report(source, unsafe_note);
+        assert_eq!(screened.findings.len(), 1);
+        assert_eq!(
+            screened.findings[0].reason,
+            ReviewReason::UnsupportedFluorideOnlyCariesCare
+        );
+        let safe_note = "Le fluor peut aider certaines lésions initiales au point de contact, pas la carie de sillon.";
+        assert!(
+            screen_clinical_report(source, safe_note)
+                .findings
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn source_vitality_option_cannot_become_mandatory_root_canal() {
+        let source = "Si une zone limitée du nerf est exposée, on essaie de garder la dent vivante. En cas d'échec, une dévitalisation pourra être envisagée.";
+        let unsafe_note = "Si la carie atteint la pulpe, la dent devra être dévitalisée.";
+        let checked = screen_clinical_report(source, unsafe_note);
+        assert_eq!(checked.findings.len(), 1);
+        assert_eq!(
+            checked.findings[0].reason,
+            ReviewReason::ConditionalPulpCareMadeMandatory
+        );
+        assert!(checked.markdown.is_empty());
+        let safe_note = "Si la carie expose la pulpe sur une petite zone, une tentative de préserver la vitalité est envisagée ; en cas d'échec une dévitalisation pourra être discutée.";
+        assert!(
+            screen_clinical_report(source, safe_note)
+                .findings
+                .is_empty()
+        );
+        let no_preservation_mentioned =
+            "Si la pulpe est totalement atteinte, il faudra dévitaliser.";
+        assert!(
+            screen_clinical_report(no_preservation_mentioned, no_preservation_mentioned)
+                .findings
+                .is_empty()
+        );
     }
 
     #[test]
