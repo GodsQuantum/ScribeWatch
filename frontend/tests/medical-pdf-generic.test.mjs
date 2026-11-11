@@ -64,6 +64,20 @@ test('private audit sections are excluded from patient body',() => {
   assert.doesNotMatch(rendered,/Audit privé|Références documentaires|Source interne|exemple@test|rue Imaginaire/);
 });
 
+test('source-model internal uncertainties stay in private draft but never leak to patient PDF', () => {
+  const raw = [
+    '## Examen et soins',
+    'Le patient a été informé de plusieurs possibilités.',
+    '## Questions et incertitudes à confirmer',
+    'Nom de spécialiste hypothétique à ne pas publier.',
+    'Mot du moteur ASR sans certitude.',
+  ].join('\n');
+  const patientBody = patientFacingMedicalBody(raw);
+  assert.match(patientBody, /plusieurs possibilités/);
+  assert.doesNotMatch(patientBody, /Nom de spécialiste|Mot du moteur ASR|incertitudes/);
+  assert.match(raw, /Nom de spécialiste/);
+});
+
 test('medical PDF still renders with missing patient identity, without inventing a name', async () => {
   const patient = { surname:'', forename:'', dateOfBirth:'', practitioner:'Dr Test Fictif' };
   const pdfBlob = await createMedicalPdf('## Synthèse\nConsultation purement fictive.', patient, new Date(2026,10,9));

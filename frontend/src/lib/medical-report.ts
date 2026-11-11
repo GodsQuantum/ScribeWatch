@@ -25,7 +25,7 @@ export async function uniqueMedicalFilename(directory:FileSystemDirectoryHandle,
  * Never remove an ordinary clinical "à confirmer" or a patient follow-up.
  */
 export function patientFacingMedicalBody(body:string):string{
-  const internal=/^#{1,3}\s+(?:Éléments? à vérifier par le praticien|À confirmer par le praticien|Références documentaires(?:\s*\([^)]*\))?|Contrôle interne(?: de qualité)?|Points? . (?:confirmer|verifier|valider)|Audit clinique interne)\s*$/i;
+  const internal=/^#{1,3}\s+(?:Éléments? à vérifier par le praticien|À confirmer par le praticien|Références documentaires(?:\s*\([^)]*\))?|Contrôle interne(?: de qualité)?|Points? . (?:confirmer|verifier|valider)|Audit clinique interne|Questions? et incertitudes à confirmer|Incertitudes? à (?:confirmer|vérifier)|Uncertainties or items to verify)\s*$/i;
   // Defence in depth: PDF header receives identity from the user-controlled
   // form. Do not carry contact coordinates hallucinated by a local model
   // over into clinical paragraphs, even when the backend is bypassed.
@@ -282,12 +282,16 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     else if(/^[-*]\s/.test(line)||/^\d+[.)]\s/.test(line))draw('• '+line.replace(/^(?:[-*]|\d+[.)])\s+/,''),'bullet');
     else draw(line);
   }
-  // Content-dependent A4 pagination: if the final page has only a few
-  // orphaned lines, retry with slightly tighter but readable typography.
-  // This is not an arbitrary page-count cap: lengthy consultations
-  // naturally keep as many pages as their clinical content requires.
-  if(!compactLastPage && pages.length>1 && (H-58-y)<150)
-    return createMedicalPdf(markdown,patient,date,true);
+  // Always consider the already-supported readable compact layout.
+  // If it saves a page, prefer it without editing or omitting any clinical
+  // content. Previously it was only attempted for very short last pages,
+  // leaving an otherwise equivalent five-page PDF when four pages fit.
+  if(!compactLastPage && pages.length>1){
+    const compact=await createMedicalPdf(markdown,patient,date,true);
+    const compactDocument=await PDFDocument.load(await compact.arrayBuffer());
+    if(compactDocument.getPageCount()<pages.length || (H-58-y)<150)
+      return compact;
+  }
   for(let i=0;i<pages.length;i++){
     const p=pages[i];
     p.drawLine({start:{x:M,y:53},end:{x:W-M,y:53},thickness:.7,color:rgb(.78,.83,.84)});
