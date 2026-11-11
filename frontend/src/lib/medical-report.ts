@@ -8,6 +8,7 @@ export interface PatientMetadata {
   sourceDocumentSha256?:string;
   structuredProfile?:string;
   structuredModel?:string;
+  sessionFields?:Array<{label:string;value:string}>;
 }
 export function medicalFilename(patient:PatientMetadata,date=new Date()):string{
   const letters=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,3);
@@ -313,6 +314,19 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
   const body=structuredMedicalBody(markdown);
   const lines=body.split('\n');
   const blocks:MedicalBlock[]=[];
+  // Generic user-entered session metadata: deterministic, no model inference.
+  // Render with the same pagination grouping as all other document sections.
+  const metadata=(patient.sessionFields??[]).slice(0,24)
+    .map(field=>({label:(field.label||'').trim().slice(0,90),
+      value:(field.value||'').trim().slice(0,500)}))
+    .filter(field=>field.label&&field.value);
+  if(metadata.length){
+    blocks.push({kind:'text',text:'Informations de séance',style:'section',level:2});
+    metadata.forEach(field=>blocks.push({
+      kind:'text',text:field.label+' : '+field.value,style:'body'
+    }));
+    blocks.push({kind:'space'});
+  }
   for(let i=0;i<lines.length;i++){
     const line=lines[i].trim();
     if(!line){blocks.push({kind:'space'});continue;}

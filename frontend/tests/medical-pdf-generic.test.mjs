@@ -320,3 +320,32 @@ test('multi-page tables repeat headers and never split a table row', async t => 
     }
   }finally{rmSync(directory,{recursive:true,force:true});}
 });
+
+test('session metadata fields are included only when explicitly entered', async t => {
+  const patient={surname:'EXEMPLE',forename:'FICTIF',dateOfBirth:'2000-01-01',
+    sessionFields:[{label:'Référence de séance',value:'REF-TEST-42'},
+      {label:'Observation libre',value:'Information entièrement fictive.'},
+      {label:'Champ vide',value:''}]};
+  const markdown='## Résumé fictif\nUne rencontre sans information clinique réelle.';
+  const document=await createMedicalPdf(markdown,patient,new Date(2026,10,11));
+  const clean=await createMedicalPdf(markdown,{surname:'EXEMPLE',forename:'FICTIF',dateOfBirth:'2000-01-01'},new Date(2026,10,11));
+  assert.ok((await PDFDocument.load(await document.arrayBuffer())).getPageCount()>=1);
+  const directory=mkdtempSync(join(tmpdir(),'scribewatch-custom-fields-'));
+  try{
+    const file=join(directory,'with-fields.pdf');
+    const emptyFile=join(directory,'without-fields.pdf');
+    writeFileSync(file,new Uint8Array(await document.arrayBuffer()));
+    writeFileSync(emptyFile,new Uint8Array(await clean.arrayBuffer()));
+    const present=spawnSync('pdftotext',['-layout',file,'-'],{encoding:'utf8'});
+    const absent=spawnSync('pdftotext',['-layout',emptyFile,'-'],{encoding:'utf8'});
+    if(present.error?.code==='ENOENT'){
+      t.diagnostic('pdftotext unavailable; PDF syntax still verified');
+      return;
+    }
+    assert.equal(present.status,0);assert.equal(absent.status,0);
+    assert.match(present.stdout,/REF-TEST-42/);
+    assert.match(present.stdout,/Observation libre/);
+    assert.doesNotMatch(present.stdout,/Champ vide/);
+    assert.doesNotMatch(absent.stdout,/REF-TEST-42|Observation libre/);
+  }finally{rmSync(directory,{recursive:true,force:true});}
+});
