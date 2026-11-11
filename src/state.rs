@@ -72,12 +72,12 @@ impl AppState {
                         existing.output_example = builtin.output_example.clone();
                         changed = true;
                     }
-                    if existing.provider_id.is_empty() {
-                        if let Some(provider) = default_llm {
-                            existing.provider_id = provider.id.clone();
-                            existing.model = provider.model.clone();
-                            changed = true;
-                        }
+                    if existing.provider_id.is_empty()
+                        && let Some(provider) = default_llm
+                    {
+                        existing.provider_id = provider.id.clone();
+                        existing.model = provider.model.clone();
+                        changed = true;
                     }
                     if changed {
                         db.upsert("structure_profile", &existing.id, existing)?;

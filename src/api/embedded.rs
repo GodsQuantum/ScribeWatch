@@ -102,7 +102,7 @@ fn system_memory_mib() -> Option<u64> {
         .iter()
         .filter_map(|path| std::fs::read_to_string(path).ok())
         .find_map(|raw| parse_cgroup_memory_limit_mib(&raw));
-        return Some(cgroup_mib.map_or(host_memory_mib, |limit| host_memory_mib.min(limit)));
+        Some(cgroup_mib.map_or(host_memory_mib, |limit| host_memory_mib.min(limit)))
     }
     #[cfg(target_os = "macos")]
     {
