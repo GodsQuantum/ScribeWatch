@@ -26,7 +26,25 @@ export async function saveMarkdownLocally(filename: string, blob: Blob, env: any
   return downloadBlob(filename, blob, env);
 }
 
-async function ensureDirectoryPermission(handle: any): Promise<boolean> {
+/** Select a non-existing name without silently replacing an earlier patient
+ * report or source note. A NotFoundError is the only proof of vacancy. */
+export async function uniqueDirectoryFilename(directory:FileSystemDirectoryHandle,filename:string):Promise<string>{
+  const dot=filename.lastIndexOf('.');
+  const base=dot>=0?filename.slice(0,dot):filename;
+  const suffix=dot>=0?filename.slice(dot):'';
+  for(let attempt=0;attempt<999;attempt++){
+    const candidate=attempt?base+'_'+(attempt+1)+suffix:filename;
+    try{
+      await directory.getFileHandle(candidate,{create:false});
+    }catch(error){
+      if(error instanceof DOMException&&error.name==='NotFoundError')return candidate;
+      throw error;
+    }
+  }
+  throw new Error('Too many files with the same name in this directory');
+}
+
+export async function ensureDirectoryPermission(handle: any): Promise<boolean> {
   if (!handle) return false;
   if (typeof handle.queryPermission !== 'function') return true;
   const current = await handle.queryPermission({ mode: 'readwrite' });

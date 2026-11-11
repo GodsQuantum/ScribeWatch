@@ -35,8 +35,8 @@ const STT_PORT: u16 = 38005;
 const LLM_PORT: u16 = 38080;
 const MAX_BYTES: usize = 1024 * 1024;
 const PACK_MODELS: &[&str] = &[
-    "handy-computer/whisper-large-v3-turbo-gguf",
     "handy-computer/parakeet-ultra-gguf",
+    "handy-computer/whisper-large-v3-turbo-gguf",
     "handy-computer/Qwen3-ASR-0.6B-gguf",
     "handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf",
 ];
@@ -1081,6 +1081,14 @@ mod tests {
         assert!(!valid_hf_repo("a/b/c:Q4"));
         assert!(!allowed_model(EngineKind::Stt, "unknown/repo"));
     }
+    #[test]
+    fn clinically_tested_defaults_are_preferred_across_desktop_platforms() {
+        assert_eq!(PACK_MODELS[0], "handy-computer/parakeet-ultra-gguf");
+        assert_eq!(LLM_SUGGESTIONS[0], "unsloth/Qwen3.5-4B-GGUF:Q4_K_M");
+        assert!(allowed_model(EngineKind::Stt, PACK_MODELS[0]));
+        assert!(allowed_model(EngineKind::Llm, LLM_SUGGESTIONS[0]));
+    }
+
     #[test]
     fn windows_four_gig_gpu_uses_tested_quantized_24k_context() {
         let plan = llm_runtime_plan(Some(4096), Some(16_384), None, None);

@@ -1,5 +1,6 @@
 /** Client-side medical PDF: no patient data sent to another PDF service. */
 import { PDFDocument, StandardFonts, rgb, degrees, type PDFFont, type PDFPage } from 'pdf-lib';
+import {uniqueDirectoryFilename} from './local-save';
 export interface PatientMetadata {
   surname:string;forename:string;dateOfBirth:string;
   practitioner?:string;practiceAddress?:string;practiceContact?:string;
@@ -16,19 +17,7 @@ export function medicalFilename(patient:PatientMetadata,date=new Date()):string{
 }
 /** A saved consultation report must not overwrite another encounter on the same day. */
 export async function uniqueMedicalFilename(directory:FileSystemDirectoryHandle,filename:string):Promise<string>{
-  const dot=filename.lastIndexOf('.');
-  const base=dot>=0?filename.slice(0,dot):filename;
-  const extension=dot>=0?filename.slice(dot):'';
-  for(let n=1;n<=999;n++){
-    const candidate=n===1?filename:base+'_'+n+extension;
-    try{
-      await directory.getFileHandle(candidate,{create:false});
-    }catch(error){
-      if(error instanceof DOMException&&error.name==='NotFoundError')return candidate;
-      throw error;
-    }
-  }
-  throw new Error('Too many reports with the same name in this directory');
+  return uniqueDirectoryFilename(directory,filename);
 }
 
 /** Suppress internal review/audit metadata from patient-facing reports.

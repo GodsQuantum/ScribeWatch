@@ -52,5 +52,5 @@ test('model weights are downloaded after user action, never at startup', () => {
   const page = read('src/lib/views/AiProfilesView.svelte');
   const mounted = page.slice(page.indexOf('onMount('), page.indexOf('async function scanLocalEngines('));
   assert.doesNotMatch(mounted, /embeddedDownload|embeddedAsrInstall|llmInstallModel/);
-  assert.match(page, /selectedLLM='empero-ai\/Qwen3\.8-4B-Distill-GGUF:Q4_K_M'/);
+  assert.ok(page.includes("let selectedLLM='unsloth/Qwen3.5-4B-GGUF:Q4_K_M'"));
 });

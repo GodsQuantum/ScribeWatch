@@ -164,7 +164,7 @@ html[data-sw-theme="arctic"] .picker-row:hover,html[data-sw-theme="sand"] .picke
 @media(max-width:680px){
   .bottom-nav{display:flex;align-items:center;overflow-x:auto;gap:4px;padding:5px 8px}
   .bottom-nav button{flex:0 0 56px;min-width:56px;white-space:nowrap}
-  .bottom-locale,.bottom-theme{flex:0 0 88px;min-width:88px;min-height:42px;
+  .bottom-locale,.bottom-theme,.bottom-mode{flex:0 0 88px;min-width:88px;min-height:42px;
     color:var(--text);background:var(--panel-2);border:1px solid var(--line);
     border-radius:9px;padding:4px;font-size:11px}
 }
