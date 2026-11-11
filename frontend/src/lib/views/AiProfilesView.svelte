@@ -361,10 +361,10 @@
               <div class="field">
                 <label for="embedded-llm-choice">Modèle de rédaction</label>
                 <select id="embedded-llm-choice" class="select" bind:value={selectedLLM}>
-                  <option value="unsloth/Qwen3.5-4B-GGUF:Q4_K_M">Qwen3.5 4B · meilleur rappel clinique actuel</option>
+                  <option value="unsloth/Qwen3.5-4B-GGUF:Q4_K_M">Qwen3.5 4B · recommandé · ~2,7 Go</option>
+                  <option value="unsloth/Qwen3.5-9B-GGUF:Q4_K_M">Qwen3.5 9B Q4_K_M · haute mémoire · ~5,7 Go</option>
                   <option value="LiquidAI/LFM3-1.7B-GGUF:Q4_K_M">Liquid LFM3 1.7B · léger</option>
                   <option value="empero-ai/Qwen3.8-4B-Distill-GGUF:Q4_K_M">Qwen3.8 4B Distill · expérimental</option>
-                  <option value="unsloth/Qwen3.5-9B-GGUF:Q4_K_M">Qwen3.5 9B · qualité</option>
                 </select>
               </div>
               <div class="field">
@@ -377,6 +377,7 @@
                 <button class="btn" disabled={embeddedBusy||!embeddedLlmModels.length} on:click={selectEmbeddedLlm}>Préremplir le fournisseur LLM interne</button>
                 <button class="btn" disabled={embeddedBusy} on:click={openModelsDirectory}>Ouvrir le dossier GGUF</button>
               </div>
+              <p class="muted small">Qwen3.5 9B est un modèle téléchargeable en option (~5,68 Go de poids ; prévoir au moins ~6,5 Go de RAM + VRAM disponibles et davantage pour un contexte long). Avec une carte 4 Go de VRAM, chargement partiel GPU seulement : comparer la latence avant de le choisir comme défaut. Le 4B reste recommandé par défaut tant que le 9B n’a pas été comparé en qualité.</p>
               <p class="muted small">Ajoutez vos fichiers .gguf dans ce dossier : llama.cpp les découvre avec --models-dir. Pour les modèles multimodaux, regroupez le GGUF et mmproj dans un sous-dossier. Cliquez ensuite sur « Actualiser » pour relire les modèles, sans redémarrer ScribeWatch.</p>
               <p class="muted small">Le routeur intégré charge au plus un modèle à la fois, garde une marge GPU de 512 Mio et libère les poids après 45 s d'inactivité. Les poids ne sont pas intégrés dans le programme.</p>
             {/if}
