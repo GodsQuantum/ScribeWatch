@@ -589,7 +589,10 @@ impl EmbeddedManager {
     }
 }
 
-fn require_desktop(manager: &EmbeddedManager, headers: Option<&HeaderMap>) -> AppResult<()> {
+pub(crate) fn require_desktop(
+    manager: &EmbeddedManager,
+    headers: Option<&HeaderMap>,
+) -> AppResult<()> {
     if !manager.available() {
         return Err(AppError::BadRequest(
             "Bundled runtimes are available only on native desktop".into(),

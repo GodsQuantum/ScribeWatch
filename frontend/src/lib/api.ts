@@ -110,6 +110,10 @@ export const api = {
   }),
   llmDownloads: () => request<Array<{model_name?:string;percent?:number;status?:string}>>('/api/v1/llm-local/downloads'),
   structureProfiles: () => request<StructureProfile[]>('/api/v1/structure-profiles'),
+  structureExisting: (profileId:string,transcript:string) =>
+    request<{markdown:string;elapsedMs:number;profileId:string;model:string}>('/api/v1/structure/existing', {
+      method:'POST', body:JSON.stringify({profileId,transcript})
+    }),
   syncBuiltInProfileLocale: (locale:'fr'|'en'|'zh-CN') =>
     request<{updatedDefaults:number;locale:string}>('/api/v1/structure-profiles/sync-locale', {
       method:'POST',body:JSON.stringify({locale})
