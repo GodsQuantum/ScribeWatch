@@ -13,9 +13,9 @@ from pathlib import Path
 VERSION = "v9.0.2"
 BASE = f"https://github.com/binmgr/ffmpeg/releases/download/{VERSION}"
 LOCK = {
-    "windows-amd64": ("ffmpeg-windows-amd64.zip", "debe985a2d72005badb1ef88fb34d313801b114cb7de781aaba66bffcc37668e"),
-    "darwin-amd64": ("ffmpeg-darwin-amd64.tar.gz", "615a1028961d45999256ef32c5342c1480260fb8d19077383d13e694283f6ab2"),
-    "darwin-arm64": ("ffmpeg-darwin-arm64.tar.gz", "32bb9b7cc74d0581841bbafdd412ae7f5bc286be56f7a9aa6f9031868cfb26e6"),
+    "windows-amd64": ("ffmpeg-windows-amd64.zip", "9ffc63d330788b8eced4bc8c4ad41490a375fb2bf208c6ccd127724f5fc281fe"),
+    "darwin-amd64": ("ffmpeg-darwin-amd64.tar.gz", "360184cf61f7203ab46f409bd10eb7a1fcc5753d5e7de9eed4041bd80ced9c1c"),
+    "darwin-arm64": ("ffmpeg-darwin-arm64.tar.gz", "de8099093ec4de375880717a28e59d7ccfc54001bb69da3f7a3a6a5a98c0dc91"),
 }
 
 
