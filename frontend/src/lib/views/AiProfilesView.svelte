@@ -97,7 +97,7 @@
   let embedded:EmbeddedRuntimeStatus={desktop:false,engines:[],download:{status:'',model:''}};
   let embeddedBusy=false;
   let selectedSTT='handy-computer/parakeet-ultra-gguf';
-  let selectedLLM='empero-ai/Qwen3.8-4B-Distill-GGUF:Q4_K_M';
+  let selectedLLM='unsloth/Qwen3.5-4B-GGUF:Q4_K_M';
   let customLLM='';
   let asrSource='handy-computer/parakeet-ultra-gguf';
   let asrVariants:Array<{label:string;filename:string}>=[];
@@ -143,8 +143,8 @@
   let embeddedSttModels:string[]=[];
   let embeddedLlmModels:string[]=[];
   const embeddedCatalog=[
+    ['handy-computer/parakeet-ultra-gguf','Parakeet Ultra · recommandé'],
     ['handy-computer/whisper-large-v3-turbo-gguf','Whisper Turbo · multilingue'],
-    ['handy-computer/parakeet-ultra-gguf','Parakeet Ultra · rapide'],
     ['handy-computer/Qwen3-ASR-0.6B-gguf','Qwen3-ASR 0.6B'],
     ['handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf','Nemotron 3.5 ASR']
   ];
@@ -361,9 +361,9 @@
               <div class="field">
                 <label for="embedded-llm-choice">Modèle de rédaction</label>
                 <select id="embedded-llm-choice" class="select" bind:value={selectedLLM}>
-                  <option value="empero-ai/Qwen3.8-4B-Distill-GGUF:Q4_K_M">Qwen3.8 4B Distill · essai en cours</option>
+                  <option value="unsloth/Qwen3.5-4B-GGUF:Q4_K_M">Qwen3.5 4B · meilleur rappel clinique actuel</option>
                   <option value="LiquidAI/LFM3-1.7B-GGUF:Q4_K_M">Liquid LFM3 1.7B · léger</option>
-                  <option value="unsloth/Qwen3.5-4B-GGUF:Q4_K_M">Qwen3.5 4B · équilibre</option>
+                  <option value="empero-ai/Qwen3.8-4B-Distill-GGUF:Q4_K_M">Qwen3.8 4B Distill · expérimental</option>
                   <option value="unsloth/Qwen3.5-9B-GGUF:Q4_K_M">Qwen3.5 9B · qualité</option>
                 </select>
               </div>

@@ -7,7 +7,11 @@ const read = (path) => readFile(new URL(path, root), 'utf8');
 
 test('UI exposes only ScribeWatch product areas', async () => {
   const shell = await read('lib/components/AppShell.svelte');
-  for (const label of ['Home', 'Quick', 'Live', 'Workflows', 'STT', 'AI Profiles', 'Jobs']) assert.ok(shell.includes(label));
+  const navigation = await read('lib/ui-mode.ts');
+  const settings = await read('lib/views/SettingsView.svelte');
+  for (const label of ['Home', 'REC', 'Documents', 'Settings', 'Quick', 'Workflows']) assert.ok(navigation.includes(label));
+  for (const label of ['Transcription (STT)', 'AI Profiles']) assert.ok(settings.includes(label));
+  assert.ok(shell.includes('navigationItems(uiMode)'));
   for (const obsolete of ['AutoSubs', 'Presets', 'Brands', 'Editor', 'Queue']) assert.ok(!shell.includes(obsolete));
 });
 

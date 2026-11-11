@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { api } from '$lib/api';
-  import { canSaveToDirectory, saveMarkdownLocally, saveResponseToDirectory } from '$lib/local-save';
+  import { canSaveToDirectory, ensureDirectoryPermission, saveMarkdownLocally, saveResponseToDirectory, uniqueDirectoryFilename } from '$lib/local-save';
   import { buildLocalProxyInstaller, detectLocalProxyPlatform, inferLocalProxyTarget, localProxyFilename, type LocalProxyPlatform } from '$lib/local-loopback-installer';
   import { finalizeLiveSession, seekLastSeconds } from '$lib/live-finalize';
   import { getLiveRecorderController, type LiveRecorderSnapshot } from '$lib/live-recorder';
@@ -13,9 +13,11 @@
     type LiveSessionManifest
   } from '$lib/live-recovery';
   import PathPicker from '$lib/components/PathPicker.svelte';
+  import {autoSaveFormats} from '$lib/live-auto-save';
   import TranscriptionChainEditor from '$lib/components/TranscriptionChainEditor.svelte';
   import type { ExportFormat, Job, Provider, QuickOptions, StructureProfile, TranscriptionRoute } from '$lib/types';
 
+  export let simpleMode=false;
   export let providers:Provider[]=[];
   export let structureProfiles:StructureProfile[]=[];
   export let jobs:Job[]=[];
@@ -59,6 +61,19 @@
   let language='';
   let structureProfileId='';
   let medicalReportEnabled=false;
+  let simpleProfileTouched=false;
+  const simpleProfileKey='scribewatch.live.simpleProfile.v1';
+  function profileIsClinical(id:string){
+    return id==='dental-consultation-complete-fr'||id==='medical-consultation';
+  }
+  function selectStructureProfile(id:string){
+    structureProfileId=id;
+    if(!simpleMode)return;
+    simpleProfileTouched=true;
+    medicalReportEnabled=profileIsClinical(id);
+    try{localStorage.setItem(simpleProfileKey,id);}catch{/* storage unavailable */}
+  }
+
   let patientSurname='';
   let patientForename='';
   let patientBirthDate='';
@@ -97,6 +112,29 @@
   }
   let pdfDestination:FileSystemDirectoryHandle|undefined;
   let pdfDestinationLabel='';
+  let simpleDirectory:FileSystemDirectoryHandle|undefined;
+  let simpleDirectoryName='';
+  const simpleDirectoryKey='ui-default-report-output-v1';
+  let lastAutoSavedSession='';
+  let autoSaving=false;
+  async function chooseSimpleDestination(){
+    if(!localDirectoryAvailable||recording)return;
+    try{
+      const selected=await (window as any).showDirectoryPicker({mode:'readwrite'}) as FileSystemDirectoryHandle;
+      simpleDirectory=selected;
+      simpleDirectoryName=selected.name;
+      pdfDestination=selected;
+      pdfDestinationLabel=selected.name;
+      markdownDestination=selected;
+      markdownDestinationLabel=selected.name;
+      try{await recoveryStore.saveClientDirectoryHandle(simpleDirectoryKey,selected);}
+      catch{notify('error','Folder selected for this session, but the browser could not remember it for the next launch.');}
+    }catch(error){
+      if(!(error instanceof DOMException&&error.name==='AbortError'))
+        notify('error',error instanceof Error?error.message:String(error));
+    }
+  }
+
   type LivePreset={
     name:string;transcriptionChain:TranscriptionRoute[];language:string;
     structureProfileId:string;outputMode:'computer'|'server';outputDir:string;
@@ -189,11 +227,49 @@
   const exportFormats:ExportFormat[]=['md','txt','html','docx','odt','pdf'];
 
   $: if(!chainInitialized&&providers.length){
-    const provider=providers.find((candidate)=>candidate.enabled && /parakeet.ultra/i.test(candidate.model))??providers.find((candidate)=>candidate.enabled)??providers[0];
+    const provider=providers.find((candidate)=>candidate.enabled && /parakeet.ultra/i.test(candidate.model) && /127\.0\.0\.1:38005|localhost:38005/i.test(candidate.transcriptionUrl))??providers.find((candidate)=>candidate.enabled && /parakeet.ultra/i.test(candidate.model))??providers.find((candidate)=>candidate.enabled)??providers[0];
     transcriptionChain=[{providerId:provider.id,model:provider.model}];
     chainInitialized=true;
   }
+  // In simple mode preselect the built-in dental profile when it is actually
+  // wired to a provider. Never override an existing choice or patient data.
+  $: if(simpleMode&&!recording){
+    if(outputMode==='server'&&!outputDir)outputMode='computer';
+    if(audioRetentionMode==='server'&&!audioServerDir)audioRetentionMode='none';
+  }
+  $: if(simpleMode&&!recording&&!structureProfileId&&!simpleProfileTouched){
+    const dental=structureProfiles.find(p=>p.id==='dental-consultation-complete-fr'&&p.providerId&&p.model);
+    if(dental){
+      structureProfileId=dental.id;
+      medicalReportEnabled=true;
+    }
+  }
   $: current=submitted ? (jobs.find((job)=>job.id===submitted?.id)??submitted) : undefined;
+  // Only results from a session recorded in this view can trigger auto-export.
+  // The directory must have been explicitly authorized using the picker.
+  $: if(simpleMode&&submitted&&current?.id===submitted.id&&current.status==='done'
+      &&simpleDirectory&&!autoSaving&&lastAutoSavedSession!==current.id){
+    void autoSaveCompletedSession(current.id);
+  }
+  async function autoSaveCompletedSession(jobId:string){
+    if(autoSaving||lastAutoSavedSession===jobId)return;
+    lastAutoSavedSession=jobId; // do not retry silently after a permission/error
+    autoSaving=true;
+    const formats=autoSaveFormats(current?.status??'pending',!!simpleDirectory,
+      medicalReportEnabled,!!current?.structuredProfileName&&!current?.structuringError);
+    try{
+      for(const format of formats){
+        if(!(await exportResult(format,true))){
+          notify('error','Automatic save was incomplete. Use the export buttons to save the remaining files.');
+          return;
+        }
+      }
+      if(formats.length)notify('success','Results saved to '+simpleDirectoryName+' (clinical PDF remains a draft).');
+      if(medicalReportEnabled&&!formats.includes('pdf'))
+        notify('error','Clinical AI report unavailable: the Markdown transcript was saved, but no patient PDF was generated.');
+    }finally{autoSaving=false;}
+  }
+
   $: chainReady=transcriptionChain.length>0&&transcriptionChain.every((route)=>!!route.providerId);
   $: outputReady=outputMode==='computer'||!!outputDir;
   $: audioRetentionReady=audioRetentionMode!=='server'||!!audioServerDir;
@@ -365,6 +441,17 @@
     if(!chainReady){notify('error','Choose a transcription provider first.');return;}
     if(!outputReady){notify('error','Choose where to save the recording result first.');return;}
     if(!audioRetentionReady){notify('error','Choose a server folder for the final audio or another retention mode.');return;}
+    if(simpleMode&&simpleDirectory){
+      try{
+        if(!(await ensureDirectoryPermission(simpleDirectory))){
+          notify('error','Allow access to your previously chosen destination folder before recording.');
+          return;
+        }
+      }catch(error){
+        notify('error','The destination folder is no longer available. Select it again.');
+        return;
+      }
+    }
     if(permissionState!=='ready'&&!(await detectMicrophones()))return;
     try{
       if(audioRetentionMode==='client'&&localDirectoryAvailable&&!clientAudioDirectory){
@@ -531,11 +618,12 @@
     }catch(error){notify('error',error instanceof Error?error.message:String(error));}
   }
 
-  async function exportResult(format:ExportFormat){
-    if(!current||current.status!=='done')return;
+  async function exportResult(format:ExportFormat,silent=false):Promise<boolean>{
+    if(!current||current.status!=='done')return false;
     exporting=format;
     try{
       if(format==='pdf'&&medicalReportEnabled){
+        if(current.structuringError||!current.structuredProfileName)throw new Error('Clinical AI draft is incomplete: a patient PDF cannot be generated from the raw transcript.');
         const {createMedicalPdf,medicalFilename,uniqueMedicalFilename}=await import('$lib/medical-report');
         const source=await api.jobMarkdown(current.id);
         const sourceMarkdown=await source.blob.text();
@@ -556,13 +644,17 @@
         const target=pdfDestination??(localDirectoryAvailable?await (window as any).showDirectoryPicker({mode:'readwrite'}) as FileSystemDirectoryHandle:undefined);
         const filename=target?await uniqueMedicalFilename(target,medicalFilename(patient,documentDate)):medicalFilename(patient,documentDate);
         await saveResponseToDirectory(new Response(blob),filename,target,window);
-        notify('success','Brouillon PDF créé. Vérifier les faits, archiver le Markdown source et faire valider par le praticien.');
+        if(!silent)notify('success','Brouillon PDF créé. Vérifier les faits, archiver le Markdown source et faire valider par le praticien.');
       }else{
         const result=await api.jobExport(current.id,format);
-        await saveResponseToDirectory(new Response(result.blob),result.filename,markdownDestination,window);
-        notify('success',format.toUpperCase()+' export saved.');
+        const filename=silent&&markdownDestination
+          ?await uniqueDirectoryFilename(markdownDestination,result.filename)
+          :result.filename;
+        await saveResponseToDirectory(new Response(result.blob),filename,markdownDestination,window);
+        if(!silent)notify('success',format.toUpperCase()+' export saved.');
       }
-    }catch(error){notify('error',error instanceof Error?error.message:String(error));}
+    return true;
+    }catch(error){notify('error',error instanceof Error?error.message:String(error));return false;}
     finally{exporting='';}
   }
 
@@ -608,6 +700,23 @@
   }
 
   onMount(()=>{
+    if(simpleMode){
+      void recoveryStore.loadClientDirectoryHandle(simpleDirectoryKey).then(savedFolder=>{
+        if(!savedFolder||!localDirectoryAvailable)return;
+        simpleDirectory=savedFolder;
+        simpleDirectoryName=savedFolder.name;
+        pdfDestination=savedFolder;pdfDestinationLabel=savedFolder.name;
+        markdownDestination=savedFolder;markdownDestinationLabel=savedFolder.name;
+      }).catch(()=>{/* optional folder persistence; manual export stays available */});
+      try{
+        const saved=localStorage.getItem(simpleProfileKey);
+        if(saved!==null&&(saved===''||structureProfiles.some(p=>p.id===saved&&!!p.providerId))){
+          structureProfileId=saved;
+          simpleProfileTouched=true;
+          medicalReportEnabled=profileIsClinical(saved);
+        }
+      }catch{/* browser storage unavailable */}
+    }
     try{
       const stored=JSON.parse(localStorage.getItem(presetStorageKey)||'[]');
       if(Array.isArray(stored))presets=stored.filter(p=>p&&typeof p.name==='string'&&Array.isArray(p.transcriptionChain)).slice(-30);
@@ -674,8 +783,8 @@
   <div class="page-head">
     <div>
       <p class="page-kicker">BROWSER MICROPHONE</p>
-      <h1 class="page-title">Live Recorder</h1>
-      <p class="page-copy">Long recordings are checkpointed locally while you speak. A reload or browser crash can recover the audio already delivered by the browser, then Continue in a new segment.</p>
+      <h1 class="page-title">{simpleMode?'Record a consultation':'Live Recorder'}</h1>
+      <p class="page-copy">{simpleMode?'Choose a report profile and destination folder, then press REC. Recording is protected as it progresses.':'Long recordings are checkpointed locally while you speak. A reload or browser crash can recover the audio already delivered by the browser, then Continue in a new segment.'}</p>
     </div>
   </div>
 
@@ -683,7 +792,8 @@
   {#if mediaError}<div class="notice warning microphone-warning"><strong>Microphone</strong><span>{mediaError}</span></div>{/if}
   {#if recoveryError}<div class="notice warning"><strong>Recovery storage</strong><span>{recoveryError}</span></div>{/if}
 
-  <div class="microphone-diagnostics" aria-label="Microphone diagnostics">
+  {#if simpleMode&&permissionState!=='ready'}<div class="row wrap"><button class="btn primary" on:click={detectMicrophones}>Enable microphone</button>{#if !secureContext}<button class="btn" on:click={()=>localProxyPanel=!localProxyPanel}>Local microphone mode…</button>{/if}</div>{/if}
+  {#if !simpleMode}<div class="microphone-diagnostics" aria-label="Microphone diagnostics">
     <span><strong>Secure context</strong> {secureContext?'yes':'no'}</span>
     <span><strong>Permission</strong> {permissionName}</span>
     <span><strong>Devices</strong> {devices.length}</span>
@@ -695,6 +805,8 @@
     <button class="btn" on:click={refreshMicrophones}>Refresh microphones</button>
     <button class="btn" class:primary={!secureContext} on:click={()=>localProxyPanel=!localProxyPanel}>Local microphone mode…</button>
   </div>
+
+  {/if}
 
   {#if localProxyPanel}
     <section class="card local-proxy-card">
@@ -788,22 +900,23 @@
               {#each devices as device,index}<option value={device.deviceId}>{device.label||`Microphone ${index+1}`}</option>{/each}
             </select>
           </div>
-          <div class="field"><label for="live-language">Language</label><input id="live-language" class="input" bind:value={language} placeholder="auto, fr, en…" disabled={recording}/></div>
+          {#if !simpleMode}<div class="field"><label for="live-language">Language</label><input id="live-language" class="input" bind:value={language} placeholder="auto, fr, en…" disabled={recording}/></div>{/if}
         </div>
 
-        <TranscriptionChainEditor value={transcriptionChain} {providers} {notify} onchange={(routes)=>transcriptionChain=routes} />
+        {#if !simpleMode}<TranscriptionChainEditor value={transcriptionChain} {providers} {notify} onchange={(routes)=>transcriptionChain=routes} />{/if}
 
         <div class="field">
-          <label for="live-structure">AI structure <span class="muted">optional</span></label>
-          <select id="live-structure" class="select" bind:value={structureProfileId} disabled={recording}>
+          <label for="live-structure">{simpleMode?'Report profile':'AI structure'} {#if !simpleMode}<span class="muted">optional</span>{/if}</label>
+          <select id="live-structure" class="select" bind:value={structureProfileId} on:change={(e)=>selectStructureProfile(e.currentTarget.value)} disabled={recording}>
             <option value="">None — deterministic transcript only</option>
             {#each structureProfiles as profile}<option value={profile.id} disabled={!profile.providerId}>{profile.name}{profile.providerId?'':' — fournisseur LLM à configurer'}</option>{/each}
           </select>
-          <span class="help">The profile creates an additional structured view. The complete transcript remains in the same Markdown file.</span>
+          {#if !simpleMode}<span class="help">The profile creates an additional structured view. The complete transcript remains in the same Markdown file.</span>{/if}
         </div>
 
         <div class="subsection stack">
           <strong>Profil de sortie de la session</strong>
+          {#if !simpleMode}
           <div class="grid two">
             <div class="field"><label for="live-preset">Profil enregistre</label><select id="live-preset" class="select" value={presetSelected} on:change={(e)=>applyPreset(e.currentTarget.value)} disabled={recording}><option value="">Configuration manuelle</option>{#each presets as preset}<option value={preset.name}>{preset.name}</option>{/each}</select></div>
             <div class="field"><label for="live-preset-name">Nom du profil</label><input id="live-preset-name" class="input" bind:value={presetName} disabled={recording} placeholder="Consultation parodontale"/></div>
@@ -811,6 +924,7 @@
           <div class="row wrap"><button class="btn compact" on:click={savePreset} disabled={recording||!presetName.trim()}>Enregistrer ce profil</button>{#if presetSelected}<button class="btn compact" on:click={deletePreset} disabled={recording}>Supprimer le profil</button>{/if}</div>
           <span class="help">Le profil conserve la chaine de transcription, les modeles et les destinations. Les identites des patients ne sont jamais sauvegardees dans ces profils.</span>
           <span class="help">Transcription et modele de structuration : selections ci-dessus.</span>
+          {/if}
           <label class="check"><input type="checkbox" checked={medicalReportEnabled} on:change={(e)=>enableMedicalReport(e.currentTarget.checked)} disabled={recording}/> Compte rendu de consultation (PDF)</label>
           {#if medicalReportEnabled}
             <div class="notice compact"><strong>Brouillon a faire valider par le praticien.</strong><span>La transcription originale reste disponible. Les donnees patient ne sont pas enregistrees dans les preferences.</span></div>
@@ -829,7 +943,9 @@
               <button class="btn compact" on:click={clearPracticeIdentity}>Effacer ce profil de cabinet</button>
             </div>
             <span class="help">Seules les coordonnées du praticien et du cabinet sont réutilisables sur ce PC. Nom, prénom, naissance et date de consultation ne sont jamais conservés dans le profil de cabinet.</span>
+            {#if !simpleMode}
             <div class="row wrap"><button class="btn compact" on:click={choosePdfFolder} disabled={!localDirectoryAvailable}>Dossier PDF</button><span class="help">{pdfDestinationLabel||'Choisir au moment de la sauvegarde'}</span></div>
+            {/if}
             <span class="help">Choisissez « Consultation dentaire » ou « Consultation médicale » selon le rendez-vous. Le PDF est un brouillon à valider par le praticien ; conserver la source de l'enregistrement séparément. Les informations du formulaire patient/cabinet sont ajoutées localement au PDF.</span>
             {#if audioRetentionMode==='none'}<span class="help">Attention : aucune copie audio permanente. Pour documenter les échanges, choisir explicitement une conservation de l'audio si elle est autorisée ; le PDF seul ne certifie pas les propos.</span>{/if}
             <span class="help">Nom automatique du PDF : 3 lettres NOM + 3 lettres PRENOM + date. Rendu local sur cet ordinateur, sans Pandoc.</span>
@@ -837,16 +953,24 @@
         </div>
         <div class="subsection stack">
           <strong>Destination</strong>
-          <div class="segmented"><button disabled={recording} class:active={outputMode==='server'} on:click={()=>outputMode='server'} >Dossier ScribeWatch (sur ce PC si installé)</button><button disabled={recording} class:active={outputMode==='computer'} on:click={()=>outputMode='computer'}>Dossier choisi via navigateur</button></div>
+          {#if simpleMode}
+            <div class="row wrap">
+              <button class="btn primary" disabled={!localDirectoryAvailable||recording} on:click={chooseSimpleDestination}>Choose destination folder</button>
+              <span class="help">{simpleDirectoryName||'Choose once to save the PDF draft and the source Markdown automatically when processing finishes.'}</span>
+            </div>
+            {#if !localDirectoryAvailable}<div class="notice warning compact">Automatic local folder saving requires this desktop browser to support the Directory Picker API. The manual export buttons remain available.</div>{/if}
+            {#if outputMode==='server'}<span class="help">Existing server-side Markdown folder: {outputDir}. Change it in Advanced settings.</span>{/if}
+          {/if}
+          {#if !simpleMode}<div class="segmented"><button disabled={recording} class:active={outputMode==='server'} on:click={()=>outputMode='server'} >Dossier ScribeWatch (sur ce PC si installé)</button><button disabled={recording} class:active={outputMode==='computer'} on:click={()=>outputMode='computer'}>Dossier choisi via navigateur</button></div>{/if}
           {#if outputMode==='server'}
             <div class="field"><label for="live-output">Markdown destination</label><div class="path-control"><input id="live-output" class="input mono" value={outputDir} readonly placeholder="Choose a folder" /><button class="btn" disabled={recording} on:click={()=>picker=true}>Browse</button></div></div>
-          {:else}
+          {:else if !simpleMode}
             <div class="client-output-note"><span>⌁</span><div><strong>{markdownDestinationLabel||'Choisir le dossier des notes (.md, .txt, etc.)'}</strong><p>Le dossier peut être choisi avant l’enregistrement ; le fichier est sauvegardé lors de l’export. Sans accès aux dossiers, téléchargement classique.</p></div>{#if localDirectoryAvailable}<button class="btn compact" disabled={recording} on:click={chooseMarkdownFolder}>Choisir le dossier</button>{/if}</div>
           {/if}
-          <div class="row wrap"><label class="check"><input type="checkbox" bind:checked={frontmatter} disabled={recording}/> YAML properties</label><label class="check"><input type="checkbox" bind:checked={paragraphs} disabled={recording}/> Readable deterministic paragraphs</label></div>
+          {#if !simpleMode}<div class="row wrap"><label class="check"><input type="checkbox" bind:checked={frontmatter} disabled={recording}/> YAML properties</label><label class="check"><input type="checkbox" bind:checked={paragraphs} disabled={recording}/> Readable deterministic paragraphs</label></div>{/if}
         </div>
 
-        <div class="subsection stack final-audio-settings">
+        {#if !simpleMode}<div class="subsection stack final-audio-settings">
           <strong>Keep final audio</strong>
           <div class="segmented">
             <button disabled={recording} class:active={audioRetentionMode==='none'} on:click={()=>audioRetentionMode='none'}>No copy</button>
@@ -860,7 +984,7 @@
           {:else}
             <span class="help">No permanent audio copy. The server still keeps the accepted LIVE source for the 24-hour retry window.</span>
           {/if}
-        </div>
+        </div>{/if}
       </div>
     </section>
 
@@ -879,7 +1003,7 @@
             <div class="result-export-panel">
               <strong>Export result</strong><span class="help">Download / save as</span>
               <div class="export-actions">
-                {#each exportFormats as format}
+                {#each (simpleMode?(['pdf','md'] as ExportFormat[]):exportFormats) as format}
                   <button class="btn compact" class:primary={format==='pdf'} disabled={!!exporting} on:click={()=>exportResult(format)}>{exporting===format?'…':format.toUpperCase()}</button>
                 {/each}
               </div>

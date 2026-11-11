@@ -4,7 +4,7 @@ export type Locale = 'en' | 'fr' | 'zh-CN';
 
 const dictionaries: Record<Exclude<Locale, 'en'>, Record<string, string>> = {
   fr: {
-    'Home':'Accueil','Quick':'Rapide','Live':'Direct','Workflows':'Automatisations','AI Profiles':'Profils IA','Jobs':'Tâches',
+    'Home':'Accueil','REC':'REC','Documents':'Documents','Settings':'Paramètres','Mode':'Mode','Simple':'Simple','Quick':'Rapide','Live':'Direct','Workflows':'Automatisations','AI Profiles':'Profils IA','Jobs':'Tâches',
     'audio → knowledge':'audio → connaissances','Transcript is canonical.':'La transcription est canonique.',
     'AI structure is optional and never replaces source transcription.':"La structure IA est facultative et ne remplace jamais la transcription source.",
     'Language':'Langue','Interface language':'Langue de l’interface',
@@ -67,7 +67,7 @@ const dictionaries: Record<Exclude<Locale, 'en'>, Record<string, string>> = {
     'Transcription chain':'Chaîne de transcription','Choose the exact provider + model order. If one route fails, ScribeWatch tries the next.':'Choisissez l’ordre exact fournisseur + modèle. Si une route échoue, ScribeWatch essaie la suivante.','Primary':'Principal','Provider':'Fournisseur','Choose provider':'Choisir un fournisseur','Choose model':'Choisir un modèle','Fallback after':'Bascule après','Never':'Jamais','Custom':'Personnalisé','Add fallback':'Ajouter une route de secours'
   },
   'zh-CN': {
-    'Home':'首页','Quick':'快速','Live':'实时','Workflows':'工作流','AI Profiles':'AI 配置','Jobs':'任务',
+    'Home':'首页','REC':'录音','Documents':'文档','Settings':'设置','Mode':'模式','Simple':'简易','Quick':'快速','Live':'实时','Workflows':'工作流','AI Profiles':'AI 配置','Jobs':'任务',
     'audio → knowledge':'音频 → 知识','Transcript is canonical.':'转写文本为权威原文。','AI structure is optional and never replaces source transcription.':'AI 结构化是可选的，绝不替代原始转写。',
     'Language':'语言','Interface language':'界面语言','Cannot reach ScribeWatch.':'无法连接 ScribeWatch。','Retry':'重试','Loading ScribeWatch…':'正在加载 ScribeWatch…',
     'SELF-HOSTED AUDIO NOTES':'自托管音频笔记','Turn voice notes into Markdown before you forget them.':'把语音笔记及时变成文档。',
@@ -176,6 +176,41 @@ const supplemental: Record<Exclude<Locale, 'en'>, Record<string, string>> = {
   }
 };
 
+
+Object.assign(supplemental.fr, {
+  'LOCAL-FIRST · SETTINGS':'LOCAL-FIRST · PARAMÈTRES',
+  'Simple mode uses the preferred configured models on this computer. Advanced mode preserves every existing setting.':'Le mode simple utilise les modèles configurés recommandés sur cet ordinateur. Le mode avancé conserve tous les réglages.',
+  'Configured models are selected automatically. Open REC, choose the report profile and destination folders, then start recording.':'Les modèles configurés sont présélectionnés. Dans REC, choisissez un profil et vos dossiers de destination, puis enregistrez.',
+  'No transcription engine configured':'Aucun moteur de transcription configuré',
+  'Parakeet Ultra is preferred when installed and enabled.':'Parakeet Ultra est privilégié quand il est installé et activé.',
+  'Dental report':'Compte rendu dentaire',
+  'Local model not configured':'Modèle local non configuré',
+  'The report is a draft and requires clinical review before sharing.':'Le compte rendu reste un brouillon à valider par le praticien.',
+  'Setup incomplete. Choose Advanced to install or connect the transcription and writing models.':'Configuration incomplète. Choisissez Avancé pour installer ou associer les modèles.',
+  'Manage STT engines, LLM providers and prompts per profile. Your existing customizations are preserved.':'Gérez les moteurs STT, fournisseurs LLM et prompts par profil. Les personnalisations sont conservées.',
+  'Transcription (STT)':'Transcription (STT)',
+  'Record a consultation':'Enregistrer une consultation',
+  'Choose a report profile and destination folder, then press REC. Recording is protected as it progresses.':'Choisissez un profil et un dossier de sortie, puis appuyez sur REC. L’enregistrement est sauvegardé progressivement.',
+  'Report profile':'Profil de compte rendu',
+  'Configure local models':'Configurer les modèles locaux'
+});
+Object.assign(supplemental['zh-CN'], {
+  'LOCAL-FIRST · SETTINGS':'本地优先 · 设置',
+  'Simple mode uses the preferred configured models on this computer. Advanced mode preserves every existing setting.':'简易模式优先选择已配置的推荐模型。高级模式保留全部设置。',
+  'Configured models are selected automatically. Open REC, choose the report profile and destination folders, then start recording.':'自动选择已配置模型。在录音页面选择报告配置和保存文件夹，然后开始录音。',
+  'No transcription engine configured':'未配置转写引擎',
+  'Parakeet Ultra is preferred when installed and enabled.':'已安装并启用时优先使用 Parakeet Ultra。',
+  'Dental report':'牙科报告',
+  'Local model not configured':'未配置本地模型',
+  'The report is a draft and requires clinical review before sharing.':'报告为草稿，分享前需要医生审核。',
+  'Setup incomplete. Choose Advanced to install or connect the transcription and writing models.':'设置未完成。请切换到高级模式安装或连接模型。',
+  'Manage STT engines, LLM providers and prompts per profile. Your existing customizations are preserved.':'管理 STT 引擎、LLM 服务和每个配置的提示词。已有自定义设置将保留。',
+  'Transcription (STT)':'语音转写 (STT)',
+  'Record a consultation':'录制就诊过程',
+  'Choose a report profile and destination folder, then press REC. Recording is protected as it progresses.':'选择报告配置和保存文件夹，然后点击录音。录音期间持续保护音频。',
+  'Report profile':'报告配置',
+  'Configure local models':'配置本地模型'
+});
 
 Object.assign(supplemental.fr, {
   'Long recordings are checkpointed locally while you speak. A reload or browser crash can recover the audio already delivered by the browser, then Continue in a new segment.':'Les enregistrements longs sont sauvegardés localement par étapes pendant que vous parlez. Après un rechargement ou un crash du navigateur, l’audio déjà reçu peut être récupéré puis poursuivi dans un nouveau segment.',

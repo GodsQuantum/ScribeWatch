@@ -2,11 +2,13 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api';
   import { initLocale, locale, localize, setLocale, type Locale } from '$lib/i18n';
+  import { navigationItems, type View, type UiMode } from '$lib/ui-mode';
   import type { Job, Space, SpaceKind, SpaceMembership } from '$lib/types';
 
-  type View='home'|'quick'|'live'|'workflows'|'providers'|'ai'|'jobs';
   type Theme='night'|'arctic'|'slate'|'sand'|'violet';
   export let active:View='home';
+  export let uiMode:UiMode='simple';
+  export let onmode:(mode:UiMode)=>void=()=>{};
   export let onnav:(view:View)=>void=()=>{};
   export let onlocale:()=>Promise<void>=async()=>{};
   export let spaces:Space[]=[];
@@ -19,15 +21,7 @@
   export let searchQuery='';
   export let onsearch:(query:string)=>void=()=>{};
 
-  const items=[
-    {id:'home',label:'Home',glyph:'⌂'},
-    {id:'quick',label:'Quick',glyph:'✦'},
-    {id:'live',label:'Live',glyph:'●'},
-    {id:'workflows',label:'Workflows',glyph:'↻'},
-    {id:'providers',label:'STT',glyph:'◎'},
-    {id:'ai',label:'AI Profiles',glyph:'◇'},
-    {id:'jobs',label:'Jobs',glyph:'≡'}
-  ] as const;
+  $: items=navigationItems(uiMode);
   const themes:{id:Theme;name:string}[]=[
     {id:'night',name:'Midnight'}, {id:'arctic',name:'Arctic'},
     {id:'slate',name:'Graphite'}, {id:'sand',name:'Ivory'},
@@ -188,6 +182,12 @@
             {#each themes as option}<option value={option.id}>{option.name}</option>{/each}
           </select>
         </label>
+        <label class="locale-control" aria-label="Configuration mode">
+          <span>Mode</span>
+          <select class="select compact-select" value={uiMode} on:change={(e)=>onmode(e.currentTarget.value as UiMode)}>
+            <option value="simple">Simple</option><option value="advanced">Advanced</option>
+          </select>
+        </label>
         <label class="locale-control" aria-label="Interface language">
           <span>Language</span>
           <select class="select compact-select" value={$locale} on:change={changeLocale}>
@@ -220,6 +220,9 @@
     <select class="bottom-theme" aria-label="Color theme" bind:value={theme}
       on:change={(event)=>applyTheme(event.currentTarget.value as Theme)}>
       {#each themes as option}<option value={option.id}>{option.name}</option>{/each}
+    </select>
+    <select class="bottom-mode" aria-label="Configuration mode" value={uiMode} on:change={(e)=>onmode(e.currentTarget.value as UiMode)}>
+      <option value="simple">Simple</option><option value="advanced">Advanced</option>
     </select>
     <select class="bottom-locale" aria-label="Interface language" value={$locale} on:change={changeLocale}>
       <option value="en">EN</option><option value="fr">FR</option><option value="zh-CN">中文</option>

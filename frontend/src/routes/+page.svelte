@@ -10,15 +10,14 @@
   import QuickTranscribeView from '$lib/views/QuickTranscribeView.svelte';
   import LiveRecordView from '$lib/views/LiveRecordView.svelte';
   import WorkflowsView from '$lib/views/WorkflowsView.svelte';
-  import ProvidersView from '$lib/views/ProvidersView.svelte';
-  import AiProfilesView from '$lib/views/AiProfilesView.svelte';
+  import SettingsView from '$lib/views/SettingsView.svelte';
   import JobsView from '$lib/views/JobsView.svelte';
 
-  type View='home'|'quick'|'live'|'workflows'|'providers'|'ai'|'jobs';
-  const views:View[]=['home','quick','live','workflows','providers','ai','jobs'];
+  import {navigationAllows,normalizeMode,normalizeView,type UiMode,type View} from '$lib/ui-mode';
   getLiveRecorderController();
   const emptyStats:DashboardStats={workflows:0,enabledWorkflows:0,activeJobs:0,completedJobs:0,failedJobs:0};
   let active:View='home';
+  let uiMode:UiMode='simple';
   let stats=emptyStats;
   let providers:Provider[]=[];
   let llmProviders:LlmProvider[]=[];
@@ -32,7 +31,16 @@
   let loading=true; let initialError=''; let toasts:Toast[]=[]; let toastSeq=0;
 
   function notify(type:Toast['type'],message:string){const id=++toastSeq;toasts=[...toasts,{id,type,message}];setTimeout(()=>toasts=toasts.filter(t=>t.id!==id),4500);}
-  function nav(view:View){active=view;localStorage.setItem('scribewatch:view',view);}
+  function nav(view:View|'providers'|'ai'){
+    const target=view==='providers'||view==='ai'?'settings':view;
+    active=navigationAllows(uiMode,target)?target:'live';
+    try{localStorage.setItem('scribewatch:view',active);}catch{/* storage unavailable */}
+  }
+  function changeUiMode(next:UiMode){
+    uiMode=next;
+    try{localStorage.setItem('scribewatch:uiMode',next);}catch{/* storage unavailable */}
+    if(!navigationAllows(uiMode,active))nav('live');
+  }
   function chooseSpace(id:string){
     selectedSpace=id;
     try{localStorage.setItem('scribewatch:space',id);}catch{/* storage unavailable */}
@@ -82,9 +90,10 @@
   }
   onMount(()=>{
     try{selectedSpace=localStorage.getItem('scribewatch:space')??'all';}catch{/* storage unavailable */}
-    const saved=localStorage.getItem('scribewatch:view');
-    if(saved==='dashboard') active='home';
-    else if(saved&&views.includes(saved as View)) active=saved as View;
+    try{
+      uiMode=normalizeMode(localStorage.getItem('scribewatch:uiMode'));
+      active=normalizeView(localStorage.getItem('scribewatch:view')??'home',uiMode);
+    }catch{uiMode='simple';active='home';}
     loadAll(true);
     let timer:ReturnType<typeof setTimeout>|undefined;
     const events=new EventSource('/api/v1/events');
@@ -99,17 +108,16 @@
   <meta name="description" content="Self-hosted audio transcription, browser recording and optional AI-structured notes with a canonical transcript."/>
   <meta name="theme-color" content="#09100f"/>
 </svelte:head>
-<AppShell {active} onnav={nav} {spaces} {jobs} {assignments} {selectedSpace}
+<AppShell {active} {uiMode} onmode={changeUiMode} onnav={nav} {spaces} {jobs} {assignments} {selectedSpace}
   onspace={chooseSpace} oncreateSpace={createSpace} ondeleteSpace={deleteSpace} onlocale={loadAll}
   {searchQuery} onsearch={(value)=>searchQuery=value}>
   {#if initialError}<div class="page"><div class="notice danger"><strong>Cannot reach ScribeWatch.</strong><span>{initialError}</span><button class="btn" on:click={()=>loadAll(true)}>Retry</button></div></div>
   {:else if loading}<div class="page"><div class="empty loading-state">Loading ScribeWatch…</div></div>
   {:else if active==='home'}<DashboardView {stats} {jobs} {workflows} onnav={nav}/>
   {:else if active==='quick'}<QuickTranscribeView {providers} {structureProfiles} {jobs} {selectedSpace} onassign={assignJob} refresh={refreshJobs} {notify}/>
-  {:else if active==='live'}<LiveRecordView {providers} {structureProfiles} {jobs} {selectedSpace} onassign={assignJob} refresh={refreshJobs} {notify}/>
+  {:else if active==='live'}<LiveRecordView simpleMode={uiMode==='simple'} {providers} {structureProfiles} {jobs} {selectedSpace} onassign={assignJob} refresh={refreshJobs} {notify}/>
   {:else if active==='workflows'}<WorkflowsView {workflows} {providers} {structureProfiles} refresh={loadAll} {notify}/>
-  {:else if active==='providers'}<ProvidersView {providers} refresh={loadAll} {notify}/>
-  {:else if active==='ai'}<AiProfilesView {llmProviders} {structureProfiles} refresh={loadAll} {notify}/>
+  {:else if active==='settings'}<SettingsView {uiMode} onmode={changeUiMode} {providers} {llmProviders} {structureProfiles} refresh={loadAll} {notify}/>
   {:else}<JobsView {jobs} {workflows} {spaces} {assignments} {selectedSpace} {searchQuery}
       onspace={chooseSpace} onassign={assignJob} oncreateSpace={createSpace} ondeleteSpace={deleteSpace}
       refresh={refreshJobs} {notify}/>{/if}
