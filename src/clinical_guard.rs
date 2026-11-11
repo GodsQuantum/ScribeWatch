@@ -16,6 +16,8 @@ pub enum ReviewReason {
     PersonalContactInBody,
     UnverifiedAnesthesiaType,
     UnverifiedAnatomicalClaim,
+    ContradictedWisdomImpaction,
+    UnsupportedFluorideOnlyCariesCare,
 }
 
 impl ReviewReason {
@@ -52,6 +54,12 @@ impl ReviewReason {
             }
             Self::UnverifiedAnesthesiaType => "type d'anesthésie absent de la transcription",
             Self::UnverifiedAnatomicalClaim => "affirmation anatomique absente de la transcription",
+            Self::ContradictedWisdomImpaction => {
+                "enclavement explicite des dents de sagesse nié dans la lettre"
+            }
+            Self::UnsupportedFluorideOnlyCariesCare => {
+                "fluor présenté comme seul soin d'une carie de sillon non reminéralisable"
+            }
         }
     }
 }
@@ -517,6 +525,58 @@ fn fdi_laterality_conflict(line: &str) -> bool {
     false
 }
 
+// Source-to-draft contradiction checks, not medical inference. Trigger only
+// on unequivocal source statements, leaving ambiguous ASR to the clinician.
+fn contradicted_wisdom_impaction(source: &str, line: &str) -> bool {
+    // A negative source assertion ("not impacted") is NOT positive evidence.
+    // Require a positively asserted source phrase before challenging the note.
+    [
+        "elles sont enclave",
+        "sagesse sont enclave",
+        "dents de sagesse enclave",
+        "sagesse enclave",
+    ]
+    .iter()
+    .any(|phrase| source.contains(phrase))
+        && line.contains("sagesse")
+        && [
+            "ne sont pas enclave",
+            "ne sont pas encore enclave",
+            "sont non enclave",
+            "elles ne sont pas enclave",
+            "elles ne seraient pas enclave",
+        ]
+        .iter()
+        .any(|phrase| line.contains(phrase))
+}
+
+fn unsupported_fluoride_only_caries_care(source: &str, line: &str) -> bool {
+    let source_rejects = [
+        "sillon ne se remineralise",
+        "sillons ne se remineralisent",
+        "carie de sillon ne se remineralise",
+    ]
+    .iter()
+    .any(|phrase| source.contains(phrase));
+    let caries_treatment = line.contains("traitement de la carie")
+        || line.contains("soins de la carie")
+        || line.contains("traiter la carie");
+    let fluoride_as_care = line.contains("application de fluor")
+        || line.contains("fluorure pour remineralis")
+        || line.contains("fluor pour remineralis");
+    let accurately_qualified = [
+        "ne suffit pas",
+        "ne se remineralise",
+        "ne permet pas de traiter",
+        "ne remplace pas",
+        "soin restaurateur",
+        "restauration en resine",
+    ]
+    .iter()
+    .any(|phrase| line.contains(phrase));
+    source_rejects && caries_treatment && fluoride_as_care && !accurately_qualified
+}
+
 pub fn screen_clinical_report(source: &str, markdown: &str) -> ScreenResult {
     let source = fold(source);
     let mut kept = Vec::new();
@@ -555,6 +615,10 @@ pub fn screen_clinical_report(source: &str, markdown: &str) -> ScreenResult {
             Some(ReviewReason::UnverifiedFutureConsultation)
         } else if conditional_exam_presented_as_mandatory(&source, &plain) {
             Some(ReviewReason::ConditionalExamPresentedAsMandatory)
+        } else if contradicted_wisdom_impaction(&source, &plain) {
+            Some(ReviewReason::ContradictedWisdomImpaction)
+        } else if unsupported_fluoride_only_caries_care(&source, &plain) {
+            Some(ReviewReason::UnsupportedFluorideOnlyCariesCare)
         } else if suspicious_pulp_condition(&plain) {
             Some(ReviewReason::UnverifiedDentalCausality)
         } else if unsupported_sector_duration(&source, &plain) {
@@ -886,6 +950,51 @@ troubles du sommeil depuis trois semaines, c'est important.";
     fn no_source_only_and_no_leakage_to_generic_notes() {
         let markdown = "## Note\nUne réunion a été programmée.";
         assert!(screen_clinical_report("", markdown).findings.is_empty());
+    }
+
+    #[test]
+    fn wisdom_impaction_denial_is_quarantined_when_source_confirms_impaction() {
+        let source = "Les dents de sagesse sont enclavées et il n'y a pas d'indication d'extraction maintenant.";
+        let bad = "Les dents de sagesse ne sont pas enclavées de manière urgente.";
+        let screened = screen_clinical_report(source, bad);
+        assert_eq!(screened.findings.len(), 1);
+        assert_eq!(
+            screened.findings[0].reason,
+            ReviewReason::ContradictedWisdomImpaction
+        );
+        assert!(screened.markdown.is_empty());
+
+        let safe = "Les dents de sagesse sont enclavées, sans extraction indiquée à ce stade.";
+        assert!(screen_clinical_report(source, safe).findings.is_empty());
+        // Explicitly negative source statements must not be reversed.
+        let non_impacted = "Les dents de sagesse ne sont pas enclavées.";
+        assert!(
+            screen_clinical_report(non_impacted, non_impacted)
+                .findings
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn fluoride_alone_is_not_a_substitute_for_source_rejected_fissure_care() {
+        let source = "Une carie de sillon ne se reminéralise jamais à elle seule : le fluor n'atteint pas le fond.";
+        let bad = "| Traitement de la carie dent 36 | Application de fluorure pour reminéralisation et surveillance |";
+        let checked = screen_clinical_report(source, bad);
+        assert_eq!(checked.findings.len(), 1);
+        assert_eq!(
+            checked.findings[0].reason,
+            ReviewReason::UnsupportedFluorideOnlyCariesCare
+        );
+        let safe = "Le fluor ne suffit pas à traiter la carie de sillon; un soin restaurateur est envisagé.";
+        assert!(screen_clinical_report(source, safe).findings.is_empty());
+        let prevention = "Le fluor est discuté pour la prévention et les lésions initiales.";
+        assert!(
+            screen_clinical_report(source, prevention)
+                .findings
+                .is_empty()
+        );
+        let ambiguous = "Nous avons discuté des caries et du fluor.";
+        assert!(screen_clinical_report(ambiguous, bad).findings.is_empty());
     }
 
     #[test]
