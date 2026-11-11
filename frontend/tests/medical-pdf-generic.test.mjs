@@ -111,3 +111,19 @@ test('provider-native headings render as structured clinical notes, not raw ASR'
   assert.equal(structuredMedicalBody(native),native);
   assert.match(structuredMedicalBody('## Transcript\nParoles brutes'),/Transcription non structurée/);
 });
+
+test("patient PDF excludes model review headings and editorial approval text", () => {
+  const note = [
+    "## Examen clinique",
+    "Le soin est a discuter.",
+    "### Points \u00e0 confirmer",
+    "- Audit technique interne.",
+    "Ce document r\u00e9sume fid\u00e8lement la consultation et est pr\u00eat pour finalisation.",
+    "## Suivi clinique",
+    "Un rendez-vous reste \u00e0 confirmer."
+  ].join("\n");
+  const text = patientFacingMedicalBody(note);
+  assert.match(text, /Le soin est a discuter/);
+  assert.match(text, /Un rendez-vous reste/);
+  assert.doesNotMatch(text, /Points|Audit technique|r.sum. fid.lement|finalisation/);
+});
