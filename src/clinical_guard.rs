@@ -467,21 +467,32 @@ fn unsupported_sector_duration(source: &str, line: &str) -> bool {
 }
 
 fn fdi_laterality_conflict(line: &str) -> bool {
-    // Accept only a very local expression such as "dent 24 (prémolaire droite)".
-    // Do not silently convert unspecified numbering systems or the source.
-    let words = line.as_bytes();
+    // Recognize unambiguous FDI numbering adjacent to its own description.
+    // In French source notes, the notation may be "dent 46", "dent n°46",
+    // "dent n° 46" or "dent numéro 46". NEVER slice arbitrary UTF-8 bytes
+    // into a &str: the degree sign in n° is a multibyte character.
     let mut position = 0;
     while let Some(offset) = line[position..].find("dent ") {
-        let at = position + offset + "dent ".len();
-        if at + 2 > words.len() {
-            break;
-        }
-        let number = &line[at..at + 2];
-        let bytes = number.as_bytes();
-        if bytes.iter().all(u8::is_ascii_digit) {
+        let after_dent = position + offset + "dent ".len();
+        let suffix = &line[after_dent..];
+        let suffix = suffix
+            .strip_prefix("n°")
+            .or_else(|| suffix.strip_prefix("nº"))
+            .or_else(|| suffix.strip_prefix("numero "))
+            .unwrap_or(suffix)
+            .trim_start();
+        let at = line.len() - suffix.len();
+        // A failed match is not a reason to skip another tooth later
+        // in the sentence. Both at and position remain UTF-8 boundaries.
+        position = at;
+        if let Some(bytes) = line.as_bytes().get(at..at.saturating_add(2))
+            && bytes.len() == 2
+            && bytes.iter().all(u8::is_ascii_digit)
+        {
             let quadrant = bytes[0] - b'0';
             let tooth = bytes[1] - b'0';
             if (1..=8).contains(&tooth) && (1..=8).contains(&quadrant) {
+                // Safe UTF-8 boundary: exactly two ASCII digits were consumed.
                 let tail = line[at + 2..].trim_start();
                 if tail.starts_with('(')
                     && let Some(end) = tail.find(')')
@@ -499,7 +510,6 @@ fn fdi_laterality_conflict(line: &str) -> bool {
                 }
             }
         }
-        position = at + 2;
         if position >= line.len() {
             break;
         }
@@ -695,6 +705,26 @@ troubles du sommeil depuis trois semaines, c'est important.";
             ReviewReason::InconsistentDentalLaterality
         );
         assert!(screen_clinical_report(source, good).findings.is_empty());
+    }
+
+    #[test]
+    fn fdi_notation_accepts_unicode_degree_and_never_panics() {
+        let source = "Consultation fictive : dent 46 et dent 36.";
+        let cases = [
+            ("La dent n°46 (molaire à gauche) est examinée.", true),
+            ("La dent n°46 (molaire à droite) est examinée.", false),
+            ("La dent n° 46 (molaire à gauche) est examinée.", true),
+            ("La dent numéro 46 (molaire à droite) est examinée.", false),
+            ("Dent n°46 sans latéralité explicitée.", false),
+            (
+                "La dent n°°46 est évoquée. La dent 36 (à gauche) aussi.",
+                false,
+            ),
+        ];
+        for (line, expected_flag) in cases {
+            let findings = screen_clinical_report(source, line).findings;
+            assert_eq!(!findings.is_empty(), expected_flag, "{line}");
+        }
     }
 
     #[test]
