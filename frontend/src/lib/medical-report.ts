@@ -36,7 +36,7 @@ export async function uniqueMedicalFilename(directory:FileSystemDirectoryHandle,
  * Never remove an ordinary clinical "à confirmer" or a patient follow-up.
  */
 export function patientFacingMedicalBody(body:string):string{
-  const internal=/^#{1,3}\s+(?:Éléments? à vérifier par le praticien|À confirmer par le praticien|Références documentaires(?:\s*\([^)]*\))?|Contrôle interne(?: de qualité)?|Audit clinique interne)\s*$/i;
+  const internal=/^#{1,3}\s+(?:Éléments? à vérifier par le praticien|À confirmer par le praticien|Références documentaires(?:\s*\([^)]*\))?|Contrôle interne(?: de qualité)?|Points? . (?:confirmer|verifier|valider)|Audit clinique interne)\s*$/i;
   // Defence in depth: PDF header receives identity from the user-controlled
   // form. Do not carry contact coordinates hallucinated by a local model
   // over into clinical paragraphs, even when the backend is bypassed.
@@ -50,6 +50,7 @@ export function patientFacingMedicalBody(body:string):string{
     if(suppress)continue;
     if(contact.test(trimmed))continue;
     if(/(?:formulation clinique écartée|information écartée\s*:|passage\(s\) à risque ont été écartés)/i.test(trimmed))continue;
+    if(/^(?:ce document|ce compte rendu|cette synthèse).{0,260}(?:fidèlement|finalisation|validé par le praticien)/i.test(trimmed))continue;
     kept.push(line);
   }
   return kept.join('\n').trim();
@@ -138,13 +139,13 @@ export function wrapRichText(text:string,normal:PDFFont,strong:PDFFont,size:numb
   return rows.filter(row=>row.length);
 }
 
-export async function createMedicalPdf(markdown:string,patient:PatientMetadata,date=new Date()):Promise<Blob>{
+export async function createMedicalPdf(markdown:string,patient:PatientMetadata,date=new Date(),compactLastPage=false):Promise<Blob>{
   const pdf=await PDFDocument.create();
   pdf.setTitle('Compte rendu de consultation');pdf.setCreator('ScribeWatch');
   // Source IDs, model names and checksums must never appear in patient PDFs.
   const regular=await pdf.embedFont(StandardFonts.Helvetica);
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
-  const W=595.28,H=841.89,M=49,contentWidth=W-2*M;
+  const W=595.28,H=841.89,M=compactLastPage?47:49,contentWidth=W-2*M;
   // Neutral print letter: avoid decorative app branding on medical correspondence.
   const navy=rgb(.14,.16,.18),teal=rgb(.14,.16,.18),muted=rgb(.42,.46,.5);
   let page!:PDFPage;let y=0;const pages:PDFPage[]=[];
@@ -175,17 +176,17 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     }
   };
   const draw=(text:string,style:'title'|'section'|'subsection'|'body'|'bullet'|'table'='body')=>{
-    const size=style==='title'?17:style==='section'?12:style==='subsection'?10.8:10.3;
+    const size=style==='title'?17:style==='section'?12:style==='subsection'?10.8:(compactLastPage?10:10.3);
     const font=style==='body'||style==='bullet'?regular:bold;
     const marker=style==='section'?sectionIcon(text):null;
-    const indent=(style==='bullet'?12:0)+(marker?18:0),leading=size*1.43;
+    const indent=(style==='bullet'?12:0)+(marker?18:0),leading=size*(compactLastPage?1.32:1.37);
     const rich=(style==='body'||style==='bullet')?wrapRichText(text,regular,bold,size,contentWidth-indent):null;
     const plain=rich?null:wrap(text,font,size,contentWidth-indent);
     if(!(rich?.length||plain?.length))return;
     // Section and subsection headings must stay with at least two text lines.
     // Avoid a heading being orphaned at the foot of an A4 page.
     ensure((style==='section'||style==='subsection')?leading*4+18:leading*2+8);
-    if(style==='title'||style==='section'){y-=9;ensure(16);y-=7;}
+    if(style==='title'||style==='section'){y-=compactLastPage?7:9;ensure(16);y-=compactLastPage?5:7;}
     else if(style==='subsection'){y-=4;ensure(12);y-=4;}
     if(marker)drawSectionIcon(marker,y);
     for(let i=0;i<(rich?.length??plain?.length??0);i++){
@@ -200,7 +201,7 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
       }else if(plain){page.drawText(plain[i],{x:M+indent,y,size,font,color:teal});}
       y-=leading;
     }
-    y-=style==='title'||style==='section'?9:style==='subsection'?6:4;
+    y-=style==='title'||style==='section'?(compactLastPage?7:9):style==='subsection'?6:(compactLastPage?3:4);
   };
   const drawTable=(rows:string[][])=>{
     if(!rows.length)return;
@@ -292,6 +293,12 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     else if(/^[-*]\s/.test(line)||/^\d+[.)]\s/.test(line))draw('• '+line.replace(/^(?:[-*]|\d+[.)])\s+/,''),'bullet');
     else draw(line);
   }
+  // Content-dependent A4 pagination: if the final page has only a few
+  // orphaned lines, retry with slightly tighter but readable typography.
+  // This is not an arbitrary page-count cap: lengthy consultations
+  // naturally keep as many pages as their clinical content requires.
+  if(!compactLastPage && pages.length>1 && (H-58-y)<150)
+    return createMedicalPdf(markdown,patient,date,true);
   for(let i=0;i<pages.length;i++){
     const p=pages[i];
     p.drawLine({start:{x:M,y:53},end:{x:W-M,y:53},thickness:.7,color:rgb(.78,.83,.84)});
