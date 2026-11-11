@@ -383,29 +383,17 @@ fn is_dental_profile(id: &str) -> bool {
     )
 }
 
-/// Variation is generic per model family, never based on a particular
-/// patient's protected data or the clinician's benchmark reference.
-fn dental_model_guidance(model: &str, locale: &str) -> &'static str {
+/// The clinical instructions are a property of the DOCUMENT PROFILE and its
+/// language, not of a list of model brand names. Preserve the proven 4B pilot
+/// wording for any future local or compatible model.
+fn dental_document_guidance(locale: &str) -> &'static str {
     if locale == "en" {
-        return "MODEL-SPECIFIC CLINICAL WRITING: use the full transcript, reconcile later corrections across the encounter, and preserve every clinically relevant finding, explanation, condition, risk, alternative, numerical detail and practical instruction without guessing facts. Keep completed, proposed and conditional actions distinct. Adapt the level of detail and length to the encounter, with no page or word quota; avoid repetitions.";
+        return "CLINICAL WRITING: use the full transcript, reconcile later corrections across the encounter, and preserve every clinically relevant finding, explanation, condition, risk, alternative, numerical detail and practical instruction without guessing facts. Keep completed, proposed and conditional actions distinct. Adapt the level of detail and length to the encounter, with no page or word quota; avoid repetitions.";
     }
     if locale == "zh-CN" {
-        return "针对小模型的临床写作规则：完整检查转录，包括结尾和前后更正，保留所有重要事实、解释、条件、风险、备选方案、牙位、数字和实际护理说明；严格区分已经完成、仅建议和有条件的操作，不得猜测。篇幅只由本次就诊的信息复杂程度决定，不设定页数或字数，不重复或省略重要事实。";
+        return "临床记录写作规则：完整检查转录，包括结尾和前后更正，保留所有重要事实、解释、条件、风险、备选方案、牙位、数字和实际护理说明；严格区分已经完成、仅建议和有条件的操作，不得猜测。篇幅只由本次就诊的信息复杂程度决定，不设定页数或字数，不重复或省略重要事实。";
     }
-    let model = model.to_ascii_lowercase();
-    if model.contains("qwen3.5-2b") {
-        "MODÈLE COMPACT : reste strictement factuel, sans extrapolation clinique. Sépare chaque constat explicite, chaque option conditionnelle, les soins réellement accomplis et les conseils précisément donnés. Ne remplis jamais les informations manquantes par un fait plausible. Préserve tous les numéros de dents, les négations et les chiffres. Couvre aussi la fin de l'enregistrement. Évite les rubriques génériques et les répétitions."
-    } else if model.contains("qwen3.8-4b") {
-        "MODÈLE QWEN DISTILL 4B : traite la consultation comme un raisonnement clinique continu. Relie les éléments éloignés portant sur les mêmes dents ou symptômes, sans changer la chronologie des décisions. Pour chaque thème abordé, conserve les constats, douleurs, mesures, incertitudes, explications causales, possibilités avec leurs conditions EXACTES, gestes déjà effectués, prescriptions réellement données et étapes proposées. Une pulpe conservable ne justifie pas automatiquement une dévitalisation ; ne transforme aucune possibilité en certitude. Distingue explicitement les soins prioritaires des soins secondaires et ce qui reste à convenir. À la fin, vérifie silencieusement chaque fait important contre la transcription, sans écrire cette vérification. Aucun quota de mots, de pages ou de titres."
-    } else if model.contains("qwen3.5-4b") || model.contains("qwen3.5-9b") {
-        "MODÈLE DÉTAILLÉ : utilise la transcription entière, vérifie les thèmes abordés en fin d'entretien, conserve les raisonnements et mécanismes réellement expliqués par le praticien, les risques, alternatives, conditions et conseils pratiques exacts. Vérifie avant de conclure qu'aucun nom, âge, date, acte, ordonnance ou décision n'a été inventé. N'inverse jamais une négation."
-    } else if model.contains("phi-4-mini") {
-        "RÉDACTION PHI : si la consultation est en français, réponds uniquement en français, sans en-têtes SOAP en anglais ni texte de remplissage. Produis un document unifié, couvre les conseils et détails réellement énoncés, n'invente ni compte rendu d'examen ni décision, et évite les gabarits répétés."
-    } else if model.contains("gemma-3-4b") {
-        "RÉDACTION GEMMA : évite absolument les rubriques génériques en anglais et les sections sans fait. Un seul rapport clinique sans répétitions, fondé sur des informations explicitement transcrites ; conserve dents, chiffres, conditions, risques, actes faits et projets distincts. Aucun renseignement de patient inventé."
-    } else {
-        "RÉDACTION CLINIQUE : couvrez toute la transcription sans inventer de faits. Préservez les numéros dentaires, négations, risques, options conditionnelles et conseils pratiques détaillés. N'ajoutez ni identité ni antécédents non cités."
-    }
+    "MODÈLE DÉTAILLÉ : utilise la transcription entière, vérifie les thèmes abordés en fin d'entretien, conserve les raisonnements et mécanismes réellement expliqués par le praticien, les risques, alternatives, conditions et conseils pratiques exacts. Vérifie avant de conclure qu'aucun nom, âge, date, acte, ordonnance ou décision n'a été inventé. N'inverse jamais une négation."
 }
 
 fn is_local_embedded_llama(url: &str) -> bool {
@@ -516,9 +504,28 @@ fn content_text(value: &Value) -> Option<String> {
     None
 }
 
-/// Built-in localhost llama.cpp needs a bounded response and a non-thinking
-/// template for hybrid Qwen3.5 / Qwen3.8-distill models. Other OpenAI-compatible providers must
-/// retain their original request semantics.
+/// Stable per-request sampler seed; no vendor/model hardcoding and no need
+/// to persist the source transcript or any patient text. Unlike llama.cpp's
+/// random -1 default this makes repeated inputs reproducible on a fixed
+/// model/backend, while remaining explicit that GPU kernels can differ.
+fn stable_completion_seed(model: &str, system: &str, user: &str) -> u32 {
+    const OFFSET: u64 = 0xcbf29ce484222325;
+    const PRIME: u64 = 0x100000001b3;
+    let mut hash = OFFSET;
+    for part in [model, system, user] {
+        for byte in part.as_bytes().iter().copied().chain([0]) {
+            hash ^= byte as u64;
+            hash = hash.wrapping_mul(PRIME);
+        }
+    }
+    // The all-ones sentinel (-1) requests random sampling in llama.cpp.
+    let result = hash as u32;
+    if result == u32::MAX { 0 } else { result }
+}
+
+/// All local llama.cpp models receive the same bounded, factual decoding
+/// policy. Unsupported Jinja template keyword options are ignored by llama.cpp.
+/// External OpenAI-compatible providers retain their original semantics.
 fn chat_request_body(endpoint: &str, model: &str, system: &str, user: &str) -> Value {
     let mut body = json!({
         "model": model,
@@ -533,15 +540,13 @@ fn chat_request_body(endpoint: &str, model: &str, system: &str, user: &str) -> V
         // Sufficient for a detailed consultation while preventing runaway
         // generations. The server reserves its own input/context budget.
         body["max_tokens"] = json!(LOCAL_LLM_OUTPUT_TOKENS);
-        let model_family = model.to_ascii_lowercase();
-        if model_family.contains("qwen3.5") || model_family.contains("qwen3.8") {
-            body["chat_template_kwargs"] = json!({"enable_thinking": false});
-            // Deterministic low-temperature decoding is crucial for factual
-            // summaries on small local models; llama.cpp otherwise falls
-            // back to its more creative default temperature.
-            body["temperature"] = json!(0.1);
-            body["top_p"] = json!(0.9);
-        }
+        // Ask the model's own chat template for non-thinking mode if it
+        // supports that capability; otherwise the backend ignores this key.
+        // The source-grounded decoding settings never depend on a model name.
+        body["chat_template_kwargs"] = json!({"enable_thinking": false});
+        body["temperature"] = json!(0.1);
+        body["top_p"] = json!(0.9);
+        body["seed"] = json!(stable_completion_seed(model, system, user));
     }
     body
 }
@@ -781,6 +786,15 @@ fn evidence_ledger_appropriate(
         && context_tokens >= 32_768
 }
 
+/// A long clinical source should not become a single-pass summarization just
+/// because a different computer has more VRAM or a larger context window.
+/// Preserve the sequential evidence from every part before any optional
+/// source-grounded recall. This is a document-length decision, not a model
+/// name, GPU brand or installed-backend special case.
+fn needs_long_form_source_coverage(profile_id: &str, transcript_chars: usize) -> bool {
+    is_dental_profile(profile_id) && transcript_chars > CHUNK_CHAR_LIMIT
+}
+
 fn prefers_evidence_ledger(profile_id: &str, provider: &LlmProvider, transcript: &str) -> bool {
     evidence_ledger_appropriate(
         profile_id,
@@ -993,6 +1007,20 @@ async fn source_action_recall_pass(
     {
         candidates.push(contrast);
     }
+    // Recall must inspect potential omissions throughout the encounter, not
+    // only its strongest scheduling/conditional passages. Candidate selection
+    // uses transcript novelty relative to the *draft* and spans the source
+    // in order; it never consults a reference note or a named model.
+    let coverage_budget = (transcript.chars().count() / 10_000).clamp(2, 6);
+    for candidate in crate::quality::source_coverage_candidates(transcript, draft, coverage_budget)
+    {
+        if !candidates
+            .iter()
+            .any(|existing| existing.id == candidate.id)
+        {
+            candidates.push(candidate);
+        }
+    }
     if candidates.is_empty() {
         return Ok(draft.to_owned());
     }
@@ -1089,7 +1117,7 @@ Represent only what the source states.",
         "Bounded source-grounded local follow-up recall"
     );
     let title = if profile_prompt.contains("dentaire") || profile_prompt.contains("consultation") {
-        "## Suites et examens évoqués durant la consultation"
+        "## Précisions et suites évoquées durant la consultation"
     } else {
         "## Additional points discussed"
     };
@@ -1103,6 +1131,28 @@ Represent only what the source states.",
             .collect::<Vec<_>>()
             .join("\n")
     ))
+}
+
+/// The profile selects source-verifiable completeness, independently of GPU
+/// size or model branding. Legacy env override remains for controlled A/Bs;
+/// an explicit "0" always reverts to the original behavior.
+fn source_recall_policy(
+    profile_id: &str,
+    provider: &LlmProvider,
+    transcript_chars: usize,
+    env_setting: Option<&str>,
+) -> bool {
+    if !is_local_embedded_llama(&provider.chat_completions_url) {
+        return false;
+    }
+    match env_setting {
+        Some("0") => false,
+        Some("1") => true,
+        // For shorter consultations, the actual source candidates decide
+        // whether a second pass is useful; never skip fidelity just because
+        // the input is smaller or a machine has less memory.
+        _ => is_dental_profile(profile_id) && transcript_chars > 0,
+    }
 }
 
 pub async fn structure_transcript(
@@ -1140,19 +1190,30 @@ pub async fn structure_transcript(
     let is_dental = is_dental_profile(&profile.id);
     if is_dental {
         profile_system.push_str("\n\nINSTRUCTIONS SPÉCIFIQUES AU MODÈLE (ne supplantent jamais les règles de sûreté) :\n");
-        profile_system.push_str(dental_model_guidance(
-            &profile.model,
+        profile_system.push_str(dental_document_guidance(
             crate::profile_locale::known_builtin_locale(&profile).unwrap_or("fr"),
         ));
         profile_system.push_str("\n\nPATIENT DOCUMENT ONLY: never print session IDs, document references, checksums, model names, benchmark labels, audit reports, clinician-verification sections or statements about removed unsafe claims. Clinical uncertainty can be preserved only where it was actually expressed in the encounter.");
     }
     let direct_budget = safe_direct_input_chars(&provider);
+    let preserve_long_source =
+        needs_long_form_source_coverage(&profile.id, transcript.chars().count());
+    if is_dental {
+        tracing::info!(
+            profile = %profile.id,
+            source_characters = transcript.chars().count(),
+            source_partitioned = preserve_long_source,
+            quality_strategy = "source-coverage-v1",
+            "Native clinical fidelity policy selected"
+        );
+    }
     let input_characters = transcript.chars().count() + profile_system.chars().count();
     let full_user = format!(
         "Structure the following transcript according to the profile.\n\n<transcript>\n{}\n</transcript>",
         transcript
     );
     let fits_native_context = if is_dental
+        && !preserve_long_source
         && is_local_embedded_llama(&provider.chat_completions_url)
         && input_characters <= direct_budget
     {
@@ -1168,7 +1229,24 @@ pub async fn structure_transcript(
         true
     };
 
-    let markdown = if input_characters <= direct_budget && fits_native_context {
+    let markdown = if preserve_long_source {
+        // Keep the source partitioned independently of the *available* context.
+        // Previously a CAB with more VRAM silently switched from sequential
+        // source coverage to one very long prompt, losing clinical facts.
+        let part_budget = direct_budget
+            .saturating_sub(profile_system.chars().count())
+            .clamp(12_000, CHUNK_CHAR_LIMIT);
+        clinical_sections(
+            state,
+            &provider,
+            &profile.model,
+            &profile_system,
+            transcript,
+            part_budget,
+            token,
+        )
+        .await?
+    } else if input_characters <= direct_budget && fits_native_context {
         match call_chat(
             state,
             &provider,
@@ -1267,12 +1345,13 @@ pub async fn structure_transcript(
         .await?
     };
 
-    let markdown = if std::env::var("SCRIBEWATCH_AUTONOMOUS_ACTION_RECALL")
-        .ok()
-        .as_deref()
-        == Some("1")
-        && is_local_embedded_llama(&provider.chat_completions_url)
-    {
+    let recall_override = std::env::var("SCRIBEWATCH_AUTONOMOUS_ACTION_RECALL").ok();
+    let markdown = if source_recall_policy(
+        &profile.id,
+        &provider,
+        transcript.chars().count(),
+        recall_override.as_deref(),
+    ) {
         source_action_recall_pass(
             state,
             &provider,
@@ -1471,7 +1550,47 @@ mod tests {
     }
 
     #[test]
-    fn embedded_non_qwen_uses_token_bound_without_qwen_template() {
+    fn local_sampler_seed_is_stable_per_exact_input_and_never_random_sentinel() {
+        let original = stable_completion_seed(
+            "generic-model",
+            "Factual source only.",
+            "Entirely synthetic dialogue with no sensitive information.",
+        );
+        assert_eq!(
+            original,
+            stable_completion_seed(
+                "generic-model",
+                "Factual source only.",
+                "Entirely synthetic dialogue with no sensitive information."
+            )
+        );
+        assert_ne!(original, u32::MAX);
+        assert_ne!(
+            original,
+            stable_completion_seed(
+                "generic-model",
+                "Factual source only.",
+                "A changed and entirely synthetic conversation."
+            )
+        );
+        let local = chat_request_body(
+            "http://127.0.0.1:38080/v1/chat/completions",
+            "generic-model",
+            "Factual source only.",
+            "Entirely synthetic dialogue with no sensitive information.",
+        );
+        assert_eq!(local["seed"], original);
+        let remote = chat_request_body(
+            "https://example.org/v1/chat/completions",
+            "generic-model",
+            "Factual source only.",
+            "Entirely synthetic dialogue with no sensitive information.",
+        );
+        assert!(remote.get("seed").is_none());
+    }
+
+    #[test]
+    fn every_embedded_model_receives_the_same_fact_fidelity_budget() {
         let body = chat_request_body(
             "http://localhost:38080/v1/chat/completions",
             "ggml-org/gemma-3-4b-it-GGUF:Q4_K_M",
@@ -1479,7 +1598,9 @@ mod tests {
             "user",
         );
         assert_eq!(body["max_tokens"], 5_000);
-        assert!(body.get("chat_template_kwargs").is_none());
+        assert_eq!(body["chat_template_kwargs"]["enable_thinking"], false);
+        assert_eq!(body["temperature"], 0.1);
+        assert_eq!(body["top_p"], 0.9);
     }
 
     #[test]
@@ -1549,9 +1670,9 @@ mod tests {
         assert_eq!(body["temperature"], 0.1);
         assert_eq!(body["top_p"], 0.9);
         assert_eq!(body["max_tokens"], LOCAL_LLM_OUTPUT_TOKENS);
-        let guidance = dental_model_guidance("empero-ai/Qwen3.8-4B-Distill-GGUF:Q4_K_M", "fr");
-        assert!(guidance.contains("Aucun quota"));
-        assert!(guidance.contains("dévitalisation"));
+        let guidance = dental_document_guidance("fr");
+        assert!(guidance.contains("transcription entière"));
+        assert!(guidance.contains("négation"));
     }
 
     #[test]
@@ -1585,21 +1706,25 @@ mod tests {
     }
 
     #[test]
-    fn model_specific_prompts_do_not_embed_benchmark_patient_details() {
-        let tags = [
-            "unsloth/Qwen3.5-2B-GGUF:Q4_K_M",
-            "unsloth/Qwen3.5-4B-GGUF:Q4_K_M",
-            "unsloth/Phi-4-mini-instruct-GGUF:Q4_K_M",
-            "ggml-org/gemma-3-4b-it-GGUF:Q4_K_M",
-        ];
-        for model in tags {
-            let guidance = dental_model_guidance(model, "fr");
-            assert!(guidance.len() > 80);
-            assert!(!guidance.contains("<transcript>"));
-            assert!(!guidance.contains("exemple patient"));
+    fn clinical_guidance_and_sampler_are_independent_of_model_names() {
+        let guidance = dental_document_guidance("fr");
+        assert!(guidance.len() > 80);
+        assert!(!guidance.contains("<transcript>"));
+        assert!(!guidance.contains("exemple patient"));
+        assert!(dental_document_guidance("en").contains("no page or word quota"));
+        assert!(dental_document_guidance("zh-CN").contains("不设定页数"));
+        for model in ["local/model-a", "new-unknown-model", "local/model-b"] {
+            let body = chat_request_body(
+                "http://127.0.0.1:38080/v1/chat/completions",
+                model,
+                "Clinical source only",
+                "Fictional transcript",
+            );
+            assert_eq!(body["chat_template_kwargs"]["enable_thinking"], false);
+            assert_eq!(body["temperature"], 0.1);
+            assert_eq!(body["top_p"], 0.9);
+            assert_eq!(body["max_tokens"], LOCAL_LLM_OUTPUT_TOKENS);
         }
-        assert!(dental_model_guidance("qwen3.5-4b", "en").contains("no page or word quota"));
-        assert!(dental_model_guidance("qwen3.5-4b", "zh-CN").contains("不设定页数"));
         assert!(is_dental_profile("dental-consultation-complete-fr"));
         assert!(is_dental_profile("dental-consultation"));
         assert!(!is_dental_profile("meeting-minutes"));
@@ -1647,6 +1772,103 @@ mod tests {
             56_000,
             131_072
         ));
+    }
+
+    #[test]
+    fn dental_long_source_quality_strategy_is_a_profile_default_not_a_model_rule() {
+        let local = LlmProvider {
+            id: "local".into(),
+            name: "Native loopback".into(),
+            chat_completions_url: "http://127.0.0.1:38080/v1/chat/completions".into(),
+            model: "arbitrary-model".into(),
+            api_key: String::new(),
+            timeout_seconds: 180,
+            enabled: true,
+        };
+        assert!(source_recall_policy(
+            "dental-consultation-complete-fr",
+            &local,
+            CHUNK_CHAR_LIMIT + 1,
+            None
+        ));
+        assert!(source_recall_policy(
+            "dental-consultation-complete-fr",
+            &local,
+            CHUNK_CHAR_LIMIT + 1,
+            Some("1")
+        ));
+        assert!(!source_recall_policy(
+            "dental-consultation-complete-fr",
+            &local,
+            CHUNK_CHAR_LIMIT + 1,
+            Some("0")
+        ));
+        assert!(source_recall_policy(
+            "dental-consultation-complete-fr",
+            &local,
+            CHUNK_CHAR_LIMIT,
+            None
+        ));
+        assert!(source_recall_policy(
+            "dental-consultation-complete-fr",
+            &local,
+            2_400,
+            None
+        ));
+        assert!(!source_recall_policy(
+            "dental-consultation-complete-fr",
+            &local,
+            0,
+            None
+        ));
+        assert!(!source_recall_policy(
+            "meeting-minutes",
+            &local,
+            CHUNK_CHAR_LIMIT + 1,
+            None
+        ));
+        let mut external = local.clone();
+        external.chat_completions_url = "https://remote.example/v1/chat/completions".into();
+        assert!(!source_recall_policy(
+            "dental-consultation-complete-fr",
+            &external,
+            CHUNK_CHAR_LIMIT + 1,
+            None
+        ));
+    }
+
+    #[test]
+    fn long_clinical_transcript_keeps_source_coverage_on_all_memory_sizes() {
+        // Same source must not change its evidence strategy when the host GPU
+        // or context allocation changes. No clinical patient-specific terms.
+        assert!(needs_long_form_source_coverage(
+            "dental-consultation-complete-fr",
+            CHUNK_CHAR_LIMIT + 1
+        ));
+        assert!(!needs_long_form_source_coverage(
+            "dental-consultation-complete-fr",
+            CHUNK_CHAR_LIMIT
+        ));
+        assert!(!needs_long_form_source_coverage(
+            "meeting",
+            CHUNK_CHAR_LIMIT + 1
+        ));
+        let transcript = "A synthetic clinical sentence. ".repeat(2_400);
+        assert!(needs_long_form_source_coverage(
+            "dental-consultation-complete-fr",
+            transcript.chars().count()
+        ));
+        // Long source remains split irrespective of 24k vs 49k contexts.
+        let baseline = split_chunks_at_limit(&transcript, CHUNK_CHAR_LIMIT);
+        assert!(baseline.len() >= 2);
+        assert_eq!(
+            baseline.join(" ").split_whitespace().count(),
+            transcript.split_whitespace().count()
+        );
+        assert_eq!(
+            baseline.join(" ").split_whitespace().collect::<Vec<_>>(),
+            transcript.split_whitespace().collect::<Vec<_>>()
+        );
     }
 
     #[test]
