@@ -56,6 +56,14 @@ impl AppState {
                                 || value.contains("â€")
                         });
                     let mut changed = false;
+                    // Upgrade only the untouched historical dental default.
+                    // A customized prompt or provider/model binding stays intact.
+                    if existing.id == "dental-consultation-complete-fr"
+                        && crate::llm::dental_profile_has_unmodified_v1_prompt(&existing.prompt)
+                    {
+                        existing.prompt = builtin.prompt.clone();
+                        changed = true;
+                    }
                     if garbled {
                         existing.name = builtin.name.clone();
                         existing.description = builtin.description.clone();

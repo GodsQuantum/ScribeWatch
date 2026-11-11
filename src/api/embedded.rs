@@ -45,8 +45,8 @@ const PACK_MODELS: &[&str] = &[
 // whose clinical notes were too sparse or stopped at their output limit.
 const LLM_SUGGESTIONS: &[&str] = &[
     "unsloth/Qwen3.5-4B-GGUF:Q4_K_M",
+    "unsloth/Qwen3.5-9B-GGUF:Q4_K_M", // optional ~5.68GB weights, >= 6.5GB combined memory
     "unsloth/Qwen3.5-2B-GGUF:Q4_K_M", // small-memory fallback; requires review
-    "unsloth/Qwen3.5-9B-GGUF:Q4_K_M", // larger-memory experimental option
 ];
 
 // Use the upstream llama.cpp server on every supported desktop OS: no
@@ -1085,6 +1085,8 @@ mod tests {
     fn clinically_tested_defaults_are_preferred_across_desktop_platforms() {
         assert_eq!(PACK_MODELS[0], "handy-computer/parakeet-ultra-gguf");
         assert_eq!(LLM_SUGGESTIONS[0], "unsloth/Qwen3.5-4B-GGUF:Q4_K_M");
+        assert_eq!(LLM_SUGGESTIONS[1], "unsloth/Qwen3.5-9B-GGUF:Q4_K_M");
+        assert!(allowed_model(EngineKind::Llm, LLM_SUGGESTIONS[1]));
         assert!(allowed_model(EngineKind::Stt, PACK_MODELS[0]));
         assert!(allowed_model(EngineKind::Llm, LLM_SUGGESTIONS[0]));
     }
