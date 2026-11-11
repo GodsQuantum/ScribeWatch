@@ -26,3 +26,12 @@ test('legacy AI and STT tabs open inside settings rather than disappearing', () 
   assert.equal(normalizeView('jobs', 'simple'), 'jobs');
   assert.equal(normalizeView('live', 'advanced'), 'live');
 });
+
+
+test('simple clinical folder messages follow FR EN ZH', async () => {
+  const {t}=await import('../src/lib/i18n.ts');
+  assert.equal(t('en','Choose destination folder'),'Choose destination folder');
+  assert.equal(t('fr','Choose destination folder'),'Choisir le dossier de sortie');
+  assert.equal(t('zh-CN','Choose destination folder'),'选择保存文件夹');
+  for(const locale of ['fr','zh-CN'])assert.notEqual(t(locale,'Automatic save was incomplete. Use the export buttons to save the remaining files.'),'Automatic save was incomplete. Use the export buttons to save the remaining files.');
+});

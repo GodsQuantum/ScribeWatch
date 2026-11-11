@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { api } from '$lib/api';
+  import { locale, t } from '$lib/i18n';
   import { canSaveToDirectory, ensureDirectoryPermission, saveMarkdownLocally, saveResponseToDirectory, uniqueDirectoryFilename } from '$lib/local-save';
   import { buildLocalProxyInstaller, detectLocalProxyPlatform, inferLocalProxyTarget, localProxyFilename, type LocalProxyPlatform } from '$lib/local-loopback-installer';
   import { finalizeLiveSession, seekLastSeconds } from '$lib/live-finalize';
@@ -127,6 +128,8 @@
       pdfDestinationLabel=selected.name;
       markdownDestination=selected;
       markdownDestinationLabel=selected.name;
+      // A selected local folder overrides any previous advanced server preset.
+      outputMode='computer';
       try{await recoveryStore.saveClientDirectoryHandle(simpleDirectoryKey,selected);}
       catch{notify('error','Folder selected for this session, but the browser could not remember it for the next launch.');}
     }catch(error){
@@ -234,7 +237,7 @@
   // In simple mode preselect the built-in dental profile when it is actually
   // wired to a provider. Never override an existing choice or patient data.
   $: if(simpleMode&&!recording){
-    if(outputMode==='server'&&!outputDir)outputMode='computer';
+    if(outputMode==='server')outputMode='computer';
     if(audioRetentionMode==='server'&&!audioServerDir)audioRetentionMode='none';
   }
   $: if(simpleMode&&!recording&&!structureProfileId&&!simpleProfileTouched){
@@ -260,13 +263,13 @@
     try{
       for(const format of formats){
         if(!(await exportResult(format,true))){
-          notify('error','Automatic save was incomplete. Use the export buttons to save the remaining files.');
+          notify('error',t($locale,'Automatic save was incomplete. Use the export buttons to save the remaining files.'));
           return;
         }
       }
-      if(formats.length)notify('success','Results saved to '+simpleDirectoryName+' (clinical PDF remains a draft).');
+      if(formats.length)notify('success',t($locale,'Results saved to {folder} (clinical PDF remains a draft).').replace('{folder}',simpleDirectoryName));
       if(medicalReportEnabled&&!formats.includes('pdf'))
-        notify('error','Clinical AI report unavailable: the Markdown transcript was saved, but no patient PDF was generated.');
+        notify('error',t($locale,'Clinical AI report unavailable: the Markdown transcript was saved, but no patient PDF was generated.'));
     }finally{autoSaving=false;}
   }
 
@@ -444,11 +447,11 @@
     if(simpleMode&&simpleDirectory){
       try{
         if(!(await ensureDirectoryPermission(simpleDirectory))){
-          notify('error','Allow access to your previously chosen destination folder before recording.');
+          notify('error',t($locale,'Allow access to your previously chosen destination folder before recording.'));
           return;
         }
       }catch(error){
-        notify('error','The destination folder is no longer available. Select it again.');
+        notify('error',t($locale,'The destination folder is no longer available. Select it again.'));
         return;
       }
     }

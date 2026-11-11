@@ -266,6 +266,28 @@ Object.assign(supplemental['zh-CN'], {
   'Remove space':'删除空间','Local-first · Private':'本地优先 · 私密'
 });
 
+// Simple clinical workflow: local saves and errors must be understood in every UI locale.
+Object.assign(supplemental.fr, {
+  'Choose destination folder':'Choisir le dossier de sortie',
+  'Choose once to save the PDF draft and the source Markdown automatically when processing finishes.':'Choisissez le dossier où enregistrer automatiquement le PDF et la transcription Markdown en fin de traitement.',
+  'Automatic local folder saving requires this desktop browser to support the Directory Picker API. The manual export buttons remain available.':'L’enregistrement automatique nécessite un navigateur compatible avec la sélection de dossiers. Les exports manuels restent disponibles.',
+  'Results saved to {folder} (clinical PDF remains a draft).':'Documents enregistrés dans {folder} (le PDF clinique reste un brouillon).',
+  'Automatic save was incomplete. Use the export buttons to save the remaining files.':'L’enregistrement automatique est incomplet. Utilisez les boutons d’export pour les fichiers restants.',
+  'Clinical AI report unavailable: the Markdown transcript was saved, but no patient PDF was generated.':'Compte rendu IA indisponible : la transcription Markdown est conservée, mais aucun PDF patient n’a été généré.',
+  'Allow access to your previously chosen destination folder before recording.':'Autorisez l’accès au dossier de sortie choisi avant l’enregistrement.',
+  'The destination folder is no longer available. Select it again.':'Le dossier de sortie n’est plus accessible. Sélectionnez-le à nouveau.'
+});
+Object.assign(supplemental['zh-CN'], {
+  'Choose destination folder':'选择保存文件夹',
+  'Choose once to save the PDF draft and the source Markdown automatically when processing finishes.':'选择一个文件夹，处理完成后自动保存 PDF 草稿和 Markdown 转写文本。',
+  'Automatic local folder saving requires this desktop browser to support the Directory Picker API. The manual export buttons remain available.':'自动保存到文件夹需要浏览器支持文件夹选择 API。仍可手动导出。',
+  'Results saved to {folder} (clinical PDF remains a draft).':'文件已保存到 {folder}（临床 PDF 仍为草稿）。',
+  'Automatic save was incomplete. Use the export buttons to save the remaining files.':'自动保存未完成，请使用导出按钮保存剩余文件。',
+  'Clinical AI report unavailable: the Markdown transcript was saved, but no patient PDF was generated.':'AI 临床报告不可用：Markdown 转写已保存，但未生成患者 PDF。',
+  'Allow access to your previously chosen destination folder before recording.':'录音前请允许访问先前选择的保存文件夹。',
+  'The destination folder is no longer available. Select it again.':'保存文件夹无法访问，请重新选择。'
+});
+
 function detectedLocale(): Locale {
   if (typeof window === 'undefined') return 'en';
   const stored = window.localStorage.getItem('scribewatch:locale');
