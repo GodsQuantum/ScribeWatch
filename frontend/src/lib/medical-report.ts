@@ -25,7 +25,7 @@ export async function uniqueMedicalFilename(directory:FileSystemDirectoryHandle,
  * Never remove an ordinary clinical "à confirmer" or a patient follow-up.
  */
 export function patientFacingMedicalBody(body:string):string{
-  const internal=/^#{1,3}\s+(?:Éléments? à vérifier par le praticien|À confirmer par le praticien|Références documentaires(?:\s*\([^)]*\))?|Contrôle interne(?: de qualité)?|Points? . (?:confirmer|verifier|valider)|Audit clinique interne|Questions? et incertitudes à confirmer|Incertitudes? à (?:confirmer|vérifier)|Uncertainties or items to verify)\s*$/i;
+  const internal=/^#{1,6}\s+(?:Éléments? à vérifier par le praticien|À confirmer par le praticien|Références documentaires(?:\s*\([^)]*\))?|Contrôle interne(?: de qualité)?|Points? . (?:confirmer|verifier|valider)|Audit clinique interne|Questions? et incertitudes à confirmer|Incertitudes? à (?:confirmer|vérifier)|Uncertainties or items to verify)\s*$/i;
   // Defence in depth: PDF header receives identity from the user-controlled
   // form. Do not carry contact coordinates hallucinated by a local model
   // over into clinical paragraphs, even when the backend is bypassed.
@@ -35,7 +35,7 @@ export function patientFacingMedicalBody(body:string):string{
   for(const line of body.split('\n')){
     const trimmed=line.trim();
     if(internal.test(trimmed)){suppress=true;continue;}
-    if(suppress && /^#{1,3}\s+/.test(trimmed))suppress=false;
+    if(suppress && /^#{1,6}\s+/.test(trimmed))suppress=false;
     if(suppress)continue;
     if(contact.test(trimmed))continue;
     if(/(?:formulation clinique écartée|information écartée\s*:|passage\(s\) à risque ont été écartés)/i.test(trimmed))continue;
@@ -51,7 +51,7 @@ export function structuredMedicalBody(text:string):string{
   const cleaned=text.replace(/^---\s*\n[\s\S]*?\n---\s*\n/,'').trim();
   // A provider may return the completed clinical Markdown directly, without
   // the old "Structured notes" transport wrapper. Never relabel it as raw ASR.
-  if(/^#{1,3}\s+/.test(cleaned) && !/^#{1,3}\s+Transcript\b/im.test(cleaned))
+  if(/^#{1,6}\s+/.test(cleaned) && !/^#{1,6}\s+Transcript\b/im.test(cleaned))
     return patientFacingMedicalBody(cleaned);
   return '## Transcription non structurée - à vérifier\n\n'+cleaned;
 }
@@ -192,6 +192,43 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     }
     y-=style==='title'||style==='section'?(compactLastPage?7:9):style==='subsection'?6:(compactLastPage?3:4);
   };
+  // Preflight with the same font, wrap and line-spacing metrics used when
+  // actually drawing. Move a short section/subsection together, but only
+  // when it can fit on an otherwise empty page; longer sections may flow.
+  const availableOnFreshPage=H-58-67;
+  type MedicalBlock =
+    | {kind:'space'}
+    | {kind:'text'; text:string; style:'section'|'subsection'|'body'|'bullet';level?:number}
+    | {kind:'table'; rows:string[][]};
+  const estimateText=(text:string,style:'section'|'subsection'|'body'|'bullet')=>{
+    const size=style==='section'?12:style==='subsection'?10.8:(compactLastPage?10:10.3);
+    const font=style==='body'||style==='bullet'?regular:bold;
+    const indent=(style==='bullet'?12:0)+(style==='section'&&sectionIcon(text)?18:0);
+    const count=(style==='body'||style==='bullet'
+      ?wrapRichText(text,regular,bold,size,contentWidth-indent).length
+      :wrap(text,font,size,contentWidth-indent).length);
+    if(!count)return 0;
+    const leading=size*(compactLastPage?1.32:1.37);
+    const before=style==='section'?(compactLastPage?12:16):style==='subsection'?8:0;
+    const after=style==='section'?(compactLastPage?7:9):style==='subsection'?6:(compactLastPage?3:4);
+    return before+count*leading+after;
+  };
+  const tableRowHeight=(cells:string[],columns:number,headline:boolean)=>{
+    const font=headline?bold:regular,cellWidth=contentWidth/columns;
+    const rows=Array.from({length:columns},(_,i)=>wrap(cells[i]||'',font,9,cellWidth-16));
+    return Math.max(18,...rows.map(row=>row.length*12.6))+16;
+  };
+  const estimateTable=(rows:string[][])=>{
+    if(!rows.length)return 0;
+    const columns=rows[0].length;
+    if(columns<2||columns>4)return rows.reduce((n,r)=>n+estimateText(r.join(' : '),'body'),0);
+    return rows.reduce((n,row,i)=>n+tableRowHeight(row,columns,i===0),15);
+  };
+  const estimate=(block:MedicalBlock):number=>{
+    if(block.kind==='space')return 3;
+    if(block.kind==='table')return estimateTable(block.rows);
+    return estimateText(block.text,block.style);
+  };
   const drawTable=(rows:string[][])=>{
     if(!rows.length)return;
     const columns=rows[0].length;
@@ -200,12 +237,11 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     }
     const cellWidth=contentWidth/columns;
     const ink=rgb(.23,.29,.32),light=rgb(.94,.97,.97),edge=rgb(.72,.80,.82);
-    let header: string[]|undefined=rows[0];
     const drawRow=(cells:string[],headline:boolean)=>{
       const font=headline?bold:regular,size=9.0,leading=12.6,padding=8;
       const wrapped=Array.from({length:columns},(_,i)=>wrap(cells[i]||'',font,size,cellWidth-2*padding));
-      const rowHeight=Math.max(18,...wrapped.map(row=>row.length*leading))+2*padding;
-      if(rowHeight>H-170){
+      const rowHeight=tableRowHeight(cells,columns,headline);
+      if(rowHeight>availableOnFreshPage){
         cells.forEach((cell,index)=>draw('Colonne '+(index+1)+' : '+cell,'body'));return;
       }
       ensure(rowHeight+4);
@@ -217,8 +253,17 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
       }
       y=bottom;
     };
+    // Keep short tables intact; for oversized tables repeat the header on each
+    // page and never split individual rows.
+    if(estimateTable(rows)<=availableOnFreshPage && y-estimateTable(rows)<67)addPage();
+    const header=rows[0];
     for(let i=0;i<rows.length;i++){
-      if(y-60<70){addPage();if(i>0&&header)drawRow(header,true);}
+      const rowHeight=tableRowHeight(rows[i],columns,i===0);
+      const need=rowHeight+(i>0?tableRowHeight(header,columns,true):0);
+      if(i>0&&y-need<67){
+        addPage();
+        drawRow(header,true);
+      }
       drawRow(rows[i],i===0);
     }
     y-=15;
@@ -267,8 +312,10 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
   y-=26;
   const body=structuredMedicalBody(markdown);
   const lines=body.split('\n');
+  const blocks:MedicalBlock[]=[];
   for(let i=0;i<lines.length;i++){
-    const line=lines[i].trim();if(!line){y-=3;continue;}
+    const line=lines[i].trim();
+    if(!line){blocks.push({kind:'space'});continue;}
     if(line.startsWith('|')){
       const group:string[]=[];
       while(i<lines.length&&lines[i].trim().startsWith('|'))group.push(lines[i++].trim());
@@ -277,10 +324,89 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
         const bounded=item.replace(/^\|/,'').replace(/\|$/,'');
         return bounded.split('|').map(value=>value.trim());
       });
-      if(rows.length)drawTable(rows);
-    }else if(/^#{1,3}\s/.test(line))draw(line.replace(/^#{1,3}\s+/,''),/^###\s/.test(line)?'subsection':'section');
-    else if(/^[-*]\s/.test(line)||/^\d+[.)]\s/.test(line))draw('• '+line.replace(/^(?:[-*]|\d+[.)])\s+/,''),'bullet');
-    else draw(line);
+      if(rows.length)blocks.push({kind:'table',rows});
+    }else if(/^#{1,6}\s/.test(line)){
+      const level=line.match(/^#{1,6}/)?.[0].length||2;
+      blocks.push({kind:'text',text:line.replace(/^#{1,6}\s+/,''),style:level>=3?'subsection':'section',level});
+    }else if(/^[-*]\s/.test(line)||/^\d+[.)]\s/.test(line)){
+      blocks.push({kind:'text',text:'• '+line.replace(/^(?:[-*]|\d+[.)])\s+/ ,''),style:'bullet'});
+    }else blocks.push({kind:'text',text:line,style:'body'});
+  }
+  const isHeading=(block:MedicalBlock):block is Extract<MedicalBlock,{kind:'text'}> =>
+    block.kind==='text'&&(block.style==='section'||block.style==='subsection');
+  for(let i=0;i<blocks.length;i++){
+    const block=blocks[i];
+    if(isHeading(block)){
+      // Full H2/H3 block until the next heading of the same or higher rank.
+      // H3 also prevents a long H2 from forcing an entire page per section.
+      let height=0,firstContent=0;
+      for(let j=i;j<blocks.length;j++){
+        const next=blocks[j];
+        if(j>i && isHeading(next) && (next.level??2)<=(block.level??2))break;
+        const itemHeight=estimate(next);
+        height+=itemHeight;
+        if(!firstContent && j>i && next.kind!=='space')firstContent=itemHeight;
+        if(height>availableOnFreshPage)break;
+      }
+      if(height<=availableOnFreshPage){
+        const remaining=y-67;
+        // A near-page-sized section should not leave a mostly empty sheet
+        // behind it. Keep compact sections together, but let an almost-full
+        // page of content flow when there is ample useful space left.
+        const nearPageSized=height>availableOnFreshPage*0.68;
+        const substantialSpaceLeft=remaining>availableOnFreshPage*0.43;
+        if(remaining<height && !(nearPageSized && substantialSpaceLeft))addPage();
+      }else{
+        // Cannot keep a lengthy section on one page. At least keep the
+        // heading plus a small opening portion with it, without wasting a
+        // whole page to accommodate an impossible keep-together request.
+        let opening=estimate(block)+Math.min(firstContent||32,42);
+        let firstChildWouldMove=false;
+        // A long parent section can begin with a short H3/H4 subsection.
+        // Check that child's full footprint, not just the height of its
+        // heading: otherwise the parent H2 can be orphaned at a page foot
+        // while the first child jumps to the following page.
+        {
+          let childIndex=i+1;
+          while(childIndex<blocks.length&&blocks[childIndex].kind==='space')childIndex++;
+          const child=blocks[childIndex];
+          if(child&&isHeading(child)&&(child.level??2)>(block.level??2)){
+            let childHeight=0;
+            for(let j=childIndex;j<blocks.length;j++){
+              const next=blocks[j];
+              if(j>childIndex&&isHeading(next)
+                && (next.level??2)<=(child.level??2))break;
+              childHeight+=estimate(next);
+              if(childHeight>availableOnFreshPage)break;
+            }
+            opening=estimate(block)+(
+              childHeight<=availableOnFreshPage-estimate(block)
+                ?childHeight
+                :estimate(child)+48
+            );
+            // Evaluate the child's actual keep-together rule at the
+            // position AFTER its parent heading. If the child would start
+            // on the next page, its parent must follow it, never orphaned.
+            const remainingAfterParent=y-67-estimate(block);
+            const childIsPageSized=childHeight>availableOnFreshPage*0.68;
+            firstChildWouldMove=childHeight<=availableOnFreshPage
+              && remainingAfterParent<childHeight
+              && !(childIsPageSized&&remainingAfterParent>availableOnFreshPage*0.43);
+          }
+        }
+        const left=y-67;
+        const nearFullOpening=opening>availableOnFreshPage*0.68;
+        if(firstChildWouldMove
+          || (left<opening && !(nearFullOpening&&left>availableOnFreshPage*0.43)))
+          addPage();
+      }
+    }else if(block.kind==='table' && estimate(block)<=availableOnFreshPage){
+      // Standalone table must not start as an orphan at a page foot.
+      if(y-estimate(block)<67)addPage();
+    }
+    if(block.kind==='space')y-=3;
+    else if(block.kind==='table')drawTable(block.rows);
+    else draw(block.text,block.style);
   }
   // Always consider the already-supported readable compact layout.
   // If it saves a page, prefer it without editing or omitting any clinical
