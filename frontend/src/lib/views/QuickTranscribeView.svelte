@@ -2,6 +2,7 @@
   import { api } from '$lib/api';
   import { canSaveToDirectory, saveResponseToDirectory } from '$lib/local-save';
   import PathPicker from '$lib/components/PathPicker.svelte';
+  import { createMedicalPdf } from '$lib/medical-report';
   import TranscriptionChainEditor from '$lib/components/TranscriptionChainEditor.svelte';
   import type { ExportFormat, Job, Provider, QuickOptions, StructureProfile, TranscriptionRoute } from '$lib/types';
   export let providers:Provider[]=[];
@@ -87,6 +88,39 @@
     finally{exporting='';}
   }
   function reset(){localFile=null;serverFile='';submitted=undefined;}
+
+  // Reuse the genuine native structuring pipeline without performing a second
+  // ASR pass. Patient transcripts and outputs only live in component memory.
+  let importedTranscriptFile:File|null=null;
+  let importedProfileId='';
+  let importedBusy=false;
+  let importedExporting:''|'md'|'pdf'='';
+  let importedResult:{markdown:string;elapsedMs:number;profileId:string;model:string}|null=null;
+  async function structureImportedTranscript(){
+    if(!importedTranscriptFile||!importedProfileId||importedBusy)return;
+    importedBusy=true;
+    importedResult=null;
+    try{
+      const source=await importedTranscriptFile.text();
+      if(source.length>250_000||source.length<50)throw Error('Transcription : entre 50 et 250 000 caractères.');
+      importedResult=await api.structureExisting(importedProfileId,source);
+      notify('success', 'Structuration locale terminée : '+(importedResult.elapsedMs/1000).toFixed(1)+' s.');
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{importedBusy=false;}
+  }
+  async function exportImportedTranscript(format:'md'|'pdf'){
+    if(!importedResult||importedExporting)return;
+    importedExporting=format;
+    try{
+      const content=format==='pdf'
+        ?await createMedicalPdf(importedResult.markdown,{surname:'',forename:'',dateOfBirth:''})
+        :new Blob([importedResult.markdown],{type:'text/markdown;charset=utf-8'});
+      const filename='rapport-structure-'+new Date().toISOString().slice(0,10)+'.'+format;
+      const method=await saveResponseToDirectory(new Response(content),filename,markdownDestination,window);
+      notify('success',method==='directory'?'Rapport enregistré dans le dossier choisi.':'Rapport téléchargé.');
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+    finally{importedExporting='';}
+  }
   const audioExtensions='mp3,wav,m4a,flac,ogg,opus,aac,wma,aiff,aif,caf,webm';
 </script>
 
@@ -154,6 +188,40 @@
       </div>
     </aside>
   </div>
+
+  <section class="card">
+    <div class="card-body stack">
+      <strong>Structurer une transcription existante</strong>
+      <p class="help">Pour un fichier Parakeet, Whisper ou tout autre ASR déjà produit : aucun second passage de transcription. Le compte rendu utilise directement le profil IA sélectionné et le moteur local. Les fichiers ne sont pas sauvegardés dans les préférences.</p>
+      <div class="grid two">
+        <div class="field">
+          <label for="existing-asr-file">Transcription source (.md, .txt)</label>
+          <input id="existing-asr-file" class="input" type="file" accept=".md,.txt,text/plain,text/markdown"
+            on:change={(event)=>{importedTranscriptFile=event.currentTarget.files?.[0]??null;importedResult=null}}/>
+        </div>
+        <div class="field">
+          <label for="existing-ai-profile">Profil IA</label>
+          <select id="existing-ai-profile" class="select" bind:value={importedProfileId} on:change={()=>importedResult=null}>
+            <option value="">Choisir un profil configuré</option>
+            {#each structureProfiles.filter(profile=>profile.providerId) as profile}
+              <option value={profile.id}>{profile.name}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+      <button class="btn primary" disabled={!importedTranscriptFile||!importedProfileId||importedBusy}
+        on:click={structureImportedTranscript}>{importedBusy?'Structuration par le moteur local…':'Créer le compte rendu depuis cette transcription'}</button>
+      {#if importedResult}
+        <div class="result-export-panel stack">
+          <span>Compte rendu terminé en {(importedResult.elapsedMs/1000).toFixed(1)} secondes. Brouillon à valider avant usage clinique.</span>
+          <div class="row wrap">
+            <button class="btn compact" disabled={!!importedExporting} on:click={()=>exportImportedTranscript('md')}>Exporter Markdown</button>
+            <button class="btn compact" disabled={!!importedExporting} on:click={()=>exportImportedTranscript('pdf')}>Exporter PDF</button>
+          </div>
+        </div>
+      {/if}
+    </div>
+  </section>
 </div>
 <PathPicker open={picker==='source'} title="Choose server audio" mode="file" extensions={audioExtensions} onselect={(path)=>{serverFile=path;picker=''}} onclose={()=>picker=''} />
 <PathPicker open={picker==='output'} title="Choose Markdown folder" mode="directory" initialPath={outputDir} onselect={(path)=>{outputDir=path;picker=''}} onclose={()=>picker=''} />

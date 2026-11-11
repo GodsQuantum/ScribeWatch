@@ -73,6 +73,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/llm-providers/{id}", delete(ai::delete_provider))
         .route("/api/v1/llm-providers/{id}/models", get(ai::models))
         .route("/api/v1/embedded/status", get(embedded::status))
+        .route("/api/v1/structure/existing", post(ai::structure_existing))
         .route(
             "/api/v1/embedded/llm/models-directory/open",
             post(embedded::open_llm_models_directory),

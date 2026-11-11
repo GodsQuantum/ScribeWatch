@@ -7,11 +7,71 @@ use crate::{
 use axum::{
     Json,
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode, header},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
+
+/// Reprocess an existing ASR transcript with the exact production structuring
+/// path. No model-generated text, patient identity or request body is persisted.
+/// This is desktop-only and follows the same same-origin restriction as the
+/// native engine controls. It is useful for QA and for imported ASR transcripts.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StructureExistingRequest {
+    profile_id: String,
+    transcript: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StructureExistingResponse {
+    markdown: String,
+    elapsed_ms: u64,
+    profile_id: String,
+    model: String,
+}
+
+fn validate_existing_transcript(input: &StructureExistingRequest) -> AppResult<()> {
+    let chars = input.transcript.chars().count();
+    if !(50..=250_000).contains(&chars) {
+        return Err(AppError::BadRequest(
+            "Transcription must contain between 50 and 250000 characters".into(),
+        ));
+    }
+    if input.profile_id.trim().is_empty() || input.profile_id.len() > 150 {
+        return Err(AppError::BadRequest("Valid AI profile is required".into()));
+    }
+    Ok(())
+}
+
+pub async fn structure_existing(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<StructureExistingRequest>,
+) -> AppResult<impl axum::response::IntoResponse> {
+    super::embedded::require_desktop(&state.embedded, Some(&headers))?;
+    validate_existing_transcript(&input)?;
+    let began = std::time::Instant::now();
+    let structured = llm::structure_transcript(
+        &state,
+        &input.profile_id,
+        &input.transcript,
+        &tokio_util::sync::CancellationToken::new(),
+    )
+    .await
+    .map_err(|_| AppError::Upstream("Local structuring failed; original ASR unchanged".into()))?;
+    Ok((
+        [(header::CACHE_CONTROL, "no-store")],
+        Json(StructureExistingResponse {
+            markdown: structured.markdown,
+            elapsed_ms: began.elapsed().as_millis().min(u64::MAX as u128) as u64,
+            profile_id: structured.profile_id,
+            model: structured.model,
+        }),
+    ))
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -358,4 +418,33 @@ pub async fn delete_profile(
         .await
         .retain(|profile| profile.id != id);
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[cfg(test)]
+mod imported_transcript_tests {
+    use super::*;
+
+    #[test]
+    fn text_structuring_rejects_empty_or_oversized_untrusted_payloads() {
+        for (profile_id, transcript) in [
+            ("", "synthetic text ".repeat(10)),
+            ("clinical", "tiny".to_owned()),
+            ("clinical", "x".repeat(250_001)),
+        ] {
+            assert!(
+                validate_existing_transcript(&StructureExistingRequest {
+                    profile_id: profile_id.into(),
+                    transcript,
+                })
+                .is_err()
+            );
+        }
+        assert!(
+            validate_existing_transcript(&StructureExistingRequest {
+                profile_id: "synthetic".into(),
+                transcript: "this is synthetic example text without personal data ".repeat(4),
+            })
+            .is_ok()
+        );
+    }
 }
