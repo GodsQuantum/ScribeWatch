@@ -253,6 +253,141 @@ pub fn source_contrast_candidate(transcript: &str, existing_note: &str) -> Optio
     })
 }
 
+/// Identify source passages that deserve a second check because the first
+/// draft does not contain their distinctive wording. This algorithm does not
+/// use reference PDFs, benchmark answer keys, patient names or model IDs.
+/// Spread candidates across the WHOLE original transcript, rather than
+/// collecting only the opening paragraphs or a single highly repeated theme.
+pub fn source_coverage_candidates(
+    transcript: &str,
+    existing_note: &str,
+    max_results: usize,
+) -> Vec<Passage> {
+    let max_results = max_results.min(10);
+    if max_results == 0 {
+        return Vec::new();
+    }
+    let known: std::collections::HashSet<_> = fingerprint(existing_note)
+        .split_whitespace()
+        .filter(|token| token.chars().count() >= 5)
+        .map(str::to_owned)
+        .collect();
+    let paras = transcript
+        .split("\n\n")
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect::<Vec<_>>();
+    if paras.is_empty() {
+        return Vec::new();
+    }
+    let mut candidates = Vec::new();
+    for (idx, paragraph) in paras.iter().enumerate() {
+        if !(45..=950).contains(&paragraph.chars().count()) {
+            continue;
+        }
+        let source = fingerprint(paragraph);
+        let distinct = source
+            .split_whitespace()
+            .filter(|token| token.chars().count() >= 5)
+            .filter(|token| !known.contains(*token))
+            .collect::<std::collections::HashSet<_>>();
+        let novel = distinct.len();
+        if novel < 3 {
+            continue;
+        }
+        let has_number = source.chars().any(|c| c.is_ascii_digit());
+        let has_negation = [
+            " pas ",
+            " jamais ",
+            " non ",
+            " aucun ",
+            " aucune ",
+            " sans ",
+            " no ",
+            " none ",
+            " without ",
+            " never ",
+            " not ",
+        ]
+        .iter()
+        .any(|term| format!(" {source} ").contains(term));
+        let has_condition = [
+            " si ",
+            " soit ",
+            " peut etre ",
+            " eventuellement ",
+            " if ",
+            " unless ",
+        ]
+        .iter()
+        .any(|term| format!(" {source} ").contains(term));
+        let action = [
+            " propose",
+            " conseill",
+            " recommand",
+            " examin",
+            " expliqu",
+            " pratic",
+            " soin",
+            " trait",
+            " douleur",
+            " examen",
+            " therap",
+            " medical",
+            " advise",
+            " recommend",
+            " treat",
+            " exam",
+            " symptom",
+            " risk",
+        ]
+        .iter()
+        .any(|cue| source.contains(cue));
+        let clinical_signal = has_number || has_negation || has_condition || action;
+        if !clinical_signal {
+            continue;
+        }
+        let score = novel.min(14) * 2
+            + usize::from(has_number) * 4
+            + usize::from(has_negation) * 5
+            + usize::from(has_condition) * 3
+            + usize::from(action) * 4;
+        candidates.push((score, idx));
+    }
+    // Rank by novelty and source-based cues. Avoid selecting neighboring
+    // paragraphs expressing the same finding, unless no alternatives exist.
+    candidates.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+    let mut selected: Vec<usize> = Vec::new();
+    // Geographical diversity: at least one potential omission from every
+    // populated source region before returning to the most salient ones.
+    let sections = max_results.min(4);
+    for bucket in 0..sections {
+        if let Some((_, idx)) = candidates.iter().copied().find(|(_, idx)| {
+            (*idx * sections / paras.len()) == bucket
+                && selected.iter().all(|chosen| chosen.abs_diff(*idx) > 1)
+        }) {
+            selected.push(idx);
+        }
+    }
+    for (_, idx) in candidates {
+        if selected.len() >= max_results {
+            break;
+        }
+        if selected.iter().any(|chosen| chosen.abs_diff(idx) <= 1) {
+            continue;
+        }
+        selected.push(idx);
+    }
+    selected.sort_unstable();
+    selected
+        .into_iter()
+        .map(|idx| Passage {
+            id: idx + 1,
+            text: paras[idx].to_owned(),
+        })
+        .collect()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceAction {
     pub source_id: usize,
@@ -421,6 +556,44 @@ mod tests {
         assert_eq!(candidates[0].id, 2);
         assert!(candidates.iter().any(|p| p.id == 4));
         assert!(candidates.iter().all(|p| input.contains(&p.text)));
+    }
+
+    #[test]
+    fn novel_source_coverage_is_profile_and_model_agnostic() {
+        let paragraphs = [
+            "The clinician has explained the routine procedure at length.",
+            "An examination found a measurable change in the first area.",
+            "An unrelated pleasant conversation about the landscape.",
+            "A check was suggested if symptoms continue for several days.",
+            "Other details from the discussion provide ordinary background.",
+            "No intervention was completed because the result was uncertain.",
+            "A general conversation about the weather and holidays.",
+            "A follow-up examination was recommended for a later date.",
+        ];
+        let transcript = paragraphs.join("\n\n");
+        let draft = "The clinician has explained the routine procedure at length.";
+        let selected = source_coverage_candidates(&transcript, draft, 4);
+        assert!(!selected.is_empty());
+        assert!(selected.len() <= 4);
+        assert!(selected.iter().all(|p| transcript.contains(&p.text)));
+        assert!(selected.iter().all(|p| p.id != 1));
+        assert!(selected.iter().any(|p| p.id >= 5));
+        assert!(
+            selected
+                .iter()
+                .any(|p| p.text.contains("not completed") || p.text.contains("No intervention"))
+        );
+    }
+
+    #[test]
+    fn coverage_selection_is_bounded_and_rejects_noisy_nonclinical_text() {
+        let text = (0..90)
+            .map(|i| format!("A conversation about unrelated pleasant scenery number {i} but no clinical facts."))
+            .collect::<Vec<_>>().join("\n\n");
+        let selections = source_coverage_candidates(&text, "", 5);
+        assert!(selections.len() <= 5);
+        assert_eq!(source_coverage_candidates(&text, "", 0).len(), 0);
+        assert_eq!(source_coverage_candidates("", "", 5).len(), 0);
     }
 
     #[test]
