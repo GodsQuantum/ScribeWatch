@@ -111,11 +111,17 @@
 <AppShell {active} {uiMode} onmode={changeUiMode} onnav={nav} {spaces} {jobs} {assignments} {selectedSpace}
   onspace={chooseSpace} oncreateSpace={createSpace} ondeleteSpace={deleteSpace} onlocale={loadAll}
   {searchQuery} onsearch={(value)=>searchQuery=value}>
+  {#if !initialError&&!loading}
+    <!-- Keep REC mounted while navigating so a completed recording is still exported. -->
+    <div style:display={active==='live'?'contents':'none'}>
+      <LiveRecordView simpleMode={uiMode==='simple'} {providers} {structureProfiles} {jobs} {selectedSpace} onassign={assignJob} refresh={refreshJobs} {notify}/>
+    </div>
+  {/if}
   {#if initialError}<div class="page"><div class="notice danger"><strong>Cannot reach ScribeWatch.</strong><span>{initialError}</span><button class="btn" on:click={()=>loadAll(true)}>Retry</button></div></div>
   {:else if loading}<div class="page"><div class="empty loading-state">Loading ScribeWatch…</div></div>
   {:else if active==='home'}<DashboardView {stats} {jobs} {workflows} onnav={nav}/>
   {:else if active==='quick'}<QuickTranscribeView {providers} {structureProfiles} {jobs} {selectedSpace} onassign={assignJob} refresh={refreshJobs} {notify}/>
-  {:else if active==='live'}<LiveRecordView simpleMode={uiMode==='simple'} {providers} {structureProfiles} {jobs} {selectedSpace} onassign={assignJob} refresh={refreshJobs} {notify}/>
+  {:else if active==='live'}<!-- REC is rendered persistently above. -->
   {:else if active==='workflows'}<WorkflowsView {workflows} {providers} {structureProfiles} refresh={loadAll} {notify}/>
   {:else if active==='settings'}<SettingsView {uiMode} onmode={changeUiMode} {providers} {llmProviders} {structureProfiles} refresh={loadAll} {notify}/>
   {:else}<JobsView {jobs} {workflows} {spaces} {assignments} {selectedSpace} {searchQuery}

@@ -134,3 +134,9 @@ test('quick and live results expose every supported export format directly', asy
     assert.ok(view.includes('Export result'));
   }
 });
+
+test('REC stays mounted while navigating so automatic export can complete', async () => {
+  const page = await read('routes/+page.svelte');
+  assert.ok(page.includes("style:display={active==='live'?'contents':'none'}"));
+  assert.equal((page.match(/<LiveRecordView /g)||[]).length,1);
+});
