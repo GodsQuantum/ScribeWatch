@@ -1663,11 +1663,13 @@ mod tests {
         let mut external = local.clone();
         external.chat_completions_url = "https://example.org/v1/chat/completions".into();
         let long = "synthetic consultation ".repeat(2_000);
-        assert!(prefers_evidence_ledger(
-            "dental-consultation-complete-fr",
-            &local,
-            &long
-        ));
+        // Embedded context is sized to actual machine memory. macOS runners
+        // may have a smaller budget than the Linux reference machine.
+        let has_sufficient_context = crate::api::embedded::embedded_llm_context_tokens() >= 32_768;
+        assert_eq!(
+            prefers_evidence_ledger("dental-consultation-complete-fr", &local, &long),
+            has_sufficient_context
+        );
         assert!(!prefers_evidence_ledger(
             "dental-consultation",
             &local,
