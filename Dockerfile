@@ -5,6 +5,10 @@ WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+# One cross-language contract test reads the embedded backend source.
+# Include only that source file in the ephemeral frontend build stage;
+# it is not copied to the runtime image.
+COPY src/api/embedded.rs /src/src/api/embedded.rs
 RUN npm run check && npm test && npm run build
 
 FROM rust:1.98.1-trixie@sha256:a8a5f0a1e5fe7dfe1d352591e4a1c7dd2c08fd70475cae872cf3458ba0df0546 AS builder
