@@ -33,7 +33,7 @@ class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   if self.path=='/health': data={'status':'ok'}
   elif self.path=='/v1/models': data={'data':[{'id':'handy-computer/parakeet-ultra-gguf'}]}
-  elif self.path=='/models': data={'models':[{'id':'LiquidAI/LFM3-1.7B-GGUF:Q4_K_M'}]}
+  elif self.path=='/models' or self.path.startswith('/models?'): data={'models':[{'id':'LiquidAI/LFM3-1.7B-GGUF:Q4_K_M'}]}
   else: self.send_error(404);return
   payload=json.dumps(data).encode()
   self.send_response(200);self.send_header('Content-Length',str(len(payload)))
