@@ -2,6 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMedicalPdf, medicalFilename, structuredMedicalBody, uniqueMedicalFilename, wrapRichText, patientFacingMedicalBody } from '../src/lib/medical-report.ts';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import {spawnSync} from 'node:child_process';
+import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 
 test('medical PDF renders independently of server and excludes raw transcript when structured', async () => {
   const date = new Date(2026, 10, 3);
@@ -140,4 +144,179 @@ test("patient PDF excludes model review headings and editorial approval text", (
   assert.match(text, /Le soin est a discuter/);
   assert.match(text, /Un rendez-vous reste/);
   assert.doesNotMatch(text, /Points|Audit technique|r.sum. fid.lement|finalisation/);
+});
+
+
+test('pagination keeps compact sections together and uses spare page space', async t => {
+  const patient = {surname:'EXEMPLE',forename:'FICTIF',dateOfBirth:'2000-01-01',practitioner:'Dr Exemple'};
+  const paragraph = n => 'Le paragraphe fictif numero '+n+' sert uniquement a verifier la pagination. Aucun renseignement reel de patient, aucune information medicale ni aucune prescription ne figure dans cette demonstration. La mise en page doit suivre les rubriques de maniere compacte et lisible.';
+  const short = [
+    '## Section courte preservee',
+    'Un propos purement fictif pour verifier la coherence du groupe.',
+    '- ALPHA-MARQUEUR : Le premier point du groupe.',
+    '- BETA-MARQUEUR : Le second point du groupe.',
+    '- GAMMA-MARQUEUR : Le troisieme point du groupe.'
+  ].join('\n');
+  const extra = Array.from({length:13},(_,i)=>paragraph(i+1)).join('\n\n');
+  const document = '## Introduction detaillee\n'+extra+'\n\n'+short+'\n\n## Conclusion\nUne fin fictive.';
+  const file = await createMedicalPdf(document,patient,new Date(2026,10,11));
+  const pages = await PDFDocument.load(await file.arrayBuffer());
+  assert.equal(pages.getPageCount(),2,'Do not leave an almost empty first page before a long section');
+  const directory=mkdtempSync(join(tmpdir(),'scribewatch-pagination-'));
+  try {
+    const filename=join(directory,'fictional-report.pdf');
+    writeFileSync(filename,new Uint8Array(await file.arrayBuffer()));
+    const extracted=spawnSync('pdftotext',['-layout',filename,'-'],{encoding:'utf8'});
+    if(extracted.error?.code==='ENOENT'){
+      t.diagnostic('pdftotext unavailable; PDF page-count assertion still executed');
+      return;
+    }
+    assert.equal(extracted.status,0);
+    const textPages=extracted.stdout.split('\f').filter(text=>text.trim());
+    assert.equal(textPages.length,2);
+    assert.ok(textPages[0].split(/\s+/).length>200,'First page should be meaningfully used');
+    const markerPage=marker=>textPages.findIndex(text=>text.includes(marker));
+    const first=markerPage('Section courte preservee');
+    assert.ok(first>=0);
+    for(const label of ['ALPHA-MARQUEUR','BETA-MARQUEUR','GAMMA-MARQUEUR'])
+      assert.equal(markerPage(label),first,'Section header and its lines must remain together');
+    assert.ok(textPages.join('').includes('Conclusion'));
+  } finally {
+    rmSync(directory,{recursive:true,force:true});
+  }
+});
+
+test('several short sections share one PDF page; subsections stay with content', async t => {
+  const patient={surname:'EXEMPLE',forename:'FICTIF',dateOfBirth:'2000-01-01'};
+  const sections=Array.from({length:4},(_,i)=>'## Domaine fictif '+(i+1)+'\nUn texte court et fictif pour cette rubrique.').join('\n\n');
+  const shortPdf=await createMedicalPdf(sections,patient,new Date(2026,10,11));
+  assert.equal((await PDFDocument.load(await shortPdf.arrayBuffer())).getPageCount(),1);
+  const leading=Array.from({length:10},(_,i)=>'Paragraphe long fictif '+(i+1)+' : '+('Un contenu sans informations de patients et sans indications de soins. ').repeat(4)).join('\n\n');
+  const body='## Contexte general\n'+leading+'\n\n### Sous section a conserver\n\n- DELTA-FICTIF : Premiere note courte.\n- EPSILON-FICTIF : Deuxieme note courte.\n- ZETA-FICTIF : Derniere note courte.\n\n## Suite\nConclusion fictive.';
+  const blob=await createMedicalPdf(body,patient,new Date(2026,10,11));
+  const doc=await PDFDocument.load(await blob.arrayBuffer());
+  assert.ok(doc.getPageCount()>=2 && doc.getPageCount()<=3);
+  const directory=mkdtempSync(join(tmpdir(),'scribewatch-subsection-'));
+  try {
+    const filename=join(directory,'subsections.pdf');
+    writeFileSync(filename,new Uint8Array(await blob.arrayBuffer()));
+    const result=spawnSync('pdftotext',['-layout',filename,'-'],{encoding:'utf8'});
+    if(result.error?.code==='ENOENT'){
+      t.diagnostic('pdftotext unavailable; PDF page-count assertion still executed');
+      return;
+    }
+    assert.equal(result.status,0);
+    const parts=result.stdout.split('\f').filter(x=>x.trim());
+    const which=t=>parts.findIndex(page=>page.includes(t));
+    const heading=which('Sous section a conserver');
+    assert.ok(heading>=0);
+    assert.equal(which('DELTA-FICTIF'),heading);
+    assert.equal(which('EPSILON-FICTIF'),heading);
+    assert.equal(which('ZETA-FICTIF'),heading);
+  } finally {rmSync(directory,{recursive:true,force:true});}
+});
+
+
+
+
+test('deep Markdown subheadings render as real headings rather than literal hashes', async t => {
+  const patient={surname:'EXEMPLE',forename:'FICTIF',dateOfBirth:'2000-01-01'};
+  const markdown=[
+    '## Rubrique principale fictive',
+    '#### Sous-niveau profond fictif',
+    '- Premier exemple non medical.',
+    '- Second exemple non medical.',
+    '##### Encore un sous-niveau fictif',
+    'Un paragraphe de verification sans patient reel.'
+  ].join('\n');
+  const blob=await createMedicalPdf(markdown,patient,new Date(2026,10,11));
+  const pdf=await PDFDocument.load(await blob.arrayBuffer());
+  assert.equal(pdf.getPageCount(),1);
+  const directory=mkdtempSync(join(tmpdir(),'scribewatch-subheading-'));
+  try{
+    const filename=join(directory,'nested-headings.pdf');
+    writeFileSync(filename,new Uint8Array(await blob.arrayBuffer()));
+    const result=spawnSync('pdftotext',['-layout',filename,'-'],{encoding:'utf8'});
+    if(result.error?.code==='ENOENT'){
+      t.diagnostic('pdftotext unavailable; page-count assertion still executed');
+      return;
+    }
+    assert.equal(result.status,0);
+    assert.match(result.stdout,/Sous-niveau profond fictif/);
+    assert.match(result.stdout,/Encore un sous-niveau fictif/);
+    assert.doesNotMatch(result.stdout,/#{4,6}/,'No Markdown markers appear in the exported PDF');
+  }finally{rmSync(directory,{recursive:true,force:true});}
+});
+
+
+test('nested parent heading is never orphaned before its first child', async t => {
+  const patient={surname:'EXEMPLE',forename:'FICTIF',dateOfBirth:'2000-01-01'};
+  const directory=mkdtempSync(join(tmpdir(),'scribewatch-nested-'));
+  try{
+    for(const count of [6,10,14,18,22]){
+      const opening=Array.from({length:count},(_,i)=>
+        'Paragraphe totalement fictif numero '+(i+1)+' : '+('Un texte de test sans fait clinique ou identite reelle. ').repeat(4)).join('\n\n');
+      const content=[
+        '## Contexte fictif',opening,
+        '### PARENT-DE-SECTION',
+        '#### PREMIER-ENFANT-DE-SECTION',
+        ...Array.from({length:7},(_,i)=>'- EXEMPLE-'+i+' : '+('Donnee purement fictive. ').repeat(3)),
+        '#### AUTRE-ENFANT-DE-SECTION',
+        'Une suite de paragraphe fictive.'
+      ].join('\n');
+      const pdf=await createMedicalPdf(content,patient,new Date(2026,10,11));
+      const pageCount=(await PDFDocument.load(await pdf.arrayBuffer())).getPageCount();
+      assert.ok(pageCount<=4,'A short nested document should not waste pages');
+      const filename=join(directory,'nested-'+count+'.pdf');
+      writeFileSync(filename,new Uint8Array(await pdf.arrayBuffer()));
+      const result=spawnSync('pdftotext',['-layout',filename,'-'],{encoding:'utf8'});
+      if(result.error?.code==='ENOENT'){
+        t.diagnostic('pdftotext unavailable; PDF page-count assertions still executed');
+        break;
+      }
+      assert.equal(result.status,0);
+      const pages=result.stdout.split('\f').filter(page=>page.trim());
+      const which=word=>pages.findIndex(page=>page.includes(word));
+      const parent=which('PARENT-DE-SECTION'),child=which('PREMIER-ENFANT-DE-SECTION');
+      assert.ok(parent>=0 && child>=0);
+      assert.equal(parent,child,'Parent and first child must not split at a page break (size '+count+')');
+    }
+  }finally{rmSync(directory,{recursive:true,force:true});}
+});
+
+test('multi-page tables repeat headers and never split a table row', async t => {
+  const patient={surname:'EXEMPLE',forename:'FICTIF',dateOfBirth:'2000-01-01'};
+  const rows=Array.from({length:42},(_,i)=>
+    '| LIGNE-'+String(i+1).padStart(2,'0')+' | Une observation fictive sans contenu médical et sans patient réel. |');
+  const markdown=[
+    '## Tableau de suivi fictif',
+    '| REPERE | INFORMATION GENERALE |',
+    '|---|---|',
+    ...rows,
+    '## Conclusion fictive',
+    'Le tableau est terminé.'
+  ].join('\n');
+  const blob=await createMedicalPdf(markdown,patient,new Date(2026,10,11));
+  const doc=await PDFDocument.load(await blob.arrayBuffer());
+  assert.ok(doc.getPageCount()>1,'The test needs a table spanning multiple pages');
+  const directory=mkdtempSync(join(tmpdir(),'scribewatch-table-'));
+  try{
+    const filename=join(directory,'fictional-table.pdf');
+    writeFileSync(filename,new Uint8Array(await blob.arrayBuffer()));
+    const result=spawnSync('pdftotext',['-layout',filename,'-'],{encoding:'utf8'});
+    if(result.error?.code==='ENOENT'){
+      t.diagnostic('pdftotext unavailable; PDF page-count assertion still executed');
+      return;
+    }
+    assert.equal(result.status,0);
+    const pages=result.stdout.split('\f').filter(page=>page.trim());
+    for(const page of pages){
+      if(/LIGNE-\d\d/.test(page))assert.match(page,/REPERE/,'Each table page must repeat its header');
+    }
+    const text=pages.join('\n');
+    for(let i=1;i<=42;i++){
+      const code='LIGNE-'+String(i).padStart(2,'0');
+      assert.equal(text.split(code).length-1,1,'Every table entry appears exactly once: '+code);
+    }
+  }finally{rmSync(directory,{recursive:true,force:true});}
 });
