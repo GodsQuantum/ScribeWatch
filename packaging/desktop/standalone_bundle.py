@@ -170,7 +170,7 @@ def compose(
             "see licenses/llama.cpp-LICENSE.txt.\n"
             "Exact release archive hashes and runtime files are listed in "
             "BUNDLED-RUNTIMES-SHA256.json.\n"
-            "All machine-learning model weights are downloaded on explicit request only.\n",
+            "On first normal desktop launch, Parakeet Ultra and Qwen3.5-4B model weights download automatically into the local cache.\n",
             encoding="utf-8",
         )
         all_files = sorted(p for p in engines.rglob("*") if p.is_file())

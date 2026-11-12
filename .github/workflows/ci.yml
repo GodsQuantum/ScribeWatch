@@ -23,6 +23,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Public repository patient and secret data gate
+        run: python3 scripts/audit-public-tree.py
       - name: Install audio test dependency
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Install pinned Rust
@@ -34,6 +36,7 @@ jobs:
         run: |
           cargo +1.98.0 build --locked --bin scribewatch
           python3 -m unittest discover -s packaging/desktop -p test_embedded_runtime.py -v
+          SCRIBEWATCH_TEST_BINARY="$PWD/target/debug/scribewatch" python3 -m unittest discover -s packaging/desktop -p test_native_first_run.py -v
           python3 -m unittest discover -s packaging/desktop -p test_spaces_e2e.py -v
           python3 -m unittest discover -s packaging/desktop -p test_standalone_bundle.py -v
 

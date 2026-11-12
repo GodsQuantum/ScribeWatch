@@ -8,6 +8,7 @@ on:
       - 'packaging/desktop/**'
       - '.github/workflows/standalone-windows.yml'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -97,6 +98,12 @@ jobs:
           cd ..
           cargo build --release --locked
           cargo build --release --locked --manifest-path packaging/desktop/launcher/Cargo.toml
+
+      - name: Verify first-run provider and profile configuration on Windows
+        shell: bash
+        run: |
+          SCRIBEWATCH_TEST_BINARY="$PWD/target/release/scribewatch.exe" \
+            python -m unittest discover -s packaging/desktop -p test_native_first_run.py -v
 
       - name: Install NSIS via immutable action
         uses: negrutiu/nsis-install@f3339c88dba6fd08910d5275a943f8f746d94876 # v2

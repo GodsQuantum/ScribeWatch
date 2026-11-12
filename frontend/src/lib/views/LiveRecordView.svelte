@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { api } from '$lib/api';
+  import { defaultQwen4bModelReady } from '$lib/native-model-ready';
   import ReportEditor from '$lib/components/ReportEditor.svelte';
   import { locale, t } from '$lib/i18n';
   import { canSaveToDirectory, ensureDirectoryPermission, saveMarkdownLocally, saveResponseToDirectory, uniqueDirectoryFilename } from '$lib/local-save';
@@ -40,6 +41,63 @@
   let permissionName:'granted'|'prompt'|'denied'|'unknown'='unknown';
   let secureContext=true;
   let mediaError='';
+  // Native first launch prepares both default models on-device. While the
+  // installer is active, recheck readiness; stop immediately when complete.
+  let nativeSetup:'not-managed'|'checking'|'pending'|'ready'|'error'=(simpleMode&&providers.some(p=>p.id==='scribewatch-native-parakeet'))?'checking':'not-managed';
+  let nativeSetupMessage='';
+  let nativeSetupTimer:ReturnType<typeof setTimeout>|undefined;
+  async function checkNativeSetup(){
+    // Temporary only during the initial model download, never a permanent
+    // background interval. Normal REC starts automatically when ready.
+    if(nativeSetupTimer!==undefined){
+      clearTimeout(nativeSetupTimer);
+      nativeSetupTimer=undefined;
+    }
+    if(!simpleMode||!providers.some(p=>p.id==='scribewatch-native-parakeet')){
+      nativeSetup='not-managed';return;
+    }
+    nativeSetup='checking';
+    try{
+      const status=await api.embeddedStatus();
+      if(!status.desktop){nativeSetup='not-managed';return;}
+      if(status.download.status.startsWith('error:')){
+        nativeSetup='error';
+        nativeSetupMessage=status.download.status.slice(6).trim();
+        return;
+      }
+      const asr=status.engines.find(engine=>engine.kind==='stt');
+      const llm=status.engines.find(engine=>engine.kind==='llm');
+      if(!asr?.running||!llm?.running){
+        nativeSetup='pending';
+        nativeSetupMessage='Local engines are starting. Try again when ready.';
+        return;
+      }
+      const [transcribers,writers]=await Promise.all([
+        api.embeddedModels('stt'),api.embeddedModels('llm')
+      ]);
+      const asrReady=(transcribers.data??transcribers.models??[])
+        .some(item=>(item.id??item.model??'').toLowerCase().includes('parakeet-ultra'));
+      const llmReady=(writers.data??writers.models??[]).some(defaultQwen4bModelReady);
+      nativeSetup=asrReady&&llmReady?'ready':'pending';
+      nativeSetupMessage=asrReady&&llmReady?'Parakeet Ultra and Qwen3.5-4B are installed locally.':
+        t($locale, 'Default models are being installed locally. This first download happens once.')+' '+(asrReady?t($locale,'Parakeet ready'):t($locale,'Parakeet downloading'))+' · '+(llmReady?t($locale,'Qwen4B ready'):t($locale,'Qwen4B downloading'));
+    }catch(error){
+      nativeSetup='error';
+      nativeSetupMessage=error instanceof Error?error.message:String(error);
+    }finally{
+      if(nativeSetup==='pending'){
+        nativeSetupTimer=setTimeout(()=>{void checkNativeSetup();},10000);
+      }
+    }
+  }
+
+  // REC remains mounted across settings/navigation. On a transition from
+  // advanced to simple, activate native readiness checks without a reload.
+  $: if(simpleMode&&providers.some(p=>p.id==='scribewatch-native-parakeet')&&nativeSetup==='not-managed'){
+    nativeSetup='checking';
+    void checkNativeSetup();
+  }
+
   let permissionStatus:PermissionStatus|undefined;
 
   let snapshot:LiveRecorderSnapshot=controller.getSnapshot();
@@ -368,7 +426,9 @@
   $: outputReady=outputMode==='computer'||!!outputDir;
   $: audioRetentionReady=audioRetentionMode!=='server'||!!audioServerDir;
   // Simple mode never starts unless its destination can retain the audio and documents.
-  $: canRecord=chainReady&&outputReady&&audioRetentionReady&&!processing&&(!simpleMode||!!simpleDirectory);
+  $: canRecord=chainReady&&outputReady&&audioRetentionReady&&!processing&&(!simpleMode||!!simpleDirectory)&&(
+    !simpleMode||nativeSetup==='not-managed'||nativeSetup==='ready'
+  );
   $: localDirectoryAvailable=typeof window!=='undefined'&&canSaveToDirectory(window);
   $: selectedRecovery=recoveries.find((session)=>session.id===selectedRecoveryId);
   $: selectedRecoveryPlayable=selectedRecovery?.segments.filter((segment)=>segment.chunkCount>0)??[];
@@ -825,6 +885,7 @@
   }
 
   onMount(()=>{
+    void checkNativeSetup();
     if(simpleMode){
       void recoveryStore.loadClientDirectoryHandle(simpleDirectoryKey).then(savedFolder=>{
         if(!savedFolder||!localDirectoryAvailable)return;
@@ -916,6 +977,7 @@
   });
 
   onDestroy(()=>{
+    if(nativeSetupTimer!==undefined)clearTimeout(nativeSetupTimer);
     if(permissionStatus)permissionStatus.onchange=null;
     navigator.mediaDevices?.removeEventListener?.('devicechange',refreshMicrophones);
     unsubscribeController?.();
@@ -933,6 +995,19 @@
     </div>
   </div>
 
+  {#if nativeSetup!=='not-managed'&&nativeSetup!=='ready'}
+    <div class="notice warning" role="status" aria-live="polite">
+      <strong>{t($locale,'Preparing ScribeWatch locally')}</strong>
+      <span>{nativeSetup==='checking'?t($locale,'Checking installed models…'):t($locale,nativeSetupMessage)}</span>
+      <button class="btn compact" type="button" disabled={nativeSetup==='checking'} on:click={checkNativeSetup}>{t($locale,'Refresh model status')}</button>
+      {#if nativeSetup==='error'}
+        <span>If the download was interrupted, restart ScribeWatch or open Advanced Settings to resume.</span>
+      {/if}
+    </div>
+  {/if}
+  {#if nativeSetup==='ready'}
+    <div class="notice" role="status"><strong>{t($locale,'Local AI ready')}</strong><span>Parakeet Ultra + Qwen3.5-4B · consultation data stays on this computer.</span></div>
+  {/if}
   {#if providers.length===0}<div class="notice warning">Add a transcription provider first.</div>{/if}
   {#if mediaError}<div class="notice warning microphone-warning"><strong>Microphone</strong><span>{mediaError}</span></div>{/if}
   {#if recoveryError}<div class="notice warning"><strong>Recovery storage</strong><span>{recoveryError}</span></div>{/if}
@@ -1191,7 +1266,7 @@
       <div class="card-header"><strong>Recording result</strong>{#if current}<span class="status-pill {current.status}">{current.status}</span>{/if}</div>
       <div class="card-body result-body">
         {#if !current}
-          <div class="empty result-empty"><span>REC</span><strong>Press the record button.</strong><p>During a long session, ScribeWatch checkpoints audio locally. Stop finalizes one M4A on Cloud9, then transcribes it.</p></div>
+          <div class="empty result-empty"><span>REC</span><strong>Press the record button.</strong><p>During a long session, ScribeWatch checkpoints audio locally. Stop finalizes one M4A in ScribeWatch, then transcribes it.</p></div>
         {:else if current.status==='error'||current.status==='interrupted'||current.status==='cancelled'}
           <div class="error-box"><strong>Processing did not finish</strong><span>{current.error??current.status}</span>{#if current.quick?.sourceKind==='live'}<button class="btn compact" on:click={()=>api.retryJob(current.id).then(refresh).catch((e)=>notify('error',String(e)))}>Retry</button>{/if}</div>
         {:else if current.status==='done'}

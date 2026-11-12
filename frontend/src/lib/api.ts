@@ -87,7 +87,7 @@ export const api = {
       method:'POST',body:JSON.stringify({kind,mode})
     }),
   embeddedModels: (kind:'stt'|'llm') =>
-    request<{data?:Array<{id?:string;model?:string}>;models?:Array<{id?:string;model?:string}>}>('/api/v1/embedded/models/'+kind),
+    request<{data?:Array<{id?:string;model?:string;status?:{value?:string}|string}>;models?:Array<{id?:string;model?:string;status?:{value?:string}|string}>}>('/api/v1/embedded/models/'+kind),
   embeddedAsrVariants: (source:string) => request<{variants:Array<{label:string;filename:string}>}>('/api/v1/embedded/stt/variants', {
     method:'POST',body:JSON.stringify({source})
   }),

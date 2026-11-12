@@ -229,7 +229,7 @@ Browsers cannot continuously watch arbitrary folders on another computer. Scribe
 
 - local audio enters through drag-and-drop, the browser file picker, or Live Recorder microphone capture;
 - completed Markdown can be written directly to a local folder when the browser supports the File System Access API in a secure context;
-- LIVE final audio can likewise be saved to a chosen client folder after Cloud9 finalizes the canonical M4A; the directory handle stays browser-side in IndexedDB/OPFS metadata;
+- LIVE final audio can likewise be saved to a chosen client folder after ScribeWatch finalizes the canonical M4A; the directory handle stays browser-side in IndexedDB/OPFS metadata;
 - otherwise ScribeWatch downloads the file normally.
 
 No browser directory handle is sent to or stored by the ScribeWatch server.
@@ -278,6 +278,21 @@ If ScribeWatch earns a place in your stack, a ⭐ helps other voice-note and Obs
 
 [MIT](LICENSE)
 
+## First use — Windows full standalone installer
+
+On a fresh Windows workstation, the full standalone installer configures the
+five default report profiles, downloads the Parakeet Ultra transcription and
+Qwen3.5-4B Q4_K_M local writing models, and starts the built-in engines.
+The first download requires internet (several GB); all consultation audio
+and document generation remain on the workstation. Wait for the REC readiness
+indicator, enter practice details and choose the export folder, allow the
+microphone once, then click REC and Stop. The local PDF is an editable draft
+requiring the responsible clinician to review it before use.
+
+The lightweight native installers, current macOS/Linux packages and Docker do
+not include the full native acoustic and LLM runtime bundle. Provision their
+engines manually until platform-specific E2E-certified bundles exist.
+
 ## Hardware-aware safe performance starter
 
 **Downloads:** [Linux](https://github.com/GodsQuantum/ScribeWatch/releases) · [Windows x64 / macOS Intel and Apple Silicon installer candidates](https://github.com/GodsQuantum/ScribeWatch/releases/tag/desktop-v0.5.3-rc.2). Windows/macOS candidates are unsigned and not Apple-notarized. Check SHA256 before trusting a binary.
@@ -288,7 +303,7 @@ python3 scripts/auto-tune.py --env     # suggested settings to review for .env
 ~~~
 
 - On a small host with 2–4 effective threads or under 8 GiB, start with a single transcription.
-- On a shared Ryzen 7 8845HS with 16 threads and a 32 GiB container, start with 2 concurrent jobs, 1 FFmpeg decode thread, 5-second scan interval and 2-second file stability. Slow NFS mounts may require longer stability.
+- On a generic 16-thread, 32 GiB host, start with 2 concurrent jobs, 1 FFmpeg decode thread, 5-second scan interval and 2-second file stability. Slow NFS mounts may require longer stability.
 - Pair an actually available Speaches /v1 or OpenAI-compatible provider from Settings. Test a real audio file and the Markdown/Obsidian output, then check retries, archive safety and provider fallback before enabling a watched folder.
 - A remote NAS container cannot automatically access client-side microphones or files. Enable client folder access or explicitly authorized paths.
 - This detector does **not** modify files, existing mounts, application data or running services. For remote access prefer an authenticated HTTPS reverse proxy over exposing the default loopback-bound Docker port.

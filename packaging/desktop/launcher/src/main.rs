@@ -262,6 +262,9 @@ fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
     let mut child = command
         .env(format!("{APP_ENV}_HOST"), "127.0.0.1")
         .env("SCRIBEWATCH_DESKTOP_MODE", "1")
+        // Normal first launch provisions the default on-device ASR/4B model.
+        // Smoke tests must never contact Hugging Face or download gigabytes.
+        .env("SCRIBEWATCH_NATIVE_AUTOINIT", if smoke { "0" } else { "1" })
         .env("SCRIBEWATCH_EMBEDDED_DIR", root.join("bin").join("engines"))
         .env(format!("{APP_ENV}_PORT"), port.to_string())
         .env(format!("{APP_ENV}_CONFIG_DIR"), &config)

@@ -49,6 +49,21 @@ const LLM_SUGGESTIONS: &[&str] = &[
     "unsloth/Qwen3.5-2B-GGUF:Q4_K_M", // small-memory fallback; requires review
 ];
 
+/// The local llama.cpp router may advertise incomplete/downloading files
+/// in /v1/models. A catalog entry alone is NOT model readiness.
+fn default_qwen4b_downloaded(entry: &Value) -> bool {
+    let id = entry.get("id").and_then(Value::as_str);
+    let correct_model = matches!(
+        id,
+        Some("unsloth/Qwen3.5-4B-GGUF:Q4_K_M" | "Qwen3.5-4B-Q4_K_M" | "Qwen3.5-4B-Q4_K_M.gguf")
+    );
+    correct_model
+        && matches!(
+            entry.pointer("/status/value").and_then(Value::as_str),
+            Some("loaded" | "unloaded" | "sleeping")
+        )
+}
+
 // Use the upstream llama.cpp server on every supported desktop OS: no
 // extra model manager and no GPU-specific custom daemon. Memory heuristics
 // select a safe default; expert overrides are opt-in and range checked.
@@ -550,6 +565,114 @@ impl EmbeddedManager {
         Ok(())
     }
 
+    /// One-shot first-launch preparation. Uses the existing upstream model
+    /// downloaders and the bundled runtime, without a helper service/timer.
+    /// Only selected by the native launcher and its ScribeWatch-owned provider.
+    /// A restart may safely resume incomplete upstream downloads.
+    pub async fn prepare_default_models(&self) {
+        if !self.available() {
+            return;
+        }
+        let modes = self.modes.read().await.clone();
+        if modes.llm != Mode::Internal || modes.stt != Mode::Internal {
+            return; // A user-selected external/disabled engine is authoritative.
+        }
+        // Do not contact a port that could be owned by another application:
+        // both engines must be child processes owned by this ScribeWatch.
+        let owned = self.statuses().await;
+        if owned.len() != 2 || owned.iter().any(|engine| !engine.running) {
+            tracing::warn!("Native first-use models pending until both ScribeWatch engines start");
+            return;
+        }
+        let client = match Client::builder()
+            .timeout(Duration::from_secs(60))
+            .redirect(Policy::none())
+            .no_proxy()
+            .build()
+        {
+            Ok(client) => client,
+            Err(error) => {
+                tracing::warn!(%error, "Native model bootstrap HTTP client unavailable");
+                return;
+            }
+        };
+        // Request Qwen first; llama.cpp performs/resumes the full download
+        // asynchronously while the acoustic pack is provisioned locally.
+        let llm_model = "unsloth/Qwen3.5-4B-GGUF:Q4_K_M";
+        let llm_url = format!("http://127.0.0.1:{LLM_PORT}");
+        let cached = match client.get(format!("{llm_url}/v1/models")).send().await {
+            Ok(response) if response.status().is_success() => response
+                .json::<Value>()
+                .await
+                .ok()
+                .and_then(|doc| doc.get("data").and_then(Value::as_array).cloned())
+                .is_some_and(|items| items.iter().any(default_qwen4b_downloaded)),
+            _ => false,
+        };
+        if !cached {
+            *self.download.write().await = DownloadStatus {
+                status: "downloading".into(),
+                model: llm_model.into(),
+            };
+            let outcome = client
+                .post(format!("{llm_url}/models"))
+                .json(&json!({"model": llm_model, "sidecars": []}))
+                .send()
+                .await;
+            let valid = match outcome {
+                Ok(reply) if reply.status().is_success() => {
+                    reply.json::<Value>().await.ok().is_some_and(|doc| {
+                        doc.get("success").and_then(Value::as_bool) == Some(true)
+                    })
+                }
+                _ => false,
+            };
+            self.download.write().await.status = if valid {
+                "download-started".into()
+            } else {
+                tracing::warn!(
+                    "Default Qwen4B download was not accepted; user can retry in Settings"
+                );
+                "error: Default Qwen4B download could not start".into()
+            };
+        }
+
+        // The acoustic pack CLI defaults to WHISPER, not Parakeet. Request
+        // exactly the benchmark-validated Parakeet Ultra through the upstream
+        // native transcribe.cpp GGUF catalog API instead.
+        let stt_url = format!("http://127.0.0.1:{STT_PORT}/v1/models");
+        let stt_ready = match client.get(&stt_url).send().await {
+            Ok(response) if response.status().is_success() => response
+                .json::<Value>()
+                .await
+                .ok()
+                .and_then(|doc| doc.get("data").and_then(Value::as_array).cloned())
+                .is_some_and(|models| {
+                    models.iter().any(|item| {
+                        item.get("id").and_then(Value::as_str)
+                            == Some("handy-computer/parakeet-ultra-gguf")
+                    })
+                }),
+            _ => false,
+        };
+        if !stt_ready {
+            let model = "handy-computer/parakeet-ultra-gguf";
+            *self.download.write().await = DownloadStatus {
+                status: "downloading".into(),
+                model: model.into(),
+            };
+            let result = install_curated_asr(&client, model).await;
+            let mut progress = self.download.write().await;
+            progress.status = match result {
+                Ok(()) => "download-started".into(),
+                Err(error) => {
+                    tracing::warn!("Native Parakeet download failed; Settings permits retry");
+                    format!("error: {error}")
+                }
+            };
+        }
+    }
+
     pub async fn recover(&self) {
         if !self.available() {
             return;
@@ -685,6 +808,7 @@ pub async fn status(State(state): State<AppState>) -> Json<RuntimeStatusResponse
     let mut download = state.embedded.download.read().await.clone();
     if (download.status == "download-started" || download.status.starts_with("downloading"))
         && download.model.contains('/')
+        && download.model.contains(':')
         && state.embedded.available()
     {
         // Refresh only when the user explicitly requests the status. The upstream
@@ -923,6 +1047,57 @@ fn valid_hf_repo(model: &str) -> bool {
     valid(a) && valid(b) && parts.next().is_none() && quant.len() < 30 && valid(quant)
 }
 
+// Shared upstream-native curated ASR download used by initial desktop
+// provisioning and explicit model selection. No secondary downloader service.
+async fn install_curated_asr(client: &Client, model: &str) -> Result<(), String> {
+    let origin = format!("http://127.0.0.1:{STT_PORT}");
+    let variants = client
+        .post(format!("{origin}/v1/desktop-asr/variants"))
+        .json(&json!({"source": model}))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !variants.status().is_success() {
+        return Err(format!(
+            "ASR model catalog returned HTTP {}",
+            variants.status()
+        ));
+    }
+    let body = variants.json::<Value>().await.map_err(|e| e.to_string())?;
+    let entries = body
+        .get("variants")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "Invalid ASR quantization catalog".to_owned())?;
+    let file = entries
+        .iter()
+        .filter_map(|entry| entry.get("filename").and_then(Value::as_str))
+        .find(|name| name.to_ascii_uppercase().ends_with("-Q6_K.GGUF"))
+        .or_else(|| {
+            entries
+                .iter()
+                .filter_map(|entry| entry.get("filename").and_then(Value::as_str))
+                .find(|name| name.to_ascii_uppercase().ends_with("-Q4_K_M.GGUF"))
+        })
+        .or_else(|| {
+            entries
+                .iter()
+                .filter_map(|entry| entry.get("filename").and_then(Value::as_str))
+                .next()
+        })
+        .ok_or_else(|| "ASR repo has no suitable GGUF variant".to_owned())?;
+    let response = client
+        .post(format!("{origin}/v1/desktop-asr/install"))
+        .json(&json!({"source":model,"filename":file}))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !response.status().is_success() {
+        return Err(format!("ASR download returned HTTP {}", response.status()));
+    }
+
+    Ok(())
+}
+
 pub async fn download(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -985,50 +1160,7 @@ pub async fn download(
             if input.kind == EngineKind::Stt {
                 // Curated transcribe.cpp HF GGUFs must use the portable-native
                 // cache downloader, not the older Whisper registry endpoint.
-                let origin = format!("http://127.0.0.1:{STT_PORT}");
-                let variants = client
-                    .post(format!("{origin}/v1/desktop-asr/variants"))
-                    .json(&json!({"source": input.model}))
-                    .send()
-                    .await
-                    .map_err(|e| e.to_string())?;
-                if !variants.status().is_success() {
-                    return Err(format!(
-                        "ASR model catalog returned HTTP {}",
-                        variants.status()
-                    ));
-                }
-                let body = variants.json::<Value>().await.map_err(|e| e.to_string())?;
-                let entries = body
-                    .get("variants")
-                    .and_then(Value::as_array)
-                    .ok_or_else(|| "Invalid ASR quantization catalog".to_owned())?;
-                let file = entries
-                    .iter()
-                    .filter_map(|entry| entry.get("filename").and_then(Value::as_str))
-                    .find(|name| name.to_ascii_uppercase().ends_with("-Q6_K.GGUF"))
-                    .or_else(|| {
-                        entries
-                            .iter()
-                            .filter_map(|entry| entry.get("filename").and_then(Value::as_str))
-                            .find(|name| name.to_ascii_uppercase().ends_with("-Q4_K_M.GGUF"))
-                    })
-                    .or_else(|| {
-                        entries
-                            .iter()
-                            .filter_map(|entry| entry.get("filename").and_then(Value::as_str))
-                            .next()
-                    })
-                    .ok_or_else(|| "ASR repo has no suitable GGUF variant".to_owned())?;
-                let response = client
-                    .post(format!("{origin}/v1/desktop-asr/install"))
-                    .json(&json!({"source":input.model,"filename":file}))
-                    .send()
-                    .await
-                    .map_err(|e| e.to_string())?;
-                if !response.status().is_success() {
-                    return Err(format!("ASR download returned HTTP {}", response.status()));
-                }
+                install_curated_asr(&client, &input.model).await?;
                 return Ok::<_, String>(());
             }
             let response = client
@@ -1084,6 +1216,31 @@ mod tests {
         assert!(!valid_hf_repo("a/b/c:Q4"));
         assert!(!allowed_model(EngineKind::Stt, "unknown/repo"));
     }
+    #[test]
+    fn model_catalog_does_not_equal_download_completed() {
+        for id in [
+            "unsloth/Qwen3.5-4B-GGUF:Q4_K_M",
+            "Qwen3.5-4B-Q4_K_M",
+            "Qwen3.5-4B-Q4_K_M.gguf",
+        ] {
+            assert!(default_qwen4b_downloaded(&json!({
+                "id":id,"status":{"value":"unloaded"}
+            })));
+        }
+        for status in ["downloading", "incomplete", "error", "pending"] {
+            assert!(!default_qwen4b_downloaded(&json!({
+                "id":"unsloth/Qwen3.5-4B-GGUF:Q4_K_M",
+                "status":{"value":status}
+            })));
+        }
+        assert!(!default_qwen4b_downloaded(&json!({
+            "id":"unsloth/Qwen3.5-4B-GGUF:Q4_K_M"
+        })));
+        assert!(!default_qwen4b_downloaded(&json!({
+            "id":"Qwen3.5-9B-Q4_K_M","status":{"value":"unloaded"}
+        })));
+    }
+
     #[test]
     fn clinically_tested_defaults_are_preferred_across_desktop_platforms() {
         assert_eq!(PACK_MODELS[0], "handy-computer/parakeet-ultra-gguf");

@@ -508,11 +508,26 @@ fn content_text(value: &Value) -> Option<String> {
 /// to persist the source transcript or any patient text. Unlike llama.cpp's
 /// random -1 default this makes repeated inputs reproducible on a fixed
 /// model/backend, while remaining explicit that GPU kernels can differ.
+// llama.cpp exposes a Hugging Face cache key and a local GGUF filename as
+// separate IDs for the SAME default Qwen4B weights. Use the validated local
+// name for both so the seed does not vary solely by installation method.
+// Do not affect any different model or quantization.
+fn default_qwen4b_seed_identity(model: &str) -> &str {
+    if matches!(
+        model,
+        "unsloth/Qwen3.5-4B-GGUF:Q4_K_M" | "Qwen3.5-4B-Q4_K_M.gguf"
+    ) {
+        "Qwen3.5-4B-Q4_K_M"
+    } else {
+        model
+    }
+}
+
 fn stable_completion_seed(model: &str, system: &str, user: &str) -> u32 {
     const OFFSET: u64 = 0xcbf29ce484222325;
     const PRIME: u64 = 0x100000001b3;
     let mut hash = OFFSET;
-    for part in [model, system, user] {
+    for part in [default_qwen4b_seed_identity(model), system, user] {
         for byte in part.as_bytes().iter().copied().chain([0]) {
             hash ^= byte as u64;
             hash = hash.wrapping_mul(PRIME);
@@ -766,6 +781,27 @@ prescription ou décision. Texte Markdown terminé.\n\n\
         bail!("No completed clinical sections");
     }
     Ok(sections.join("\n\n"))
+}
+
+/// Applied at inference time to avoid migrating/overwriting saved profiles.
+/// Every domain must preserve the entire source, not just the beginning or
+/// the items traditionally found in a textbook/example document.
+fn generic_profile_fidelity_guidance(id: &str) -> &'static str {
+    match id {
+        "medical-consultation" => {
+            "\n\nSOURCE FIDELITY FOR MEDICAL DRAFTS: This is an unverified draft for clinician review. Preserve patient-reported versus clinician-observed facts, symptoms and explicitly denied symptoms, medication names, doses, units, tests and dates ONLY when spoken. Preserve uncertainty, conditions and chronology. Do not infer a diagnosis, medication, consent, or negative exam from silence. Read the beginning, middle AND end of the whole transcript; group repeated statements, retain distinctive details, and mark genuinely ambiguous facts for review rather than filling them in."
+        }
+        "meeting-minutes" => {
+            "\n\nWHOLE-MEETING COVERAGE: Read the beginning, middle AND end. Group each distinct topic, proposals, objections, decisions and unresolved disagreements without merging them. Separate a suggestion from an agreed decision and an assigned action. Preserve exact amounts, constraints, owners, dates and deadlines only when explicitly said. Keep details of instructions and dependencies; do not invent attendees, actions or meeting dates. Be concise by removing repetitions, not information."
+        }
+        "marketing-brainstorm" => {
+            "\n\nWHOLE-BRAINSTORM COVERAGE: Preserve all distinct ideas, including unusual, rejected and minority suggestions. Group related ideas without collapsing distinct alternatives. Mark hypotheses, constraints, objections, unresolved possibilities, explicit decisions and experiments separately. Do not silently turn a creative idea into a commitment or invent metrics, budgets, dates or owners. Read the entire transcript and remove duplication rather than losing unusual details."
+        }
+        "general-structured-note" => {
+            "\n\nWHOLE-SOURCE COVERAGE: Check the beginning, middle AND end before writing. Group distinct facts, numbers, decisions, action items, contextual qualifications and unresolved questions by subject. Keep relevant negations, exceptions, conditional statements and concrete details. Do not turn an observation into a decision or invent people, dates or steps. Omit unsupported sections; combine repetitions, not distinct ideas."
+        }
+        _ => "",
+    }
 }
 
 /// This versioned profile opts into detailed whole-consultation grounding.
@@ -1188,6 +1224,12 @@ pub async fn structure_transcript(
 
     let mut profile_system = structure_system_prompt(&profile);
     let is_dental = is_dental_profile(&profile.id);
+    if !is_dental {
+        // Cross-profile evidence safeguards are runtime instructions: user
+        // profile text stays editable and is never silently overwritten.
+        // Unlike the dental policy, these are not specific to a case or model.
+        profile_system.push_str(generic_profile_fidelity_guidance(&profile.id));
+    }
     if is_dental {
         profile_system.push_str("\n\nINSTRUCTIONS SPÉCIFIQUES AU MODÈLE (ne supplantent jamais les règles de sûreté) :\n");
         profile_system.push_str(dental_document_guidance(
@@ -1304,7 +1346,7 @@ pub async fn structure_transcript(
         let mut evidence = Vec::with_capacity(chunks.len());
         for (index, chunk) in chunks.iter().enumerate() {
             let chunk_system = format!(
-                "{}\n\nThis is pass 1 of a long transcript. Extract compact factual evidence relevant to the final structure. Preserve names, dates, numbers, decisions, action items, uncertainty and clinically meaningful negations. Do not add conclusions.",
+                "{}\n\nThis is pass 1 of a long transcript. Extract detailed, non-duplicated factual evidence from EVERY topic, including rare or dissenting statements. Preserve names, dates, numbers, conditions, negations, alternatives, constraints, decisions versus proposals, action items, ownership, and uncertainty. Do not invent conclusions, and do not discard details merely to shorten the output.",
                 fixed_system_prompt()
             );
             let user = format!(
@@ -1547,6 +1589,29 @@ mod tests {
         );
         assert!(body.get("max_tokens").is_none());
         assert!(body.get("chat_template_kwargs").is_none());
+    }
+
+    #[test]
+    fn default_qwen4b_seed_matches_hf_cache_and_local_gguf_aliases() {
+        let system = "Evidence from transcript only";
+        let user = "Synthetic note about a laboratory meeting.";
+        let canonical = stable_completion_seed("Qwen3.5-4B-Q4_K_M", system, user);
+        assert_eq!(
+            canonical,
+            stable_completion_seed("unsloth/Qwen3.5-4B-GGUF:Q4_K_M", system, user)
+        );
+        assert_eq!(
+            canonical,
+            stable_completion_seed("Qwen3.5-4B-Q4_K_M.gguf", system, user)
+        );
+        assert_ne!(
+            canonical,
+            stable_completion_seed("Qwen3.5-9B-Q4_K_M", system, user)
+        );
+        assert_ne!(
+            canonical,
+            stable_completion_seed("unsloth/Qwen3.5-4B-GGUF:Q8_0", system, user)
+        );
     }
 
     #[test]

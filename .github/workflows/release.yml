@@ -157,9 +157,14 @@ jobs:
             --generate-notes \
             --draft
 
+  windows-standalone:
+    name: Validate native Windows full installer (mandatory release gate)
+    needs: [validate, version]
+    uses: ./.github/workflows/standalone-windows.yml
+
   attach-appimage:
-    name: Attach native AppImages
-    needs: [publish, appimage]
+    name: Attach verified native installers
+    needs: [publish, appimage, windows-standalone]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -170,6 +175,20 @@ jobs:
           pattern: scribewatch-appimage-*
           path: dist
           merge-multiple: true
+
+      - name: Download verified full Windows standalone setup
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: scribewatch-full-standalone-windows-amd64
+          path: dist/windows
+
+      - name: Verify Windows setup checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find dist/windows -maxdepth 1 -type f -name '*standalone-setup.exe' | wc -l)" -eq 1
+          test "$(find dist/windows -maxdepth 1 -type f -name '*standalone-setup.exe.sha256' | wc -l)" -eq 1
+          (cd dist/windows && sha256sum -c ./*.exe.sha256)
 
       - name: Verify downloaded AppImages
         shell: bash
@@ -193,7 +212,9 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --clobber \
             dist/*.AppImage \
-            dist/*.AppImage.sha256
+            dist/*.AppImage.sha256 \
+            dist/windows/*standalone-setup.exe \
+            dist/windows/*standalone-setup.exe.sha256
 
       - name: Publish immutable GitHub Release
         env:

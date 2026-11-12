@@ -275,6 +275,20 @@ Si ScribeWatch trouve sa place dans votre stack, une ⭐ aide d’autres utilisa
 
 [MIT](LICENSE)
 
+## Première utilisation — Windows autonome complet
+
+Sur un poste Windows neuf, ScribeWatch configure automatiquement ses cinq
+profils, Parakeet Ultra et Qwen3.5-4B Q4_K_M et télécharge les modèles dans
+le cache local. Le premier téléchargement nécessite Internet (plusieurs Go).
+REC affiche l'état de préparation. Entrer les coordonnées du praticien,
+choisir un dossier, autoriser le microphone une fois, puis cliquer REC et Stop.
+Le compte-rendu et le PDF restent locaux et doivent être relus par le
+praticien avant utilisation.
+
+Les versions légères, macOS/Linux et Docker nécessitent encore le
+provisionnement de leurs moteurs tant qu'un paquet natif complet n'est
+pas certifié sur chaque plateforme.
+
 ## Profil matériel prudent, détecté sans modification
 
 **Versions :** [Linux](https://github.com/GodsQuantum/ScribeWatch/releases) · [candidats Windows/macOS](https://github.com/GodsQuantum/ScribeWatch/releases/tag/desktop-v0.5.3-rc.2), non officiellement signés ni notarisés. Vérifier les SHA256.
@@ -284,6 +298,6 @@ python3 scripts/auto-tune.py
 python3 scripts/auto-tune.py --env   # recommandations à reporter manuellement dans .env
 ~~~
 
-Une petite machine (2–4 threads ou moins de 8 Gio) commence avec une seule transcription. Pour Ryzen 7 8845HS, 16 threads, conteneur partagé de 32 Gio : débuter avec 2 transcriptions, 1 thread FFmpeg, scan toutes les 5 secondes et stabilité de 2 secondes ; prolonger la stabilité sur réseau NFS lent. Dans Paramètres, appairer un serveur Speaches /v1 réellement accessible et vérifier le Markdown généré à partir d'un vrai fichier.
+Une petite machine (2–4 threads ou moins de 8 Gio) commence avec une seule transcription. Sur un hôte générique avec 16 threads et 32 Gio : débuter avec 2 transcriptions, 1 thread FFmpeg, scan toutes les 5 secondes et stabilité de 2 secondes ; prolonger la stabilité sur réseau NFS lent. Dans Paramètres, appairer un serveur Speaches /v1 réellement accessible et vérifier le Markdown généré à partir d'un vrai fichier.
 
 Un conteneur sur NAS distant ne peut pas lire automatiquement le micro ni les dossiers du poste client : choisir les chemins autorisés. Le détecteur **ne change ni fichiers, ni montages, ni données, ni services**. Vérifier les fallbacks, la conservation de l'original et les archives avant les gros traitements. Pour l'accès distant, reverse proxy HTTPS authentifié.

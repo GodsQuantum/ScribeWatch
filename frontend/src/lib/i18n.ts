@@ -288,6 +288,35 @@ Object.assign(supplemental['zh-CN'], {
   'The destination folder is no longer available. Select it again.':'保存文件夹无法访问，请重新选择。'
 });
 
+// First-run native onboarding: locale remains consistent with the user's
+// selected language during a potentially long model acquisition.
+Object.assign(supplemental.fr, {
+  'Preparing ScribeWatch locally':'Préparation locale de ScribeWatch',
+  'Checking installed models…':'Vérification des modèles installés…',
+  'Local engines are starting. Try again when ready.':'Les moteurs locaux démarrent. Réessayez lorsqu’ils sont prêts.',
+  'Parakeet Ultra and Qwen3.5-4B are installed locally.':'Parakeet Ultra et Qwen3.5-4B sont installés localement.',
+  'Default models are being installed locally. This first download happens once.':'Installation automatique des modèles locaux. Ce premier téléchargement n’a lieu qu’une fois.',
+  'Parakeet ready':'Parakeet prêt','Parakeet downloading':'Téléchargement Parakeet',
+  'Qwen4B ready':'Qwen4B prêt','Qwen4B downloading':'Téléchargement Qwen4B',
+  'Refresh model status':'Actualiser l’état des modèles',
+  'If the download was interrupted, restart ScribeWatch or open Advanced Settings to resume.':'Si le téléchargement a été interrompu, redémarrez ScribeWatch ou ouvrez les paramètres avancés pour reprendre.',
+  'Local AI ready':'IA locale prête',
+  'Parakeet Ultra + Qwen3.5-4B · consultation data stays on this computer.':'Parakeet Ultra + Qwen3.5-4B · les données de consultation restent sur cet ordinateur.'
+});
+Object.assign(supplemental['zh-CN'], {
+  'Preparing ScribeWatch locally':'正在本地配置 ScribeWatch',
+  'Checking installed models…':'正在检查已安装模型…',
+  'Local engines are starting. Try again when ready.':'本地引擎正在启动，请稍后重试。',
+  'Parakeet Ultra and Qwen3.5-4B are installed locally.':'Parakeet Ultra 和 Qwen3.5-4B 已在本地安装。',
+  'Default models are being installed locally. This first download happens once.':'正在本地安装默认模型，首次下载只需进行一次。',
+  'Parakeet ready':'Parakeet 已就绪','Parakeet downloading':'正在下载 Parakeet',
+  'Qwen4B ready':'Qwen4B 已就绪','Qwen4B downloading':'正在下载 Qwen4B',
+  'Refresh model status':'刷新模型状态',
+  'If the download was interrupted, restart ScribeWatch or open Advanced Settings to resume.':'若下载中断，请重启 ScribeWatch 或打开高级设置以继续。',
+  'Local AI ready':'本地 AI 已就绪',
+  'Parakeet Ultra + Qwen3.5-4B · consultation data stays on this computer.':'Parakeet Ultra + Qwen3.5-4B · 问诊数据保留在本机。'
+});
+
 function detectedLocale(): Locale {
   if (typeof window === 'undefined') return 'en';
   const stored = window.localStorage.getItem('scribewatch:locale');

@@ -33,13 +33,21 @@ Cloud9-Speaches native transcribe.cpp/FastAPI executable, and upstream llama.cpp
 native CPU/Vulkan/NVIDIA CUDA variants. Model weights are not included.
 The previous slim ScribeWatch installer remains supported and unchanged.
 
-Within ScribeWatch > AI profiles > Moteurs intégrés, both STT and LLM may be
-independently selected as External (default), Internal or Disabled. Selecting
-Internal starts a native child process only after user confirmation, bound to
-127.0.0.1:38005 (STT) or 127.0.0.1:38080 (LLM). Switching to External or
-Disabled stops the owned child but does not delete external providers or data.
-Only previously enabled internal engines restart on application startup.
-There is no extra persistent system service.
+**Fresh Windows full native installation:** first launch provisions local
+Parakeet Ultra and Qwen3.5-4B Q4_K_M providers, connects all five built-in
+report profiles and starts the existing embedded engines. The native model
+APIs automatically request both model downloads into the user-owned cache.
+Internet is required only for the initial model acquisition (several GB);
+subsequent transcription, document editing and PDF export run locally.
+REC reports model readiness and disables recording until both are available.
+If interrupted, downloads can be resumed on the next launch or through
+Advanced Settings. No extra service or periodic downloader is created.
+Smoke CI, Docker, network-only deployments and existing configured profiles
+are excluded to preserve user settings and external engines.
+
+Advanced Settings still permit Internal, External and Disabled separately.
+Native STT binds only to 127.0.0.1:38005 and LLM to 127.0.0.1:38080.
+Switching to External/Disabled stops the owned child without deleting files.
 
 The STT model UI reuses Cloud9-Speaches native model APIs and single HF cache:
 Whisper, Parakeet Ultra, Qwen3-ASR, Nemotron and custom GGUF quantizations.
