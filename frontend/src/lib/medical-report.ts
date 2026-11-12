@@ -135,13 +135,13 @@ export function wrapRichText(text:string,normal:PDFFont,strong:PDFFont,size:numb
   return rows.filter(row=>row.length);
 }
 
-export async function createMedicalPdf(markdown:string,patient:PatientMetadata,date=new Date(),compactLastPage=false):Promise<Blob>{
+export async function createMedicalPdf(markdown:string,patient:PatientMetadata,date=new Date(),compactLastPage=false,denseShortLists=false):Promise<Blob>{
   const pdf=await PDFDocument.create();
   pdf.setTitle('Compte rendu de consultation');pdf.setCreator('ScribeWatch');
   // Source IDs, model names and checksums must never appear in patient PDFs.
   const regular=await pdf.embedFont(StandardFonts.Helvetica);
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
-  const W=595.28,H=841.89,M=compactLastPage?44:49,contentWidth=W-2*M;
+  const W=595.28,H=841.89,M=denseShortLists?42:compactLastPage?44:49,contentWidth=W-2*M;
   // Neutral print letter: avoid decorative app branding on medical correspondence.
   const navy=rgb(.14,.16,.18),teal=rgb(.14,.16,.18),muted=rgb(.42,.46,.5);
   let page!:PDFPage;let y=0;const pages:PDFPage[]=[];
@@ -172,10 +172,10 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     }
   };
   const draw=(text:string,style:'title'|'section'|'subsection'|'body'|'bullet'|'table'='body')=>{
-    const size=style==='title'?17:style==='section'?(compactLastPage?11.6:12):style==='subsection'?(compactLastPage?10.6:10.8):(compactLastPage?10.2:10.3);
+    const size=style==='title'?17:style==='section'?(denseShortLists?11.4:compactLastPage?11.6:12):style==='subsection'?(denseShortLists?10.4:compactLastPage?10.6:10.8):(denseShortLists?10:compactLastPage?10.2:10.3);
     const font=style==='body'||style==='bullet'?regular:bold;
     const marker=style==='section'?sectionIcon(text):null;
-    const indent=(style==='bullet'?12:0)+(marker?18:0),leading=size*(compactLastPage?1.26:1.37);
+    const indent=(style==='bullet'?12:0)+(marker?18:0),leading=size*(denseShortLists?1.23:compactLastPage?1.26:1.37);
     const rich=(style==='body'||style==='bullet')?wrapRichText(text,regular,bold,size,contentWidth-indent):null;
     const plain=rich?null:wrap(text,font,size,contentWidth-indent);
     if(!(rich?.length||plain?.length))return;
@@ -197,7 +197,7 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
       }else if(plain){page.drawText(plain[i],{x:M+indent,y,size,font,color:teal});}
       y-=leading;
     }
-    y-=style==='title'||style==='section'?(compactLastPage?5:9):style==='subsection'?(compactLastPage?4:6):(compactLastPage?2:4);
+    y-=style==='title'||style==='section'?(denseShortLists?4:compactLastPage?5:9):style==='subsection'?(denseShortLists?3:compactLastPage?4:6):(denseShortLists?1:compactLastPage?2:4);
   };
   // Preflight with the same font, wrap and line-spacing metrics used when
   // actually drawing. Move a short section/subsection together, but only
@@ -208,16 +208,16 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     | {kind:'text'; text:string; style:'section'|'subsection'|'body'|'bullet';level?:number}
     | {kind:'table'; rows:string[][]};
   const estimateText=(text:string,style:'section'|'subsection'|'body'|'bullet')=>{
-    const size=style==='section'?(compactLastPage?11.6:12):style==='subsection'?(compactLastPage?10.6:10.8):(compactLastPage?10.2:10.3);
+    const size=style==='section'?(denseShortLists?11.4:compactLastPage?11.6:12):style==='subsection'?(denseShortLists?10.4:compactLastPage?10.6:10.8):(denseShortLists?10:compactLastPage?10.2:10.3);
     const font=style==='body'||style==='bullet'?regular:bold;
     const indent=(style==='bullet'?12:0)+(style==='section'&&sectionIcon(text)?18:0);
     const count=(style==='body'||style==='bullet'
       ?wrapRichText(text,regular,bold,size,contentWidth-indent).length
       :wrap(text,font,size,contentWidth-indent).length);
     if(!count)return 0;
-    const leading=size*(compactLastPage?1.26:1.37);
-    const before=style==='section'?(compactLastPage?9:16):style==='subsection'?(compactLastPage?6:8):0;
-    const after=style==='section'?(compactLastPage?5:9):style==='subsection'?(compactLastPage?4:6):(compactLastPage?2:4);
+    const leading=size*(denseShortLists?1.23:compactLastPage?1.26:1.37);
+    const before=style==='section'?(denseShortLists?6:compactLastPage?9:16):style==='subsection'?(denseShortLists?4:compactLastPage?6:8):0;
+    const after=style==='section'?(denseShortLists?4:compactLastPage?5:9):style==='subsection'?(denseShortLists?3:compactLastPage?4:6):(denseShortLists?1:compactLastPage?2:4);
     return before+count*leading+after;
   };
   const tableRowHeight=(cells:string[],columns:number,headline:boolean)=>{
@@ -352,11 +352,67 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
       blocks.push({kind:'text',text:'• '+line.replace(/^(?:[-*]|\d+[.)])\s+/ ,''),style:'bullet'});
     }else blocks.push({kind:'text',text:line,style:'body'});
   }
+  // Source-partitioned LLMs often emit dozens of one-line bullets. Group a
+  // dense run into short, independently readable paragraphs instead of
+  // spending one printed line per small fact. This is layout-only: every word
+  // and every bullet marker remains unchanged, in source order.
+  // Short lists and mixed headings/tables retain their original layout.
+  const bulletCount=blocks.filter(b=>b.kind==='text'&&b.style==='bullet').length;
+  if(denseShortLists){
+    const grouped:MedicalBlock[]=[];
+    for(let i=0;i<blocks.length;){
+      const start=i;
+      while(i<blocks.length){
+        const candidate=blocks[i];
+        if(candidate.kind!=='text'||candidate.style!=='bullet')break;
+        i++;
+      }
+      const run=blocks.slice(start,i);
+      if(run.length>=4){
+        let merged='';
+        let count=0;
+        const flush=()=>{
+          if(merged)grouped.push({kind:'text',text:merged,style:'body'});
+          merged='';count=0;
+        };
+        for(const entry of run){
+          if(entry.kind!=='text')continue;
+          if(entry.text.length>155){flush();grouped.push(entry);continue;}
+          if(merged&&(merged.length+entry.text.length+2>240||count>=3))flush();
+          merged+=(merged?'  ':'')+entry.text;
+          count++;
+        }
+        flush();
+      }else grouped.push(...run);
+      if(start===i){grouped.push(blocks[i]);i++;}
+    }
+    blocks.splice(0,blocks.length,...grouped);
+  }
   const isHeading=(block:MedicalBlock):block is Extract<MedicalBlock,{kind:'text'}> =>
     block.kind==='text'&&(block.style==='section'||block.style==='subsection');
   for(let i=0;i<blocks.length;i++){
     const block=blocks[i];
     if(isHeading(block)){
+      if(denseShortLists){
+        // In a high-density report, keeping an entire heading section
+        // together strands substantial white space on previous pages. Keep
+        // only the heading plus its first readable lines, even when a section
+        // itself is long. This does not omit or truncate a single block.
+        let first=i+1;
+        while(first<blocks.length&&blocks[first].kind==='space')first++;
+        const following=blocks[first];
+        let opening=estimate(block)+28;
+        if(following?.kind==='text'){
+          if(isHeading(following)){
+            let next=first+1;
+            while(next<blocks.length&&blocks[next].kind==='space')next++;
+            opening+=estimate(following)+Math.min(
+              next<blocks.length?estimate(blocks[next]):28,42
+            );
+          }else opening+=Math.min(estimate(following),42);
+        }else if(following?.kind==='table')opening+=42;
+        if(y-67<opening)addPage();
+      }else{
       // Full H2/H3 block until the next heading of the same or higher rank.
       // H3 also prevents a long H2 from forcing an entire page per section.
       let height=0,firstContent=0;
@@ -420,22 +476,29 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
           || (left<opening && !(nearFullOpening&&left>availableOnFreshPage*0.36)))
           addPage();
       }
+      }
     }else if(block.kind==='table' && estimate(block)<=availableOnFreshPage){
       // Standalone table must not start as an orphan at a page foot.
       if(y-estimate(block)<67)addPage();
     }
-    if(block.kind==='space')y-=compactLastPage?2:3;
+    if(block.kind==='space')y-=denseShortLists?1:compactLastPage?2:3;
     else if(block.kind==='table')drawTable(block.rows);
     else draw(block.text,block.style);
   }
-  // Always consider the already-supported readable compact layout.
-  // If it saves a page, prefer it without editing or omitting any clinical
-  // content. Previously it was only attempted for very short last pages,
-  // leaving an otherwise equivalent five-page PDF when four pages fit.
+  // Compare readable standard, compact, and dense-short-list layouts. Choose
+  // fewer pages without rewriting any clinical statement. Dense lists are
+  // considered only when the original contains many bullets and saves a page;
+  // ordinary short documents retain their existing generous typography.
   if(!compactLastPage && pages.length>1){
     const compact=await createMedicalPdf(markdown,patient,date,true);
-    const compactDocument=await PDFDocument.load(await compact.arrayBuffer());
-    if(compactDocument.getPageCount()<pages.length || (H-58-y)<150)
+    const compactPages=(await PDFDocument.load(await compact.arrayBuffer())).getPageCount();
+    if(bulletCount>=12){
+      const dense=await createMedicalPdf(markdown,patient,date,true,true);
+      const densePages=(await PDFDocument.load(await dense.arrayBuffer())).getPageCount();
+      if(densePages<Math.min(pages.length,compactPages))
+        return dense;
+    }
+    if(compactPages<pages.length || (H-58-y)<150)
       return compact;
   }
   for(let i=0;i<pages.length;i++){

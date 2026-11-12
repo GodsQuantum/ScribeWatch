@@ -379,3 +379,38 @@ test('session metadata fields are included only when explicitly entered', async 
     assert.doesNotMatch(absent.stdout,/REF-TEST-42|Observation libre/);
   }finally{rmSync(directory,{recursive:true,force:true});}
 });
+
+
+test('long synthetic clinical style: dense bullet lists become shorter print pages without omitting a single item', async t => {
+  const patient={surname:'EXEMPLE',forename:'FICTIF',dateOfBirth:'2000-01-01'};
+  const entries=[];
+  const sections=Array.from({length:13},(_,section)=>{
+    const bullets=Array.from({length:15},(_,line)=>{
+      const id='TESTFAIT'+String(section*15+line+1).padStart(3,'0');
+      entries.push(id);
+      return '- '+id+' : Une observation fictive distincte, sans ordonnance ni identité réelle, destinée uniquement à vérifier une restitution complète.';
+    });
+    return '## Thème fictif '+(section+1)+'\n'+bullets.join('\n');
+  }).join('\n\n');
+  const standard=await createMedicalPdf(sections,patient,new Date(2026,10,12),true,false);
+  const automatic=await createMedicalPdf(sections,patient,new Date(2026,10,12));
+  const originalPages=(await PDFDocument.load(await standard.arrayBuffer())).getPageCount();
+  const compactedPages=(await PDFDocument.load(await automatic.arrayBuffer())).getPageCount();
+  assert.ok(compactedPages<originalPages,
+    'Consecutive short bullets should fit into fewer pages than individually spaced bullet lines');
+  assert.ok(compactedPages>=2);
+  const directory=mkdtempSync(join(tmpdir(),'scribewatch-clinical-density-'));
+  try{
+    const filename=join(directory,'fictitious-dense-report.pdf');
+    writeFileSync(filename,new Uint8Array(await automatic.arrayBuffer()));
+    const result=spawnSync('pdftotext',['-layout',filename,'-'],{encoding:'utf8'});
+    if(result.error?.code==='ENOENT'){
+      t.diagnostic('pdftotext unavailable; page-count checks still enforced');
+      return;
+    }
+    assert.equal(result.status,0);
+    for(const item of entries)
+      assert.equal((result.stdout.match(new RegExp('\\b'+item+'\\b','g'))||[]).length,1,
+        item+' must appear exactly once, even after dense list consolidation');
+  }finally{rmSync(directory,{recursive:true,force:true});}
+});
