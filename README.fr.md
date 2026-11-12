@@ -5,8 +5,8 @@
 <h1 align="center">ScribeWatch</h1>
 
 <p align="center">
-  <strong>La voix entre. Le Markdown sort. Automatiquement.</strong><br>
-  Transcription auto-hébergée de notes vocales pour Obsidian, dossiers Markdown et workflows audio automatisés.
+  <strong>Enregistrez. Transcrivez. Structurez. Gardez le contrôle.</strong><br>
+  Enregistrements, transcriptions et documents structurés en local, sur Windows, macOS, Linux ou Docker.
 </p>
 
 <p align="center">
@@ -29,10 +29,37 @@ Le transcript reste canonique et déterministe. Pour les usages qui demandent da
 Le cas d’usage naturel est **notes vocales → Obsidian**, mais rien n’est verrouillé à Obsidian : n’importe quel dossier Markdown fonctionne.
 
 <p align="center">
-  <img src="docs/screenshots/home-quick-transcribe.png" width="100%" alt="Tableau de bord ScribeWatch et Quick Transcribe">
+  <img src="docs/screenshots/fr/home.png" width="100%" alt="Tableau de bord ScribeWatch et Quick Transcribe">
 </p>
 
-## ✨ Pourquoi ScribeWatch ?
+## Télécharger ScribeWatch v0.6.2
+
+**[Dernière version officielle](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [Code source](https://github.com/GodsQuantum/ScribeWatch) · [Vérifier les empreintes SHA-256](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.2)
+
+| Système | Édition | Télécharger | Contenu |
+|---|---|---|---|
+| **Windows 11 x64** | **Autonome complet — recommandé** | [Installateur complet](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-windows-amd64-standalone-setup.exe) | ScribeWatch, moteurs locaux STT/LLM et téléchargement automatique des modèles au premier démarrage |
+| Windows x64 | Léger | [Installateur léger](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-windows-amd64-setup.exe) | Application ; raccorder un moteur STT/LLM existant |
+| macOS Apple Silicon | Léger | [DMG ARM64](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-darwin-arm64.dmg) | Application ; configurer ses moteurs compatibles |
+| macOS Intel | Léger | [DMG Intel](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-darwin-amd64.dmg) | Application ; configurer ses moteurs compatibles |
+| Linux x86-64 | AppImage | [AppImage x86-64](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-x86_64.AppImage) | Application ; configurer ses moteurs compatibles |
+| Linux ARM64 | AppImage | [AppImage ARM64](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-aarch64.AppImage) | Application ; configurer ses moteurs compatibles |
+
+**Windows autonome complet :** sur une installation vierge, ScribeWatch prépare automatiquement Parakeet Ultra pour la transcription, Qwen3.5-4B Q4_K_M pour la rédaction structurée et cinq profils (consultation dentaire, consultation médicale, réunion, brainstorm, note structurée). Il faut une connexion Internet et plusieurs Go libres pour télécharger les modèles une seule fois. L'application configure ses moteurs en fonction du GPU et de la mémoire dans la limite des matériels pris en charge. Quand REC signale la disponibilité, renseignez les détails du document, choisissez le dossier, autorisez le micro, puis **REC** et **Stop** pour exporter le compte rendu ou PDF.
+
+L'installateur complet a passé les tests CI de packaging, installation et démarrage. **Une vérification physique complète du microphone, de tous les GPU et de la qualité clinique sur chaque PC n'est pas encore certifiée.** macOS, Linux, les éditions légères et Docker ne disposent pas actuellement de ce même pack IA local zéro configuration. Les documents cliniques restent des brouillons à relire par un praticien.
+
+Les binaires ne sont pas nécessairement signés ni notarisés par Apple ; vérifiez le SHA-256 et les notes de publication.
+
+## Interface actuelle
+
+**Accueil** donne accès à la transcription rapide et aux dossiers surveillés. **REC** sert à enregistrer. **Documents** regroupe les tâches et les exports. **Paramètres** configure les fournisseurs de transcription, les moteurs IA internes/externes, les profils et les options avancées. L'interface propose **français, anglais et chinois simplifié**, cinq thèmes et les modes **Simple / Avancé**.
+
+<p align="center"><img src="docs/screenshots/fr/record.png" width="49%" alt="Espace d'enregistrement REC de ScribeWatch v0.6.2"><img src="docs/screenshots/fr/settings.png" width="49%" alt="Paramètres de ScribeWatch v0.6.2"></p>
+
+Les captures proviennent d'une instance de démonstration isolée de la vraie version, sans donnée patient.
+
+## Pourquoi ScribeWatch ?
 
 - **Les notes vocales deviennent de vrais fichiers utiles** — du `.md` lisible plutôt qu’une pile d’enregistrements oubliés.
 - **Quick Transcribe** — glissez un fichier audio et récupérez immédiatement du Markdown.
@@ -49,7 +76,7 @@ Le cas d’usage naturel est **notes vocales → Obsidian**, mais rien n’est v
 - **Publication sûre** — le Markdown est publié avant l’archivage de l’audio, sans écraser une note existante.
 - **Petite stack auto-hébergée** — backend Rust/Axum, UI SvelteKit, SQLite, un conteneur.
 
-## 🎙️ Trois façons de l’utiliser
+## Trois façons de l’utiliser
 
 | | **Quick Transcribe** | **Live Recorder** | **Watch folders** |
 |---|---|---|---|
@@ -61,11 +88,11 @@ Le cas d’usage naturel est **notes vocales → Obsidian**, mais rien n’est v
 | Exemple | « Je viens d’enregistrer une idée » | Réunion / consultation / brainstorm | Téléphone/synchro → Obsidian automatiquement |
 
 <p align="center">
-  <img src="docs/screenshots/quick-transcribe.png" width="49%" alt="Quick Transcribe dans ScribeWatch">
-  <img src="docs/screenshots/workflow-folders.png" width="49%" alt="Dossiers d’un workflow ScribeWatch">
+  <img src="docs/screenshots/fr/record.png" width="49%" alt="Quick Transcribe dans ScribeWatch">
+  <img src="docs/screenshots/fr/documents.png" width="49%" alt="Dossiers d’un workflow ScribeWatch">
 </p>
 
-## 🔁 Fallbacks provider + modèle
+## Fallbacks provider + modèle
 
 Chaque route de transcription est un couple explicite **provider + modèle**. ScribeWatch aspire la liste des modèles exposés par chaque provider configuré : vous choisissez donc exactement la chaîne voulue, y compris plusieurs modèles d’un même provider.
 
@@ -81,9 +108,9 @@ Markdown
 
 Chaque provider possède un timeout de requête réellement appliqué, tandis que chaque route peut définir un délai de fallback indépendant et éventuellement plus court (`Jamais`, 10/30/60 minutes ou personnalisé). Une panne réseau, timeout/erreur provider, rate limit ou réponse invalide peut passer à la route suivante ; une annulation utilisateur stoppe toute la chaîne. L’historique conserve chaque tentative et le provider/modèle réellement utilisé.
 
-## 🚀 Installation rapide
+## Auto-hébergement avec Docker
 
-Prérequis : Docker Engine + Compose et un endpoint de transcription compatible OpenAI.
+Pour **l'édition Docker uniquement** : Docker Engine + Compose et un moteur de transcription compatible OpenAI déjà accessible. L'édition Windows autonome complète ci-dessus n'a pas besoin de Docker.
 
 ```bash
 git clone https://github.com/GodsQuantum/ScribeWatch.git
@@ -106,7 +133,7 @@ Pendant un LIVE, chaque tranche audio remise par MediaRecorder est écrite progr
 
 Après un crash ou un rechargement, la session inachevée réapparaît. Vous pouvez **écouter et déplacer la réglette** dans le dernier segment sauvegardé, lancer **Écouter les 30 dernières secondes**, puis **Continuer**. Continuer démarre un nouveau segment MediaRecorder dans la même session logique ; le trou d’interruption estimé est conservé comme métadonnée et aucun faux silence n’est inventé.
 
-Au Stop/finalisation, les segments terminés sont envoyés en streaming vers Cloud9 puis FFmpeg produit un seul M4A AAC mono canonique dans l’ordre du manifeste. L’audio final peut être conservé en **aucune copie permanente**, dans un **dossier serveur choisi**, ou dans un **dossier choisi sur cet ordinateur**. La récupération locale n’est supprimée qu’après acceptation durable par le serveur et, si demandé, réussite de la copie locale.
+Au Stop/finalisation, les segments terminés sont envoyés en streaming au serveur ScribeWatch puis FFmpeg produit un seul M4A AAC mono canonique dans l’ordre du manifeste. L’audio final peut être conservé en **aucune copie permanente**, dans un **dossier serveur choisi**, ou dans un **dossier choisi sur cet ordinateur**. La récupération locale n’est supprimée qu’après acceptation durable par le serveur et, si demandé, réussite de la copie locale.
 
 Les sources Quick/LIVE acceptées restent disponibles **24 heures par défaut**, y compris pour les jobs Error/Interrupted/Cancelled, afin qu’un Retry après échec STT ou redémarrage de ScribeWatch dispose toujours du vrai fichier source. Cette fonction améliore fortement la résilience aux pertes d’enregistrement ; elle ne constitue **pas** à elle seule une certification de dossier médical ni une conformité réglementaire santé.
 
@@ -118,7 +145,7 @@ Les sources Quick/LIVE acceptées restent disponibles **24 heures par défaut**,
 
 > Par défaut ScribeWatch reste lié à la machine locale. Pour un accès LAN/VPN, modifiez `SCRIBEWATCH_BIND_HOST` et utilisez votre politique habituelle de firewall/reverse proxy authentifié.
 
-## 🧠 Pensé pour Obsidian — sans dépendre d’Obsidian
+## Pensé pour Obsidian — sans dépendre d’Obsidian
 
 Une transcription peut devenir :
 
@@ -164,10 +191,10 @@ Les profils intégrés couvrent la note structurée générale, les réunions/ap
 Les longs transcripts sont traités en blocs d’éléments factuels bornés avant la synthèse finale. Le prompt système traite le transcript comme une donnée non fiable, interdit d’inventer des faits et impose de conserver explicitement les incertitudes. Si le LLM échoue, **le job réussit quand même avec le transcript canonique** et l’erreur de structuration est enregistrée séparément.
 
 <p align="center">
-  <img src="docs/screenshots/mobile-quick-transcribe.png" width="390" alt="Quick Transcribe ScribeWatch sur mobile">
+  <img src="docs/screenshots/fr/mobile.png" width="390" alt="Quick Transcribe ScribeWatch sur mobile">
 </p>
 
-## 🔄 Fonctionnement d’un Workflow
+## Fonctionnement d’un Workflow
 
 ```text
 Dictaphone / synchro / NAS
@@ -188,7 +215,7 @@ Dictaphone / synchro / NAS
 
 L’audio n’est **jamais archivé avant la publication réussie du Markdown**. Les Watch folders sont récursifs : les événements filesystem natifs et la réconciliation périodique couvrent aussi les sous-dossiers. Quand **Markdown folder** est vide, la note est publiée dans le dossier exact contenant l’audio détecté. Toute l’arborescence configurée comme **Audio archive** est ignorée avant même le sondage audio ; une archive telle que `Watch/Vocaux` peut donc vivre dans l’arborescence surveillée sans être réingérée.
 
-## 🔒 Sécurité par conception
+## Sécurité par conception
 
 - les clés API restent côté serveur et ne sont jamais renvoyées au navigateur ;
 - l’exploration serveur est limitée aux racines explicitement autorisées et bloque les sorties par symlink ;
@@ -202,7 +229,7 @@ L’audio n’est **jamais archivé avant la publication réussie du Markdown**.
 
 Voir [`SECURITY.md`](.github/SECURITY.md).
 
-## ⚙️ Configuration
+## Configuration
 
 | Variable | Défaut | Rôle |
 |---|---|---|
@@ -220,18 +247,18 @@ Voir [`SECURITY.md`](.github/SECURITY.md).
 
 L’ingestion audio est **basée sur le contenu, pas sur l’extension**. Les fichiers stables d’un Watch folder et les uploads Quick sont sondés avec FFprobe ; tout fichier contenant une piste audio décodable par le FFmpeg embarqué est accepté, puis normalisé en WAV PCM mono 16 kHz avant STT.
 
-## 🧩 Dossiers de l’ordinateur client
+## Dossiers de l’ordinateur client
 
 Un navigateur ne peut pas surveiller en permanence n’importe quel dossier d’un autre ordinateur. ScribeWatch garde cette frontière explicite :
 
 - l’audio local entre par glisser-déposer, sélecteur de fichier ou capture micro dans Live Recorder ;
 - le Markdown terminé peut être écrit directement dans un dossier local lorsque le navigateur supporte File System Access en contexte sécurisé ;
-- le M4A final d’un LIVE peut aussi être enregistré dans un dossier client choisi après finalisation canonique sur Cloud9 ; le handle du dossier reste côté navigateur ;
+- le M4A final d’un LIVE peut aussi être enregistré dans un dossier client choisi après finalisation canonique sur le serveur ScribeWatch ; le handle du dossier reste côté navigateur ;
 - sinon le fichier est téléchargé normalement.
 
 Aucun handle de dossier local n’est envoyé ni stocké par le serveur ScribeWatch.
 
-## 🛠️ Stack & développement
+## Stack & développement
 
 **Backend :** Rust 1.98 · Axum · Tokio · SQLite · notify
 **Frontend :** Svelte 5 · SvelteKit 2 · TypeScript
@@ -250,7 +277,7 @@ Test end-to-end déterministe :
 bash scripts/e2e-v02.sh
 ```
 
-## 📡 API principale
+## API principale
 
 - `POST /api/v1/quick/upload` — upload navigateur streamé
 - `POST /api/v1/quick/server` — fichier audio serveur autorisé
@@ -265,33 +292,9 @@ bash scripts/e2e-v02.sh
 - `GET /api/v1/jobs`, `GET /api/v1/events` — historique et état live
 - `GET /api/v1/health`, `GET /api/v1/ready` — santé/readiness
 
-## 🤝 Contribuer
-
-Issues et pull requests sont bienvenues. Voir [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) et [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md).
-
-Si ScribeWatch trouve sa place dans votre stack, une ⭐ aide d’autres utilisateurs de notes vocales et d’Obsidian à le découvrir.
-
-## 📄 Licence
-
-[MIT](LICENSE)
-
-## Première utilisation — Windows autonome complet
-
-Sur un poste Windows neuf, ScribeWatch configure automatiquement ses cinq
-profils, Parakeet Ultra et Qwen3.5-4B Q4_K_M et télécharge les modèles dans
-le cache local. Le premier téléchargement nécessite Internet (plusieurs Go).
-REC affiche l'état de préparation. Entrer les coordonnées du praticien,
-choisir un dossier, autoriser le microphone une fois, puis cliquer REC et Stop.
-Le compte-rendu et le PDF restent locaux et doivent être relus par le
-praticien avant utilisation.
-
-Les versions légères, macOS/Linux et Docker nécessitent encore le
-provisionnement de leurs moteurs tant qu'un paquet natif complet n'est
-pas certifié sur chaque plateforme.
-
 ## Profil matériel prudent, détecté sans modification
 
-**Versions :** [Linux](https://github.com/GodsQuantum/ScribeWatch/releases) · [candidats Windows/macOS](https://github.com/GodsQuantum/ScribeWatch/releases/tag/desktop-v0.5.3-rc.2), non officiellement signés ni notarisés. Vérifier les SHA256.
+**Versions :** [Tous les installateurs officiels ScribeWatch v0.6.2](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.2), potentiellement non signés ni notarisés. Vérifier les SHA256.
 
 ~~~bash
 python3 scripts/auto-tune.py
@@ -301,3 +304,15 @@ python3 scripts/auto-tune.py --env   # recommandations à reporter manuellement 
 Une petite machine (2–4 threads ou moins de 8 Gio) commence avec une seule transcription. Sur un hôte générique avec 16 threads et 32 Gio : débuter avec 2 transcriptions, 1 thread FFmpeg, scan toutes les 5 secondes et stabilité de 2 secondes ; prolonger la stabilité sur réseau NFS lent. Dans Paramètres, appairer un serveur Speaches /v1 réellement accessible et vérifier le Markdown généré à partir d'un vrai fichier.
 
 Un conteneur sur NAS distant ne peut pas lire automatiquement le micro ni les dossiers du poste client : choisir les chemins autorisés. Le détecteur **ne change ni fichiers, ni montages, ni données, ni services**. Vérifier les fallbacks, la conservation de l'original et les archives avant les gros traitements. Pour l'accès distant, reverse proxy HTTPS authentifié.
+
+## Contribuer
+
+Issues et pull requests sont bienvenues. Voir [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) et [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md).
+
+Si ScribeWatch trouve sa place dans votre stack, une ⭐ aide d’autres utilisateurs de notes vocales et d’Obsidian à le découvrir.
+
+## Licence
+
+[MIT](LICENSE)
+
+Créé et maintenu par [Arezki Chougar](https://arezkichougar.com) · [MIT](LICENSE).

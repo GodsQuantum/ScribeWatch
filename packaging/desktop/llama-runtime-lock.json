@@ -26,6 +26,6 @@
     "thinking": false,
     "seed_policy": "stable FNV-1a(model id, system, user) per request",
     "long_transcript": "source-partitioned, bounded source-only factual recall, native clinical guards",
-    "reference_score": "87.4% on 48 lexical criteria, reproduced on CT700; NOT a guarantee across GPUs/OS or medical accuracy"
+    "reference_score": "87.4% on 48 lexical criteria, reproduced in reference testing; NOT a guarantee across GPUs/OS or medical accuracy"
   }
 }

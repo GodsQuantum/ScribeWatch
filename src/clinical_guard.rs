@@ -1099,8 +1099,9 @@ troubles du sommeil depuis trois semaines, c'est important.";
         };
         let base = std::path::Path::new(&root);
         let source = std::fs::read_to_string(base.join("source-parakeet-ultra.md")).unwrap();
-        let report_path = std::env::var("SCRIBEWATCH_PRIVATE_BENCH_REPORT")
-            .unwrap_or_else(|_| "CT700/Qwen4B-Thematic-20261110/thematic-report-private.md".into());
+        let Ok(report_path) = std::env::var("SCRIBEWATCH_PRIVATE_BENCH_REPORT") else {
+            return;
+        };
         // Only a relative path beneath the private benchmark root is accepted.
         assert!(!report_path.starts_with('/') && !report_path.contains(".."));
         let report = std::fs::read_to_string(base.join(report_path)).unwrap();

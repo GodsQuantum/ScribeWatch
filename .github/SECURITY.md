@@ -6,7 +6,7 @@ Security fixes target the latest released ScribeWatch version and `main`. Older 
 
 ## Reporting a vulnerability
 
-Do not open a public issue containing vulnerability details. While this repository is private, report security issues directly to the maintainer through a private channel. If the repository becomes public, enable GitHub private vulnerability reporting and use the repository security advisory flow.
+Do not open a public issue containing vulnerability details. Use the GitHub Security advisory / private vulnerability reporting flow when enabled, or contact the maintainer privately. Never include credentials, patient details or exploit instructions in public issues.
 
 ## Deployment security
 

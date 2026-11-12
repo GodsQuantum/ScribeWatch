@@ -1,0 +1,17 @@
+{
+  "name": "scribewatch-site",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-11-12",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "scribewatch.arezkichougar.com",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "none"
+  }
+}

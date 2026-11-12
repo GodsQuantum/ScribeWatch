@@ -1,4 +1,4 @@
-# ScribeWatch desktop installer candidates
+# ScribeWatch desktop packaging — v0.6.2
 
 Sources: native Rust 1.98 + existing SvelteKit. This packaging wraps the real server,
 without Docker, Python or a separate browser extension. The launcher opens the app
@@ -7,7 +7,7 @@ in the system's default browser and runs a loopback-only service.
 - Windows 11 AMD64: NSIS per-user setup, includes backend, frontend,
   FFmpeg/FFprobe 9.0.2, license, shortcut, clean uninstaller. Keeps user data.
 - macOS 15 Apple Silicon and Intel: .app in a mounted .dmg with all resources.
-  The candidate uses **ad-hoc** signing only. Production Apple distribution
+  The published v0.6.2 DMG uses **ad-hoc** signing only. Production Apple distribution
   requires a Developer ID certificate, hardened signing and notarization.
 - Persistent data: Windows LOCALAPPDATA/ScribeWatch; macOS
   ~/Library/Application Support/ScribeWatch. SQLite remains on local storage.
@@ -18,18 +18,18 @@ in the system's default browser and runs a loopback-only service.
   and exercise clean uninstallation on Windows.
 - FFmpeg is fetched from pinned upstream v9.0.2 assets by SHA256, never latest;
   bundling its original -L license terms and source URL.
-- Unsigned preview artifacts are **NOT** certified as signed/notarized public
-  binaries and should not be promoted into a stable release without signing
-  credentials and Gatekeeper/SmartScreen testing.
+- Release installers may lack official code signatures or Apple notarization.
+  Verify the release SHA-256 sidecar; Gatekeeper/SmartScreen warnings are possible.
+  Disclose this limitation rather than implying platform certification.
 - GPU end-to-end, real audio codec/transcript and complete UX/system tray
   require separate integration tests. CI runners may lack compatible GPUs.
-- Cloud9-Speaches pairing is available in the existing app UI; it does
-  not imply that Cloud9-Speaches has itself been packaged on Windows/macOS.
+- Self-hosted Speaches-compatible providers remain configurable in Settings;
+  lightweight macOS and Linux builds do not bundle the standalone STT/LLM engines.
 
-## ScribeWatch standalone with optional native AI engines (candidate)
+## Windows full standalone with bundled native AI engines — published v0.6.2
 
 The Windows x64 full standalone installer contains ScribeWatch, the verified
-Cloud9-Speaches native transcribe.cpp/FastAPI executable, and upstream llama.cpp
+Speaches-compatible native transcribe.cpp/FastAPI executable, and upstream llama.cpp
 native CPU/Vulkan/NVIDIA CUDA variants. Model weights are not included.
 The previous slim ScribeWatch installer remains supported and unchanged.
 
@@ -49,7 +49,7 @@ Advanced Settings still permit Internal, External and Disabled separately.
 Native STT binds only to 127.0.0.1:38005 and LLM to 127.0.0.1:38080.
 Switching to External/Disabled stops the owned child without deleting files.
 
-The STT model UI reuses Cloud9-Speaches native model APIs and single HF cache:
+The STT model UI reuses Speaches-compatible native model APIs and single HF cache:
 Whisper, Parakeet Ultra, Qwen3-ASR, Nemotron and custom GGUF quantizations.
 The optional pinned ScribeWatch acoustic pack contains the Whisper Turbo
 model and French aligner with SHA checks. The LLM engine reuses upstream
@@ -82,10 +82,11 @@ Certification gates:
    LLM servers, verify endpoints, stop both and uninstall.
 4. Physical microphone and GPU quality/VRAM/latency testing; code signing.
 
-Do not claim the full installer ready until gate 3 is verified on an
-exact pinned release source. Full packaging initially targets Windows x64.
-Mac/Linux retain their existing slim builds until complete native bundles
-pass their own independent CI. No patient materials are used in tests.
+The exact v0.6.2 Windows full installer passed release packaging, install,
+engine-startup and uninstall CI (gate 3). This does NOT certify the separate
+physical microphone/GPU/clinical-quality gate 4, code signing or all hardware.
+Mac/Linux retain lightweight builds until their native bundles pass their
+independent CI. No patient material is included in public tests.
 
 ## Reproducible clinical engine contract
 

@@ -11,3 +11,5 @@ cd frontend && npm ci && npm test && npm run check && npm run build
 ```
 
 For filesystem/provider changes, add regression tests for failure semantics and no-overwrite behavior. Keep secrets out of fixtures, logs and screenshots.
+
+For documentation or website changes, update the three README languages where relevant. Rebuild real screenshots from an isolated demo instance, never clinical data, and run `cd site && npm ci && npm run check`. Keep application screenshots version-aligned across locales.

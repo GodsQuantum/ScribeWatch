@@ -1,0 +1,42 @@
+name: ScribeWatch website
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/screenshots/**'
+      - '.github/workflows/site-cloudflare.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'docs/screenshots/**'
+      - '.github/workflows/site-cloudflare.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  website:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Install locked dependencies
+        run: cd site && npm ci
+      - name: Build localized site and test downloads
+        run: cd site && npm run check
+      - name: Deploy to Cloudflare when configured
+        if: github.event_name != 'pull_request' && vars.SCRIBEWATCH_SITE_DEPLOY_READY == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          cd site && npx wrangler deploy --config wrangler.jsonc

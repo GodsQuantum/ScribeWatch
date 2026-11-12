@@ -52,7 +52,7 @@ jobs:
           # Source: tested Cloud9-Speaches native ASR release from PR16 merge.
           gh release download desktop-v0.1.0-rc.7 -R GodsQuantum/Cloud9-Speaches \
             --pattern 'Cloud9-Speaches-windows-amd64.zip' -D .native-cache/speaches
-          # Upstream llama.cpp b12110 (v0.9.0, commit cd959bae9) matches the validated CT700 engine.
+          # Upstream llama.cpp b12110 (v0.9.0, commit cd959bae9) matches the validated reference runtime.
           gh release download b12110 -R ggml-org/llama.cpp \
             --pattern 'llama-b12110-bin-win-cpu-x64.zip' \
             --pattern 'llama-b12110-bin-win-vulkan-x64.zip' \
@@ -73,7 +73,7 @@ jobs:
             --cuda-runtime-sha 8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6 \
             --output '.native-cache/engines'
 
-      - name: Assert packaged llama.cpp is the reproducible CT700 release
+      - name: Assert packaged llama.cpp is the reproducible reference release
         shell: bash
         run: |
           set -euo pipefail

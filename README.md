@@ -5,8 +5,8 @@
 <h1 align="center">ScribeWatch</h1>
 
 <p align="center">
-  <strong>Voice in. Markdown out. Automatically.</strong><br>
-  Self-hosted voice-note transcription for Obsidian, Markdown folders and automated audio workflows.
+  <strong>Record. Transcribe. Structure. Keep control.</strong><br>
+  Local-first recording, transcription and structured documents for Windows, macOS, Linux and self-hosted workflows.
 </p>
 
 <p align="center">
@@ -29,10 +29,37 @@ The transcript remains canonical and deterministic. When a workflow needs more s
 It is especially useful as a **voice notes → Obsidian** bridge, but nothing is Obsidian-specific: any Markdown folder works.
 
 <p align="center">
-  <img src="docs/screenshots/home-quick-transcribe.png" width="100%" alt="ScribeWatch dashboard and Quick Transcribe">
+  <img src="docs/screenshots/en/home.png" width="100%" alt="ScribeWatch dashboard and Quick Transcribe">
 </p>
 
-## ✨ Why ScribeWatch?
+## Download ScribeWatch v0.6.2
+
+**[Latest official release](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [Source code](https://github.com/GodsQuantum/ScribeWatch) · [Verify SHA-256 checksums](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.2)
+
+| Platform | Edition | Download | What is included |
+|---|---|---|---|
+| **Windows 11 x64** | **Full standalone — recommended** | [Download full installer](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-windows-amd64-standalone-setup.exe) | ScribeWatch, built-in local transcription and LLM engines, automatic first-launch model downloads |
+| Windows x64 | Lightweight | [Download installer](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-windows-amd64-setup.exe) | Desktop app; connect an existing STT/LLM provider |
+| macOS Apple Silicon | Lightweight | [Download ARM64 DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-darwin-arm64.dmg) | Desktop app; configure compatible engines separately |
+| macOS Intel | Lightweight | [Download Intel DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-darwin-amd64.dmg) | Desktop app; configure compatible engines separately |
+| Linux x86-64 | AppImage | [Download AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-x86_64.AppImage) | Desktop app; configure compatible engines separately |
+| Linux ARM64 | AppImage | [Download AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-aarch64.AppImage) | Desktop app; configure compatible engines separately |
+
+**Windows full standalone:** On a clean install, the app prepares Parakeet Ultra transcription, Qwen3.5-4B Q4_K_M structured-document generation and five report profiles (dental consultation, medical consultation, meeting, brainstorm, structured note). The first download needs internet and several GB of storage. Once both models are ready, processing uses local engines; REC indicates readiness. Enter the document details, choose the destination, grant microphone permission, press **REC**, then **Stop** to generate and export your document/PDF. Adaptation to the host's GPU and memory is automatic within supported runtime capabilities.
+
+The full Windows bundle and its startup have passed packaged-install CI. **A first-install physical microphone/GPU and full clinical-quality E2E test on every possible PC is not yet certified.** Other OS editions and Docker do not currently include this same zero-configuration local AI package. Clinical documents are drafts requiring practitioner review.
+
+Desktop binaries are not guaranteed to be code-signed or Apple-notarized; verify the matching checksum and the release notes before running them.
+
+## The current interface
+
+**Home** provides an overview and access to quick transcription and watched folders. **REC** is the recording workspace. **Documents** contains completed jobs and exports. **Settings** contains transcription providers, local/external AI engines, structure profiles and advanced options. The interface supports **English, French and Simplified Chinese**, five themes, and **Simple / Advanced** modes.
+
+<p align="center"><img src="docs/screenshots/en/record.png" width="49%" alt="ScribeWatch v0.6.2 REC recording workspace"><img src="docs/screenshots/en/settings.png" width="49%" alt="ScribeWatch v0.6.2 Settings"></p>
+
+Captures are from an isolated demonstration instance running the release itself, not mockups and not patient material.
+
+## Why ScribeWatch?
 
 - **Voice notes become useful files** — readable `.md`, not another pile of forgotten recordings.
 - **Quick Transcribe** — drag in one audio file and get Markdown back immediately.
@@ -50,7 +77,7 @@ It is especially useful as a **voice notes → Obsidian** bridge, but nothing is
 - **Safe publication** — Markdown is written before workflow audio is archived, and existing notes are never silently overwritten.
 - **Small self-hosted stack** — Rust/Axum backend, SvelteKit UI, SQLite state, one container.
 
-## 🎙️ Three ways to use it
+## Three ways to use it
 
 | | **Quick Transcribe** | **Live Recorder** | **Watch folders** |
 |---|---|---|---|
@@ -62,11 +89,11 @@ It is especially useful as a **voice notes → Obsidian** bridge, but nothing is
 | Typical use | “I just recorded an idea” | Meeting / consultation / brainstorm | Phone/sync folder → Obsidian automatically |
 
 <p align="center">
-  <img src="docs/screenshots/quick-transcribe.png" width="49%" alt="ScribeWatch Quick Transcribe">
-  <img src="docs/screenshots/workflow-folders.png" width="49%" alt="ScribeWatch workflow folders">
+  <img src="docs/screenshots/en/record.png" width="49%" alt="ScribeWatch Quick Transcribe">
+  <img src="docs/screenshots/en/documents.png" width="49%" alt="ScribeWatch workflow folders">
 </p>
 
-## 🔁 Provider + model fallbacks
+## Provider + model fallbacks
 
 Every transcription route is an explicit **provider + model** pair. ScribeWatch discovers the models exposed by each configured provider, so you choose the exact chain — including multiple models from the same provider.
 
@@ -82,9 +109,9 @@ Markdown
 
 Each provider has an enforced request timeout, while each route can optionally define an independent, potentially shorter fallback timeout (`Never`, 10/30/60 minutes or custom). Connection failures, provider timeouts/errors, rate limits and invalid responses can fall through; explicit user cancellation stops the whole chain. Jobs keep the attempt history and record the provider/model that actually succeeded.
 
-## 🚀 Quick start
+## Self-host with Docker
 
-Requirements: Docker Engine + Compose and an OpenAI-compatible transcription endpoint.
+For the **Docker edition** only: Docker Engine + Compose and an existing OpenAI-compatible transcription endpoint. The Windows full standalone edition above does not need Docker.
 
 ```bash
 git clone https://github.com/GodsQuantum/ScribeWatch.git
@@ -107,7 +134,7 @@ During LIVE capture, ScribeWatch writes each browser-delivered MediaRecorder sli
 
 If the tab/browser reloads or crashes, the next visit detects the unfinished session. You can **play and scrub the last saved segment**, jump to the **last 30 seconds**, then choose **Continue**. Continue starts a new MediaRecorder segment under the same logical session; ScribeWatch records the estimated interruption gap and never fabricates silence to hide missing audio.
 
-At Stop/finalization, completed segments are streamed to Cloud9 and FFmpeg produces one canonical mono AAC/M4A in manifest order. The final audio can be kept in **no permanent copy**, a chosen **server folder**, or a chosen **folder on this computer**. Client-side recovery data is not deleted until the server has durably accepted the recording and any requested client copy has completed.
+At Stop/finalization, completed segments are streamed to the ScribeWatch backend and FFmpeg produces one canonical mono AAC/M4A in manifest order. The final audio can be kept in **no permanent copy**, a chosen **server folder**, or a chosen **folder on this computer**. Client-side recovery data is not deleted until the server has durably accepted the recording and any requested client copy has completed.
 
 Accepted Quick/LIVE sources are kept for **24 hours by default**, including Error/Interrupted/Cancelled jobs, so Retry after a transcription failure or ScribeWatch restart still has a real source file. This feature improves recording-loss resilience; it does **not** by itself make ScribeWatch a certified medical-record system or establish healthcare/regulatory compliance.
 
@@ -119,7 +146,7 @@ Accepted Quick/LIVE sources are kept for **24 hours by default**, including Erro
 
 > By default ScribeWatch binds locally. If you expose it on a trusted LAN/VPN, change `SCRIBEWATCH_BIND_HOST` and use your normal firewall or authenticated reverse proxy policy.
 
-## 🧠 Built for Obsidian — not locked to it
+## Built for Obsidian — not locked to it
 
 A transcript can become a note like this:
 
@@ -165,10 +192,10 @@ Built-in profiles cover general structured notes, meetings/phone calls, conserva
 Long transcripts are processed in bounded evidence chunks before final synthesis. The system prompt treats transcript text as untrusted data, forbids invented facts, and requires uncertainty to remain explicit. If the LLM fails, **the job still succeeds with the canonical transcript** and records the structuring error separately.
 
 <p align="center">
-  <img src="docs/screenshots/mobile-quick-transcribe.png" width="390" alt="ScribeWatch Quick Transcribe on mobile">
+  <img src="docs/screenshots/en/mobile.png" width="390" alt="ScribeWatch Quick Transcribe on mobile">
 </p>
 
-## 🔄 Workflow model
+## Workflow model
 
 ```text
 Voice recorder / sync / NAS
@@ -189,7 +216,7 @@ Voice recorder / sync / NAS
 
 Workflow audio is **never archived before Markdown publication succeeds**. Watch folders are recursive, and both native filesystem events and periodic reconciliation cover nested subfolders. When **Markdown folder** is empty, the note is published in the exact directory containing the detected source audio. The configured **Audio archive** subtree is ignored before audio probing, so an archive such as `Watch/Vocaux` can safely live inside the watched tree without being re-ingested.
 
-## 🔒 Safety by design
+## Safety by design
 
 - Provider API keys stay server-side and are never returned to the browser.
 - Server browsing is restricted to explicit allowed roots and rejects symlink escapes.
@@ -203,7 +230,7 @@ Workflow audio is **never archived before Markdown publication succeeds**. Watch
 
 See [`SECURITY.md`](.github/SECURITY.md).
 
-## ⚙️ Configuration
+## Configuration
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -223,7 +250,7 @@ See [`SECURITY.md`](.github/SECURITY.md).
 
 Audio ingest is **content-based, not extension-based**. Stable Watch files and Quick uploads are probed with FFprobe; any file containing an audio stream that the bundled FFmpeg can decode is accepted, then normalized to mono 16 kHz audio before STT. WAV is the compatibility default; lossless FLAC is available for deployments that want a smaller normalized payload.
 
-## 🧩 Client-computer folders
+## Client-computer folders
 
 Browsers cannot continuously watch arbitrary folders on another computer. ScribeWatch keeps that boundary explicit:
 
@@ -234,7 +261,7 @@ Browsers cannot continuously watch arbitrary folders on another computer. Scribe
 
 No browser directory handle is sent to or stored by the ScribeWatch server.
 
-## 🛠️ Stack & development
+## Stack & development
 
 **Backend:** Rust 1.98 · Axum · Tokio · SQLite · notify
 **Frontend:** Svelte 5 · SvelteKit 2 · TypeScript
@@ -253,7 +280,7 @@ Deterministic end-to-end check:
 bash scripts/e2e-v02.sh
 ```
 
-## 📡 API highlights
+## API highlights
 
 - `POST /api/v1/quick/upload` — streamed browser upload
 - `POST /api/v1/quick/server` — allowed server-side audio file
@@ -268,34 +295,9 @@ bash scripts/e2e-v02.sh
 - `GET /api/v1/jobs`, `GET /api/v1/events` — history and live state
 - `GET /api/v1/health`, `GET /api/v1/ready` — health/readiness
 
-## 🤝 Contributing
-
-Issues and pull requests are welcome. See [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) and [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md).
-
-If ScribeWatch earns a place in your stack, a ⭐ helps other voice-note and Obsidian users find it.
-
-## 📄 License
-
-[MIT](LICENSE)
-
-## First use — Windows full standalone installer
-
-On a fresh Windows workstation, the full standalone installer configures the
-five default report profiles, downloads the Parakeet Ultra transcription and
-Qwen3.5-4B Q4_K_M local writing models, and starts the built-in engines.
-The first download requires internet (several GB); all consultation audio
-and document generation remain on the workstation. Wait for the REC readiness
-indicator, enter practice details and choose the export folder, allow the
-microphone once, then click REC and Stop. The local PDF is an editable draft
-requiring the responsible clinician to review it before use.
-
-The lightweight native installers, current macOS/Linux packages and Docker do
-not include the full native acoustic and LLM runtime bundle. Provision their
-engines manually until platform-specific E2E-certified bundles exist.
-
 ## Hardware-aware safe performance starter
 
-**Downloads:** [Linux](https://github.com/GodsQuantum/ScribeWatch/releases) · [Windows x64 / macOS Intel and Apple Silicon installer candidates](https://github.com/GodsQuantum/ScribeWatch/releases/tag/desktop-v0.5.3-rc.2). Windows/macOS candidates are unsigned and not Apple-notarized. Check SHA256 before trusting a binary.
+**Downloads:** [All official ScribeWatch v0.6.2 installers](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.2). Builds may be unsigned or not Apple-notarized. Check SHA256 before trusting a binary.
 
 ~~~bash
 python3 scripts/auto-tune.py           # read-only CPU and RAM detection
@@ -320,7 +322,7 @@ a provider (desktop or server). No clinical transcript is sent during discovery.
 
 On Windows, **Install Lemonade (WinGet)** explicitly asks permission before
 using the official AMD.LemonadeServer package; alternatively, the official MSI
-download is linked. Neither engine nor model installs automatically.
+download is linked. This optional manual path does not apply to the full Windows standalone bundle, which provisions its bundled engines and downloads its default models automatically.
 After Lemonade is running, **Install selected model** offers a lightweight
 official Liquid LFM3-1.7B Q4_K_M GGUF or the larger Qwen3.5-4B Q4_K_M,
 using Lemonade's own native model-download API and persistent job manager.
@@ -342,3 +344,15 @@ remaining macOS/Linux full-standalone, systray, model/GPU and trusted-signing
 certification gates, are tracked in
 [docs/ROADMAP_DESKTOP_PORTABILITY.md](docs/ROADMAP_DESKTOP_PORTABILITY.md).
 Existing workflows, microphone recovery, recordings and exports are preserved.
+
+## Contributing
+
+Issues and pull requests are welcome. See [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) and [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md).
+
+If ScribeWatch earns a place in your stack, a ⭐ helps other voice-note and Obsidian users find it.
+
+## License
+
+[MIT](LICENSE)
+
+Maintained by [Arezki Chougar](https://arezkichougar.com) · [MIT](LICENSE).
