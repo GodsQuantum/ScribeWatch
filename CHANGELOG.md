@@ -2,6 +2,29 @@
 
 All notable ScribeWatch changes are documented here.
 
+
+## [0.5.5] - 2026-11-12
+
+### Fixed
+- Windows standalone bundles now require a real native Cloud9-Speaches runtime with its **model alias map** and both **Silero VAD v5 ONNX assets**. An incomplete release archive fails the packaging checks before it can reach users, instead of failing with HTTP 500 on first audio transcription.
+- The native acoustic runtime is updated to a new SHA-256-pinned Cloud9-Speaches portable release; the pinned llama.cpp b12110 generation engine and clinical prompt/protocol are not changed.
+
+### Notes
+- The source-grounded clinical PDF remains a draft for the responsible practitioner to verify. A lexical benchmark score does not certify clinical correctness.
+- Microphone and local export-directory authorization still require an explicit first-use action in the browser.
+
+## [0.5.4] - 2026-11-12
+
+### Added
+- Native Windows/macOS installer candidates and Windows standalone bundle with the verified llama.cpp b12110 engine.
+- Simple, local microphone REC/STOP workflow, automatic export after a user-authorized destination folder is selected, and reusable dental/medical structure profiles.
+- Entire existing Parakeet ASR transcripts can be structured through the same local API and exported without sending medical data to a cloud LLM.
+
+### Changed
+- Reproducible local clinical generation controls and a tighter, adaptive PDF layout; strong source-grounding and clinician-review safeguards remain mandatory.
+- More deterministic runtime and first-run behavior across supported hardware. Model weights still require explicit installation.
+
+
 ## [0.5.3] - 2026-10-18
 
 ### Added
