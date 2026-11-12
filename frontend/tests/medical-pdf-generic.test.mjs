@@ -147,6 +147,36 @@ test("patient PDF excludes model review headings and editorial approval text", (
 });
 
 
+test('long-source pagination hides only internal Part N transport headings', async t => {
+  const patient={surname:'EXEMPLE',forename:'FICTIF',dateOfBirth:'2000-01-01'};
+  const markdown=[
+    '## Partie 1 — déroulement de la consultation',
+    '## Thème utile fictif',
+    'La phrase clinique fictive est préservée sans modification.',
+    '## Partie 2 — déroulement de la consultation',
+    '### Un autre thème fictif',
+    '- Un deuxième fait fictif est maintenu dans son intégralité.'
+  ].join('\n');
+  const cleaned=patientFacingMedicalBody(markdown);
+  assert.doesNotMatch(cleaned,/Partie [12].*déroulement/);
+  assert.match(cleaned,/## Thème utile fictif/);
+  assert.match(cleaned,/Un deuxième fait fictif est maintenu/);
+  const pdf=await createMedicalPdf(markdown,patient,new Date(2026,10,11));
+  const doc=await PDFDocument.load(await pdf.arrayBuffer());
+  assert.equal(doc.getPageCount(),1);
+  const directory=mkdtempSync(join(tmpdir(),'scribewatch-generated-scaffold-'));
+  try{
+    const filename=join(directory,'internal-headings.pdf');
+    writeFileSync(filename,new Uint8Array(await pdf.arrayBuffer()));
+    const result=spawnSync('pdftotext',['-layout',filename,'-'],{encoding:'utf8'});
+    if(result.error?.code==='ENOENT'){t.diagnostic('pdftotext unavailable');return;}
+    assert.equal(result.status,0);
+    assert.doesNotMatch(result.stdout,/Partie [12].*déroulement/);
+    assert.match(result.stdout,/Thème utile fictif/);
+    assert.match(result.stdout,/Un deuxième fait fictif est maintenu/);
+  }finally{rmSync(directory,{recursive:true,force:true});}
+});
+
 test('pagination keeps compact sections together and uses spare page space', async t => {
   const patient = {surname:'EXEMPLE',forename:'FICTIF',dateOfBirth:'2000-01-01',practitioner:'Dr Exemple'};
   const paragraph = n => 'Le paragraphe fictif numero '+n+' sert uniquement a verifier la pagination. Aucun renseignement reel de patient, aucune information medicale ni aucune prescription ne figure dans cette demonstration. La mise en page doit suivre les rubriques de maniere compacte et lisible.';
