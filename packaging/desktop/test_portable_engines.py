@@ -21,6 +21,7 @@ class PortableEngineBundlerTests(unittest.TestCase):
                 "Cloud9-Speaches/_internal/model_aliases.json": b'{"parakeet":"repo"}',
                 "Cloud9-Speaches/_internal/libssl.so.3": b"openssl-ssl",
                 "Cloud9-Speaches/_internal/libcrypto.so.3": b"openssl-crypto",
+                "Cloud9-Speaches/bin/libgomp.so.1": b"gcc-openmp",
                 "Cloud9-Speaches/_internal/faster_whisper/assets/silero_encoder_v5.onnx": b"e",
                 "Cloud9-Speaches/_internal/faster_whisper/assets/silero_decoder_v5.onnx": b"d",
             }.items():
@@ -48,6 +49,7 @@ class PortableEngineBundlerTests(unittest.TestCase):
             self.assertTrue((out/"llm/libggml.so").exists())
             self.assertTrue((out/"llm/libssl.so.3").exists())
             self.assertTrue((out/"llm/libcrypto.so.3").exists())
+            self.assertEqual((out/"llm/libgomp.so.1").read_bytes(),b"gcc-openmp")
             self.assertIn("speaches/Cloud9-Speaches",result["files"])
             self.assertTrue((out/"BUNDLED-RUNTIMES-SHA256.json").exists())
 

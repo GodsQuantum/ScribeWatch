@@ -179,6 +179,13 @@ def compose(
                 if not source.is_file():
                     raise ValueError("Speaches Reloaded missing portable OpenSSL: " + library)
                 shutil.copy2(source, cpu / library)
+            # Ubuntu 24.04 minimal images do not include the OpenMP runtime.
+            # The signed RC7 Speaches Reloaded bundle includes a portable
+            # libgomp; llama.cpp b12110 also needs it to load.
+            openmp = temp_root / "speaches" / "bin" / "libgomp.so.1"
+            if not openmp.is_file():
+                raise ValueError("Speaches Reloaded missing portable libgomp.so.1")
+            shutil.copy2(openmp, cpu / "libgomp.so.1")
         notice = temp_root / "THIRD-PARTY-NATIVE-RUNTIMES.txt"
         notice.write_text(
             "Speaches Reloaded: https://github.com/GodsQuantum/Speaches-Reloaded\n"
