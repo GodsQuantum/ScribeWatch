@@ -9,10 +9,10 @@ import re
 import unittest
 
 ROOT=Path(__file__).resolve().parents[2]
-LOCK=json.loads((ROOT/'packaging/desktop/llama-runtime-lock.json').read_text())
-WF=(ROOT/'.github/workflows/standalone-windows.yml').read_text()
-LLM=(ROOT/'src/llm.rs').read_text()
-EMBEDDED=(ROOT/'src/api/embedded.rs').read_text()
+LOCK=json.loads((ROOT/'packaging/desktop/llama-runtime-lock.json').read_text(encoding="utf-8"))
+WF=(ROOT/'.github/workflows/standalone-windows.yml').read_text(encoding="utf-8")
+LLM=(ROOT/'src/llm.rs').read_text(encoding="utf-8")
+EMBEDDED=(ROOT/'src/api/embedded.rs').read_text(encoding="utf-8")
 
 class RuntimeContractTests(unittest.TestCase):
     def test_pinned_release_and_archive_hashes_are_exact(self):
