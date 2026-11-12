@@ -24,6 +24,9 @@ class BundleTest(unittest.TestCase):
             speaches = fakezip(root / "stt.zip", {
                 "Cloud9-Speaches-dist/Cloud9-Speaches.exe": b"acoustic",
                 "Cloud9-Speaches-dist/_internal/framework.dll": b"runtime",
+                "Cloud9-Speaches-dist/_internal/model_aliases.json": b'{"fr-quality":"some/model"}',
+                "Cloud9-Speaches-dist/_internal/faster_whisper/assets/silero_encoder_v5.onnx": b"encoder",
+                "Cloud9-Speaches-dist/_internal/faster_whisper/assets/silero_decoder_v5.onnx": b"decoder",
             })
             cpu = fakezip(root / "cpu.zip", {
                 "llama-b123/bin/llama-server.exe": b"cpu",
@@ -52,10 +55,36 @@ class BundleTest(unittest.TestCase):
             self.assertEqual((root/"engines"/"llm"/"cuda"/"cudart64_12.dll").read_bytes(), b"runtime")
             self.assertEqual((root/"engines"/"speaches"/"_internal"/"framework.dll").read_bytes(), b"runtime")
             self.assertIn("llama-cuda", result["source_archive_sha256"])
+            self.assertEqual((root/"engines/speaches/_internal/model_aliases.json").read_bytes(), b'{"fr-quality":"some/model"}')
             self.assertTrue((root/"engines"/"BUNDLED-RUNTIMES-SHA256.json").exists())
             with self.assertRaises(FileExistsError):
                 compose(platform="windows-amd64", speaches=speaches, speaches_sha=sha256(speaches),
                         llm_cpu=cpu, llm_cpu_sha=sha256(cpu), output=root/"engines")
+
+    def test_rejects_real_audio_blockers_missing_from_old_rc6(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cpu = fakezip(root/"cpu.zip", {"llama-server.exe": b"cpu"})
+            for missing in ("alias", "encoder", "decoder"):
+                assets = {
+                    "Cloud9-Speaches.exe": b"stt",
+                    "_internal/model_aliases.json": b"{}",
+                    "_internal/faster_whisper/assets/silero_encoder_v5.onnx": b"encoder",
+                    "_internal/faster_whisper/assets/silero_decoder_v5.onnx": b"decoder",
+                }
+                name = {
+                    "alias": "_internal/model_aliases.json",
+                    "encoder": "_internal/faster_whisper/assets/silero_encoder_v5.onnx",
+                    "decoder": "_internal/faster_whisper/assets/silero_decoder_v5.onnx",
+                }[missing]
+                del assets[name]
+                archive = fakezip(root / f"missing-{missing}.zip", assets)
+                with self.subTest(missing=missing), self.assertRaisesRegex(ValueError, "Incomplete Cloud9-Speaches ASR bundle"):
+                    compose(platform="windows-amd64", speaches=archive,
+                            speaches_sha=sha256(archive),
+                            llm_cpu=cpu, llm_cpu_sha=sha256(cpu),
+                            output=root/f"no-{missing}")
+
 
     def test_refuses_wrong_sha_before_unpacking(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
