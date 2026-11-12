@@ -16,7 +16,7 @@
   import {navigationAllows,normalizeMode,normalizeView,type UiMode,type View} from '$lib/ui-mode';
   getLiveRecorderController();
   const emptyStats:DashboardStats={workflows:0,enabledWorkflows:0,activeJobs:0,completedJobs:0,failedJobs:0};
-  let active:View='home';
+  let active:View='live';
   let uiMode:UiMode='simple';
   let stats=emptyStats;
   let providers:Provider[]=[];
@@ -92,8 +92,10 @@
     try{selectedSpace=localStorage.getItem('scribewatch:space')??'all';}catch{/* storage unavailable */}
     try{
       uiMode=normalizeMode(localStorage.getItem('scribewatch:uiMode'));
-      active=normalizeView(localStorage.getItem('scribewatch:view')??'home',uiMode);
-    }catch{uiMode='simple';active='home';}
+      // A simple clinical workstation opens at REC on every new application launch.
+      // Advanced mode still restores the last visited page.
+      active=uiMode==='simple'?'live':normalizeView(localStorage.getItem('scribewatch:view')??'home',uiMode);
+    }catch{uiMode='simple';active='live';}
     loadAll(true);
     let timer:ReturnType<typeof setTimeout>|undefined;
     const events=new EventSource('/api/v1/events');

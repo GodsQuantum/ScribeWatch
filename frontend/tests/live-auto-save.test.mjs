@@ -35,3 +35,11 @@ test('simple recorder retains final audio in the SAME authorized destination as 
   assert.ok(live.includes("saveClientDirectoryHandle(manifest.id,finalAudioDirectory)"));
   assert.ok(live.includes("(!simpleMode||!!simpleDirectory)"));
 });
+
+
+test('simple mode starts on REC without an extra navigation click', async () => {
+  const {readFile}=await import('node:fs/promises');
+  const page=await readFile(new URL('../src/routes/+page.svelte',import.meta.url),'utf8');
+  assert.ok(page.includes("active=uiMode==='simple'?'live'"));
+  assert.ok(page.includes("catch{uiMode='simple';active='live';}"));
+});
