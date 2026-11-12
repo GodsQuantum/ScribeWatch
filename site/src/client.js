@@ -39,10 +39,30 @@
     note.textContent = target ? words.ready : words.select;
   }
   const choiceReady = choose();
+  async function staticReleaseFallback() {
+    const mapResponse = await fetch('/assets/release-map.json');
+    if (!mapResponse.ok) return null;
+    const matchers = await mapResponse.json();
+    const response = await fetch('https://api.github.com/repos/GodsQuantum/ScribeWatch/releases/latest', {
+      headers: {Accept:'application/vnd.github+json'}
+    });
+    if (!response.ok) return null;
+    const release = await response.json();
+    if (release.draft || release.prerelease || !/^v[0-9]+\.[0-9]+\.[0-9]+$/.test(release.tag_name) || !Array.isArray(release.assets)) return null;
+    const assets = {};
+    for (const [key,pattern] of Object.entries(matchers)) {
+      const matcher = new RegExp(pattern, 'i');
+      const asset = release.assets.find((a) => matcher.test(a.name) &&
+        /^https:\/\/github\.com\/GodsQuantum\/ScribeWatch\/releases\/download\//.test(a.browser_download_url || ''));
+      assets[key] = asset ? {name:asset.name,size:asset.size,url:asset.browser_download_url} : null;
+    }
+    return {version:release.tag_name,assets};
+  }
   fetch('/api/release', { headers: {Accept:'application/json'} })
     .then((r) => r.ok ? r.json() : null)
     .then(async (data) => {
       await choiceReady;
+      if (!data?.version) data = await staticReleaseFallback();
       if (!data?.version) return;
       const tag = document.getElementById('release-tag');
       if (tag) tag.textContent = data.version;
@@ -53,7 +73,7 @@
           && data.assets?.[detectedTarget + '-full']
           ? detectedTarget + '-full'
           : detectedTarget;
-        if (data.assets?.[next]) button.href = '/download/' + next;
+        if (data.assets?.[next]) button.href = data.assets[next].url;
       }
       const hasMacFull = Boolean(data.assets?.['mac-arm64-full'] || data.assets?.['mac-amd64-full']);
       const hasLinuxFull = Boolean(data.assets?.['linux-amd64-full'] || data.assets?.['linux-arm64-full']);
@@ -75,6 +95,7 @@
         if (link) {
           const row = link.closest('.asset');
           if (row) row.hidden = !asset;
+          if (asset) link.href = asset.url;
         }
       }
     }).catch(() => {});

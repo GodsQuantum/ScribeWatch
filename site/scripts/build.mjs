@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {ASSETS} from '../src/worker.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const pub=path.join(root,'public');
 const app=path.resolve(root,'..');
@@ -135,8 +136,8 @@ function render(lang, t) {
   '</div></aside>',
   '<section class="section" id="downloads"><div class="wrap"><div class="section-head"><h2>'+esc(t.download)+'</h2><p class="lead">'+esc(t.downloadLead)+'</p></div><div class="downloads">',
   ...t.cards.map((card,i)=>'<article class="download-card '+(i===0?'emphasis':'')+'" data-platform="'+['windows','macos','linux'][i]+'" data-full-copy="'+esc(i===1?localeExtra.mac:i===2?localeExtra.linux:'')+'"><span class="tag">'+esc(card[3])+'</span><div><h3>'+esc(card[0])+'</h3><p>'+esc(card[1])+'</p></div><p data-platform-description>'+esc(card[2])+'</p>'+
-     targets[i].map((kind,j)=>'<div class="asset"><a data-download="'+kind+'" href="/download/'+kind+'">'+esc(card[j+4])+'</a><span data-size="'+kind+'"></span></div>').join('')+
-     additionalTargets[i].map(kind=>'<div class="asset" hidden><a data-download="'+kind+'" href="/download/'+kind+'">'+esc(localeExtra.labels[kind])+'</a><span data-size="'+kind+'"></span></div>').join('')+'</article>'),
+     targets[i].map((kind,j)=>'<div class="asset"><a data-download="'+kind+'" href="https://github.com/GodsQuantum/ScribeWatch/releases/latest">'+esc(card[j+4])+'</a><span data-size="'+kind+'"></span></div>').join('')+
+     additionalTargets[i].map(kind=>'<div class="asset" hidden><a data-download="'+kind+'" href="https://github.com/GodsQuantum/ScribeWatch/releases/latest">'+esc(localeExtra.labels[kind])+'</a><span data-size="'+kind+'"></span></div>').join('')+'</article>'),
   '</div><p class="caution" data-full-warning="'+esc(localeExtra.warning)+'"><strong>'+esc(t.warning)+'</strong> <span data-warning-body>'+esc(t.warningBody)+'</span></p></div></section></main>',
   '<footer class="footer"><div class="wrap footer-inner"><span>'+esc(t.author)+'</span><div class="footer-links">',
   link('https://github.com/GodsQuantum/ScribeWatch',t.github)+link('https://github.com/GodsQuantum/ScribeWatch/releases/latest',t.releases),
@@ -149,6 +150,7 @@ fs.mkdirSync(path.join(pub,'assets','screens'),{recursive:true});
 fs.copyFileSync(path.join(app,'docs','logo.svg'),path.join(pub,'assets','logo.svg'));
 fs.copyFileSync(path.join(root,'src','style.css'),path.join(pub,'assets','style.css'));
 fs.copyFileSync(path.join(root,'src','client.js'),path.join(pub,'assets','client.js'));
+fs.writeFileSync(path.join(pub,'assets','release-map.json'),JSON.stringify(Object.fromEntries(Object.entries(ASSETS).map(([k,rx])=>[k,rx.source]))));
 for(const [lang,t] of Object.entries(locales)){
   const dir=path.join(pub,lang);
   fs.mkdirSync(dir,{recursive:true});
@@ -160,7 +162,7 @@ for(const [lang,t] of Object.entries(locales)){
     fs.writeFileSync(path.join(pub,'assets','screens',lang+'-'+screen+'.png'),bytes);
   }
 }
-fs.writeFileSync(path.join(pub,'index.html'),'<!doctype html><html lang="en"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/en/"><title>ScribeWatch</title><a href="/en/">ScribeWatch</a></html>');
+fs.writeFileSync(path.join(pub,'index.html'),"<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"robots\" content=\"index,follow\"><title>ScribeWatch</title><script>(function(){const locale=(navigator.language||\"\").toLowerCase();location.replace(locale.startsWith(\"fr\")?\"/fr/\":locale.startsWith(\"zh\")?\"/zh-CN/\":\"/en/\");})()</script></head><body><noscript><p><a href=\"/en/\">English</a> · <a href=\"/fr/\">Français</a> · <a href=\"/zh-CN/\">中文</a></p></noscript></body></html>");
 fs.writeFileSync(path.join(pub,'robots.txt'),'User-agent: *\nAllow: /\nSitemap: https://scribewatch.arezkichougar.com/sitemap.xml\n');
 fs.writeFileSync(path.join(pub,'sitemap.xml'),'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+Object.keys(locales).map((l)=>'<url><loc>https://scribewatch.arezkichougar.com/'+l+'/</loc></url>').join('')+'</urlset>');
 console.log('BUILT',Object.keys(locales).join(','),'real screenshot assets:',Object.keys(locales).length*4);
