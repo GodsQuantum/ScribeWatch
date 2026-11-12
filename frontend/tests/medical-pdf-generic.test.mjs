@@ -151,16 +151,16 @@ test('long-source pagination hides only internal Part N transport headings', asy
   const patient={surname:'EXEMPLE',forename:'FICTIF',dateOfBirth:'2000-01-01'};
   const markdown=[
     '## Partie 1 — déroulement de la consultation',
-    '## Thème utile fictif',
-    'La phrase clinique fictive est préservée sans modification.',
+    '## THEME-TEST-ALPHA',
+    'La phrase fictive est preservee sans modification.',
     '## Partie 2 — déroulement de la consultation',
-    '### Un autre thème fictif',
-    '- Un deuxième fait fictif est maintenu dans son intégralité.'
+    '### THEME-TEST-BETA',
+    '- Deuxieme fait fictif integralement maintenu.'
   ].join('\n');
   const cleaned=patientFacingMedicalBody(markdown);
   assert.doesNotMatch(cleaned,/Partie [12].*déroulement/);
-  assert.match(cleaned,/## Thème utile fictif/);
-  assert.match(cleaned,/Un deuxième fait fictif est maintenu/);
+  assert.match(cleaned,/## THEME-TEST-ALPHA/);
+  assert.match(cleaned,/Deuxieme fait fictif integralement maintenu/);
   const pdf=await createMedicalPdf(markdown,patient,new Date(2026,10,11));
   const doc=await PDFDocument.load(await pdf.arrayBuffer());
   assert.equal(doc.getPageCount(),1);
@@ -171,9 +171,9 @@ test('long-source pagination hides only internal Part N transport headings', asy
     const result=spawnSync('pdftotext',['-layout',filename,'-'],{encoding:'utf8'});
     if(result.error?.code==='ENOENT'){t.diagnostic('pdftotext unavailable');return;}
     assert.equal(result.status,0);
-    assert.doesNotMatch(result.stdout,/Partie [12].*déroulement/);
-    assert.match(result.stdout,/Thème utile fictif/);
-    assert.match(result.stdout,/Un deuxième fait fictif est maintenu/);
+    assert.doesNotMatch(result.stdout,/Partie [12]/);
+    assert.match(result.stdout,/THEME-TEST-ALPHA/);
+    assert.match(result.stdout,/Deuxieme fait fictif integralement maintenu/);
   }finally{rmSync(directory,{recursive:true,force:true});}
 });
 
