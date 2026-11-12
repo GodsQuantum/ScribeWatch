@@ -60,6 +60,10 @@ def run(installed: Path) -> None:
     if not (bundle / "BUNDLED-RUNTIMES-SHA256.json").is_file():
         raise RuntimeError("Bundled native source provenance manifest missing")
     manifest = json.loads((bundle / "BUNDLED-RUNTIMES-SHA256.json").read_text(encoding="utf-8"))
+    # A healthy /v1/models does not prove an actual Parakeet+VAD request
+    # works. RC6 omitted the alias map and Silero ONNX assets entirely.
+    from standalone_bundle import verify_speaches_native_assets
+    verify_speaches_native_assets(bundle / "speaches")
     if len(manifest["files"]) < 3:
         raise RuntimeError("Bundled engines manifest unexpectedly empty")
     for kind in ("speaches", "llm"):

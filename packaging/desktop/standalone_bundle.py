@@ -73,6 +73,29 @@ def normalize_binary(source: Path, target: Path, executable: str) -> None:
     shutil.copytree(matches[0].parent, target)
 
 
+def verify_speaches_native_assets(root: Path) -> None:
+    """Reject a portable ASR that starts but fails its first real audio request.
+
+    Both VAD assets and the ID map are required at runtime by bundled
+    faster_whisper and speaches.model_aliases, respectively.
+    """
+    expected = (
+        "_internal/model_aliases.json",
+        "_internal/faster_whisper/assets/silero_encoder_v5.onnx",
+        "_internal/faster_whisper/assets/silero_decoder_v5.onnx",
+    )
+    for relative in expected:
+        asset = root / relative
+        if not asset.is_file() or not asset.stat().st_size:
+            raise ValueError(f"Incomplete Cloud9-Speaches ASR bundle: {relative}")
+    aliases = json.loads((root / expected[0]).read_text(encoding="utf-8"))
+    if not isinstance(aliases, dict) or any(
+        not isinstance(key, str) or not isinstance(value, str)
+        for key, value in aliases.items()
+    ):
+        raise ValueError("Cloud9-Speaches alias map must be a string-to-string JSON object")
+
+
 def compose(
     *,
     platform: str,
@@ -114,6 +137,7 @@ def compose(
         engines = scratch / "engines"
         engines.mkdir()
         normalize_binary(scratch / "cloud9-speaches", engines / "speaches", "Cloud9-Speaches.exe")
+        verify_speaches_native_assets(engines / "speaches")
         root = engines / "llm"
         root.mkdir()
         normalize_binary(scratch / "llama-cpu", root / "cpu", "llama-server.exe")
