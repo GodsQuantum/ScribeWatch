@@ -38,6 +38,11 @@ class DebPackagingTests(unittest.TestCase):
                 self.assertIn(name,listing)
             self.assertFalse("postinst" in subprocess.check_output(["dpkg-deb","--ctrl-tarfile",str(artifact)]).decode("latin1","ignore"))
 
+    def test_ubuntu_24_dpkg_uses_supported_compression_option(self):
+        source=SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("dpkg-deb --build --root-owner-group -Zzstd",source)
+        self.assertNotIn("--compression=zstd",source)
+
     def test_missing_bundled_engine_rejects_release(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);app=root/"AppDir";app.mkdir();out=root/"dist";out.mkdir()

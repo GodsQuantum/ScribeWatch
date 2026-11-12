@@ -57,6 +57,6 @@ Description: Local-first audio transcription and structured reports
 EOF
 output="$outdir/scribewatch_${version}_${arch}.deb"
 [ ! -e "$output" ] || { echo "Refusing to overwrite $output" >&2; exit 73; }
-dpkg-deb --build --root-owner-group --compression=zstd "$debroot" "$output"
+dpkg-deb --build --root-owner-group -Zzstd "$debroot" "$output"
 (cd "$outdir" && sha256sum "$(basename "$output")" > "$(basename "$output").sha256")
 printf 'DEB_PACKAGE=%s\n' "$output"
