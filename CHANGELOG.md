@@ -3,6 +3,18 @@
 All notable ScribeWatch changes are documented here.
 
 
+## [0.6.1] - 2026-11-12
+
+### Fixed
+- Corrected PDF export of edited non-clinical reports on Windows standalone, macOS and Linux. Browser-side pdf-lib (already shipped for clinical reports) now creates independent, paginated A4 PDFs; neither Pandoc nor WeasyPrint must be installed for the user-facing PDF export.
+- REC, Quick Transcribe, Documents and the saved-report editor all export the most recently saved revision, with its version suffix. This prevents using the legacy server-side generic PDF converter, which returned HTTP 500 when optional Pandoc/WeasyPrint were absent.
+- Original Parakeet transcription, revised Markdown, clinical consultation PDF generation, inference model and llama.cpp b12110 are unchanged.
+
+### Notes
+- The direct server API /api/v1/jobs/{id}/export/pdf still supports Pandoc/WeasyPrint where explicitly installed; application UI PDF export no longer depends on them. Clinical documents always require practitioner review.
+
+
+
 ## [0.6.0] - 2026-11-12
 
 ### Added
