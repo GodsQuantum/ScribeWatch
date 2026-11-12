@@ -2,7 +2,7 @@ import { parseApiResponse } from './api-response.js';
 import type {
   EmbeddedRuntimeStatus, Space, SpaceMembership, SpaceKind,
   BrowseResponse, DashboardStats, ExportFormat, Job, LiveUploadManifest, LlmProvider, LlmProviderInput,
-  Provider, ProviderInput, QuickOptions, StructureProfile, Workflow
+  Provider, ProviderInput, QuickOptions, ReportEncounter, SavedReport, StructureProfile, Workflow
 } from './types';
 
 export class ApiError extends Error {
@@ -145,6 +145,21 @@ export const api = {
     }),
   jobs: () => request<Job[]>('/api/v1/jobs'),
   job: (id: string) => request<Job>(`/api/v1/jobs/${id}`),
+  jobReport: (id:string) => request<SavedReport>('/api/v1/jobs/'+encodeURIComponent(id)+'/report', {
+    headers: { 'Cache-Control':'no-store' }
+  }),
+  saveJobReport: (id:string,markdown:string,expectedRevision:number) =>
+    request<SavedReport>('/api/v1/jobs/'+encodeURIComponent(id)+'/report', {
+      method:'PUT',body:JSON.stringify({markdown,expectedRevision})
+    }),
+  jobEncounter: (id:string) =>
+    request<ReportEncounter|null>('/api/v1/jobs/'+encodeURIComponent(id)+'/report/encounter', {
+      headers: { 'Cache-Control':'no-store' }
+    }),
+  saveJobEncounter: (id:string,encounter:ReportEncounter,previous:ReportEncounter|null=null) =>
+    request<ReportEncounter>('/api/v1/jobs/'+encodeURIComponent(id)+'/report/encounter', {
+      method:'PUT',body:JSON.stringify({encounter,previous})
+    }),
   retryJob: (id: string) => request<Job>(`/api/v1/jobs/${id}/retry`, { method: 'POST' }),
   cancelJob: (id: string) => request<Job>(`/api/v1/jobs/${id}/cancel`, { method: 'POST' }),
   deleteJob: (id: string) => request<void>(`/api/v1/jobs/${id}`, { method: 'DELETE' }),

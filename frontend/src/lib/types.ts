@@ -117,6 +117,34 @@ export interface QuickJobMeta {
   live?: LiveJobMeta;
 }
 
+/** Private, revisioned report: the generated source is immutable. */
+export interface ReportEncounter {
+  surname:string;
+  forename:string;
+  dateOfBirth:string;
+  consultationDate:string;
+  practitioner:string;
+  practiceAddress:string;
+  practiceContact:string;
+  sessionFields:Array<{label:string;value:string}>;
+  medicalReportEnabled:boolean;
+}
+
+export interface SavedReportRevision {
+  revision:number;
+  markdown:string;
+  savedAtMs:number;
+}
+export interface SavedReport {
+  jobId:string;
+  originalMarkdown:string;
+  markdown:string;
+  revision:number;
+  createdAtMs:number;
+  updatedAtMs:number;
+  history:SavedReportRevision[];
+}
+
 export interface Job {
   id: string;
   kind: JobKind;

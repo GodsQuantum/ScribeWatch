@@ -16,6 +16,7 @@ mod profile_locale;
 pub mod provider;
 pub mod quality;
 pub mod quick;
+pub mod reports;
 pub mod state;
 pub mod transcription_chain;
 pub mod workflows;

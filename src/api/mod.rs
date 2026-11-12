@@ -121,6 +121,14 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/jobs/{id}", get(jobs::get).delete(jobs::delete))
         .route("/api/v1/jobs/{id}/retry", post(jobs::retry))
         .route("/api/v1/jobs/{id}/cancel", post(jobs::cancel))
+        .route(
+            "/api/v1/jobs/{id}/report",
+            get(jobs::report).put(jobs::edit_report),
+        )
+        .route(
+            "/api/v1/jobs/{id}/report/encounter",
+            get(jobs::report_encounter).put(jobs::save_report_encounter),
+        )
         .route("/api/v1/jobs/{id}/markdown", get(jobs::markdown))
         .route("/api/v1/jobs/{id}/export/{format}", get(jobs::export))
         .route("/api/v1/jobs/{id}/audio", get(jobs::audio))

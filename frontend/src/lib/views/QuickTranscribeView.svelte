@@ -1,8 +1,9 @@
 <script lang="ts">
   import { api } from '$lib/api';
+  import ReportEditor from '$lib/components/ReportEditor.svelte';
+  import {buildSavedClinicalPdf} from '$lib/clinical-report-export';
   import { canSaveToDirectory, saveResponseToDirectory } from '$lib/local-save';
   import PathPicker from '$lib/components/PathPicker.svelte';
-  import { createMedicalPdf } from '$lib/medical-report';
   import TranscriptionChainEditor from '$lib/components/TranscriptionChainEditor.svelte';
   import type { ExportFormat, Job, Provider, QuickOptions, StructureProfile, TranscriptionRoute } from '$lib/types';
   export let providers:Provider[]=[];
@@ -77,14 +78,24 @@
     }catch(e){notify('error',e instanceof Error?e.message:String(e));}
     finally{busy=false;}
   }
-  async function exportResult(format:ExportFormat){
-    if(!current||current.status!=='done')return;
+  async function exportResult(format:ExportFormat):Promise<boolean>{
+    if(!current||current.status!=='done')return false;
     exporting=format;
     try{
-      const result=await api.jobExport(current.id,format);
-      const method=await saveResponseToDirectory(new Response(result.blob),result.filename,markdownDestination,window);
-      notify('success',method==='directory'?format.toUpperCase()+' saved to your folder.':format.toUpperCase()+' downloaded.');
-    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+      const clinical=!!current.structuredProfileId&&
+        /dental|medical|consultation/i.test(current.structuredProfileId);
+      if(format==='pdf'&&clinical&&current.structuredProfileName&&!current.structuringError){
+        const [report,encounter]=await Promise.all([api.jobReport(current.id),api.jobEncounter(current.id)]);
+        const result=await buildSavedClinicalPdf(current,report,encounter);
+        const method=await saveResponseToDirectory(new Response(result.blob),result.filename,markdownDestination,window);
+        notify('success',method==='directory'?'PDF clinique corrigé enregistré.':'PDF clinique téléchargé.');
+      }else{
+        const result=await api.jobExport(current.id,format);
+        const method=await saveResponseToDirectory(new Response(result.blob),result.filename,markdownDestination,window);
+        notify('success',method==='directory'?format.toUpperCase()+' saved to your folder.':format.toUpperCase()+' downloaded.');
+      }
+      return true;
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));return false;}
     finally{exporting='';}
   }
   function reset(){localFile=null;serverFile='';submitted=undefined;}
@@ -112,6 +123,7 @@
     if(!importedResult||importedExporting)return;
     importedExporting=format;
     try{
+      const {createMedicalPdf}=await import('$lib/medical-report');
       const content=format==='pdf'
         ?await createMedicalPdf(importedResult.markdown,{surname:'',forename:'',dateOfBirth:''})
         :new Blob([importedResult.markdown],{type:'text/markdown;charset=utf-8'});
@@ -182,6 +194,11 @@
                 {/each}
               </div>
             </div>
+            <ReportEditor jobId={current.id} {notify}
+              clinical={!!current.structuredProfileId&&/dental|medical|consultation/i.test(current.structuredProfileId)}
+              onexport={async(format)=>{
+                if(!(await exportResult(format)))throw Error('Export failed');
+              }}/>
             <button class="btn ghost" on:click={reset}>Transcribe another</button>
           </div>
         {:else}<div class="processing-state"><div class="pulse-ring"></div><strong>{current.status==='transcribing'?'Listening…':current.status==='structuring'?'Structuring with AI…':current.status==='publishing'?'Writing Markdown…':'Queued…'}</strong><span>{current.originalName}</span></div>{/if}
