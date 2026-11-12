@@ -25,6 +25,8 @@ jobs:
           persist-credentials: false
       - name: Public repository patient and secret data gate
         run: python3 scripts/audit-public-tree.py
+      - name: Validate native release artifact gates
+        run: python3 -m unittest discover -s packaging/desktop -p test_release_packaging.py -v
       - name: Install audio test dependency
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Install pinned Rust

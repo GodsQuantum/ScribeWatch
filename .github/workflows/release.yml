@@ -61,6 +61,11 @@ jobs:
     needs: [validate, version]
     uses: ./.github/workflows/appimage.yml
 
+  full-native:
+    name: Full local-AI macOS and Linux installers
+    needs: [validate, version]
+    uses: ./.github/workflows/native-full-portable.yml
+
   image:
     name: Release image / ${{ matrix.arch }}
     needs: [validate, version]
@@ -109,7 +114,7 @@ jobs:
 
   publish:
     name: Publish multi-architecture manifest and draft release
-    needs: image
+    needs: [image, full-native, windows-standalone, appimage]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -164,7 +169,7 @@ jobs:
 
   attach-appimage:
     name: Attach verified native installers
-    needs: [publish, appimage, windows-standalone]
+    needs: [publish, appimage, windows-standalone, full-native]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -181,6 +186,20 @@ jobs:
         with:
           name: scribewatch-full-standalone-windows-amd64
           path: dist/windows
+
+      - name: Download verified full native Linux installers
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: scribewatch-full-linux-*
+          path: dist/full
+          merge-multiple: true
+
+      - name: Download verified full native macOS installers
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: scribewatch-full-macos-*
+          path: dist/full
+          merge-multiple: true
 
       - name: Verify Windows setup checksums
         shell: bash
@@ -202,6 +221,18 @@ jobs:
             sha256sum -c ./*.AppImage.sha256
           )
 
+      - name: Require both architectures of full Mac and Linux installers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for extension in '*.dmg' '*.dmg.sha256' '*-standalone.AppImage' '*-standalone.AppImage.sha256' '*.deb' '*.deb.sha256'; do
+            test "$(find dist/full -maxdepth 1 -type f -name "$extension" | wc -l)" -eq 2
+          done
+          (
+            cd dist/full
+            sha256sum -c ./*.sha256
+          )
+
       - name: Attach AppImages to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -214,7 +245,13 @@ jobs:
             dist/*.AppImage \
             dist/*.AppImage.sha256 \
             dist/windows/*standalone-setup.exe \
-            dist/windows/*standalone-setup.exe.sha256
+            dist/windows/*standalone-setup.exe.sha256 \
+            dist/full/*-standalone.dmg \
+            dist/full/*-standalone.dmg.sha256 \
+            dist/full/*-standalone.AppImage \
+            dist/full/*-standalone.AppImage.sha256 \
+            dist/full/*.deb \
+            dist/full/*.deb.sha256
 
       - name: Publish immutable GitHub Release
         env:

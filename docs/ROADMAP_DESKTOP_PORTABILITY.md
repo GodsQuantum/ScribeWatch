@@ -12,6 +12,8 @@ Last reviewed against **ScribeWatch v0.6.2**, released November 12, 2026.
 
 ## Work in progress in main (not yet a release)
 
+The next tagged release gates Docker `latest` and native installer publication on all four full-engine builds (macOS ARM/Intel and Linux x86-64/ARM64). **The release contract has not yet been certified by a tagged build.**
+
 The new pinned `native-full-portable.yml` build pipeline prepares full local-AI
 macOS DMGs and Linux AppImages/deb packages using Speaches Reloaded
 and llama.cpp. It must pass host-native installation and engine tests

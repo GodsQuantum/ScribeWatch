@@ -110,6 +110,13 @@ transcribe.cpp, alongside the pinned upstream llama.cpp server.
   checksum mismatches and tests actual native start/stop before publishing
   **candidate artifacts**, not official public releases.
 
+The next tagged release requires all four full-native GitHub Actions jobs,
+in addition to the existing Windows standalone and slim AppImage gates.
+A failed full-native installer cannot advance the Docker `latest` tag,
+publish a draft release, or expose an incomplete public download set.
+The release downloader validates two signed-off architectures for macOS DMG,
+Linux full AppImage and Linux Debian packages, including all SHA256 sidecars.
+
 These candidates are **not** claimed production-ready until their real
 CI jobs finish successfully on all four OS/architecture runners. Physical
 GPU/microphone tests, model acquisition, clinical-report accuracy, signed

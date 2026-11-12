@@ -1,6 +1,7 @@
 name: Native full local-AI installers - macOS and Linux
 
 on:
+  workflow_call:
   workflow_dispatch:
   pull_request:
     paths:
