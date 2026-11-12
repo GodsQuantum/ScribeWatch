@@ -46,7 +46,8 @@ Whisper, Parakeet Ultra, Qwen3-ASR, Nemotron and custom GGUF quantizations.
 The optional pinned ScribeWatch acoustic pack contains the Whisper Turbo
 model and French aligner with SHA checks. The LLM engine reuses upstream
 llama.cpp router mode with --models-max 1, --models-memory-margin 512,
---sleep-idle-seconds 45, -c 8192. Windows attempts CUDA if the NVIDIA
+--sleep-idle-seconds 45 and an automatic hardware-aware context budget (24,576 tokens
+with q4_0 KV cache on the validated 4 GiB PC). Windows attempts CUDA if the NVIDIA
 driver is detected, then Vulkan, then CPU. Physical GPU support still
 requires on-device verification. The load-time memory margin does not
 measure unrelated external VRAM pressure; idle unloading happens natively.
@@ -77,3 +78,22 @@ Do not claim the full installer ready until gate 3 is verified on an
 exact pinned release source. Full packaging initially targets Windows x64.
 Mac/Linux retain their existing slim builds until complete native bundles
 pass their own independent CI. No patient materials are used in tests.
+
+## Reproducible clinical engine contract
+
+llama-runtime-lock.json is the reviewed source of truth for the exact
+upstream engine commit, archive SHA-256s and the 4B clinical pilot. The
+Windows standalone CI verifies all three actual engine versions before
+packaging and tests the prompt hash, context policy, deterministic sampler,
+source-partitioning and local source-grounded recall.
+
+The successful private reference was Qwen3.5-4B Q4_K_M and llama.cpp v0.9.0
+(cd959bae9), 24,576-token context, q4_0 KV, non-thinking,
+temperature 0.1, top_p 0.9, output ceiling 5,000 tokens, stable input seed.
+The original patient data/reference PDF are never included in Git or CI.
+
+A passing installer test is NOT an E2E medical quality test: GPU kernels,
+different backend versions, model identifiers and OS can change results.
+A new machine must run a real private consultation regression and receive
+clinical review before quality is certified. Other OS builds that do not
+embed llama.cpp must not claim to use this pinned runtime.

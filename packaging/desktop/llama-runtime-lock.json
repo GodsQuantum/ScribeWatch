@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "llama_cpp": {
+    "release": "b12110",
+    "version": "0.9.0",
+    "commit": "cd959bae99ff4bed22bef2604f45241c09bbb8c8",
+    "source": "https://github.com/ggml-org/llama.cpp",
+    "windows_amd64_assets_sha256": {
+      "llama-b12110-bin-win-cpu-x64.zip": "98901e327c252875accaf2d1bf364e10e868843b0b63468baad1aa945cdc5da2",
+      "llama-b12110-bin-win-vulkan-x64.zip": "9732a5e48887ca54d0bfe4af4324dc85fd56cd8cda19b52df3542fa6ebe6874f",
+      "llama-b12110-bin-win-cuda-12.4-x64.zip": "1ce755bc3a061889234048f88e33328e17971eaad73c4666cfeb26026b317fee",
+      "cudart-llama-bin-win-cuda-12.4-x64.zip": "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6"
+    }
+  },
+  "reference_4b_quality_protocol": {
+    "profile_id": "dental-consultation-complete-fr",
+    "model_repo": "unsloth/Qwen3.5-4B-GGUF",
+    "quantization": "Q4_K_M",
+    "gguf_sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+    "pilot_prompt_sha256": "2d62d2e609bdb9fe6ca11ab9d9fbd79c8c18f14732aa4cf307ec4bb9367d9041",
+    "context_tokens": 24576,
+    "kv_cache": "q4_0",
+    "temperature": 0.1,
+    "top_p": 0.9,
+    "max_tokens": 5000,
+    "thinking": false,
+    "seed_policy": "stable FNV-1a(model id, system, user) per request",
+    "long_transcript": "source-partitioned, bounded source-only factual recall, native clinical guards",
+    "reference_score": "87.4% on 48 lexical criteria, reproduced on CT700; NOT a guarantee across GPUs/OS or medical accuracy"
+  }
+}
