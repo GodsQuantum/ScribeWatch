@@ -3,6 +3,29 @@
 All notable ScribeWatch changes are documented here.
 
 
+## [0.6.2] - 2026-11-12
+
+### Native onboarding
+- On the first launch of the fully bundled Windows desktop application,
+  configure local Parakeet Ultra and Qwen3.5-4B Q4_K_M providers, connect
+  all five built-in profiles, start both native engines and request their
+  model weights automatically using upstream runtime download APIs.
+- REC reports readiness and prevents incomplete-model recording.
+  Existing installations, custom profiles, lightweight installers and
+  Docker retain their configuration.
+- Keep the 4B validated clinical prompt, selected by default; retain optional
+  9B only as a user-selectable alternative. Canonical 4B sampler seed
+  across Hugging Face cache IDs and local GGUF filenames.
+
+### Quality, tests, and privacy
+- Preserve source evidence across medical, meeting, brainstorm and
+  structured-note profiles with profile-specific, non-destructive guidance.
+- Verify initial offline configuration and exact first-run model download
+  requests against fake native engines. Add CI public-tree privacy checks;
+  move infrastructure/clinical operational notes into private storage.
+- Publish a new full Windows installer only after the actual native Windows
+  install/engine/uninstall checks succeed.
+
 ## [0.6.1] - 2026-11-12
 
 ### Fixed

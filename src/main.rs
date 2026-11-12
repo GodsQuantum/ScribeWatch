@@ -23,8 +23,18 @@ async fn main() -> anyhow::Result<()> {
     // Only user-enabled embedded engines are restored. External endpoints stay untouched.
     if state.embedded.available() {
         let manager = state.embedded.clone();
+        let bootstrap = std::env::var("SCRIBEWATCH_NATIVE_AUTOINIT").as_deref() == Ok("1")
+            && state
+                .llm_providers
+                .read()
+                .await
+                .iter()
+                .any(|p| p.id == scribewatch::state::AUTO_LLM_ID && p.enabled);
         tokio::spawn(async move {
             manager.recover().await;
+            if bootstrap {
+                manager.prepare_default_models().await;
+            }
         });
     }
     let shutdown = CancellationToken::new();
