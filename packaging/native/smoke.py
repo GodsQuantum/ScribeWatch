@@ -7,6 +7,7 @@ import platform
 import socket
 import subprocess
 import tempfile
+import tomllib
 import time
 import urllib.error
 import urllib.request
@@ -18,7 +19,8 @@ parser.add_argument("--app", required=True, choices=("autosubs", "scribewatch"))
 args = parser.parse_args()
 binary = Path(args.binary).resolve(strict=True)
 prefix = args.app.upper()
-expected_version = "3.6.3" if args.app == "autosubs" else "0.5.3"
+project_root = Path(__file__).resolve().parents[2]
+expected_version = tomllib.loads((project_root / "Cargo.toml").read_text())["package"]["version"]
 v = subprocess.run([str(binary), "--version"], check=True, capture_output=True, text=True, timeout=15)
 assert expected_version in v.stdout, (v.stdout, expected_version)
 with tempfile.TemporaryDirectory(prefix=f"cloud9-native-{args.app}-") as tmp:
