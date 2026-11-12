@@ -25,3 +25,13 @@ test('simple recorder persists only authorized destination handles and rechecks 
   assert.ok(live.includes('ensureDirectoryPermission(simpleDirectory)'));
   assert.ok(!live.includes('localStorage.setItem(simpleDirectoryKey'));
 });
+
+
+test('simple recorder retains final audio in the SAME authorized destination as clinical PDF and Markdown', async () => {
+  const {readFile}=await import('node:fs/promises');
+  const live=await readFile(new URL('../src/lib/views/LiveRecordView.svelte',import.meta.url),'utf8');
+  assert.ok(live.includes("if(simpleMode&&simpleDirectory)return {mode:'client',handleKey:'pending'}"));
+  assert.ok(live.includes("const finalAudioDirectory=simpleMode?simpleDirectory:clientAudioDirectory"));
+  assert.ok(live.includes("saveClientDirectoryHandle(manifest.id,finalAudioDirectory)"));
+  assert.ok(live.includes("(!simpleMode||!!simpleDirectory)"));
+});

@@ -366,7 +366,8 @@
   $: chainReady=transcriptionChain.length>0&&transcriptionChain.every((route)=>!!route.providerId);
   $: outputReady=outputMode==='computer'||!!outputDir;
   $: audioRetentionReady=audioRetentionMode!=='server'||!!audioServerDir;
-  $: canRecord=chainReady&&outputReady&&audioRetentionReady&&!processing;
+  // Simple mode never starts unless its destination can retain the audio and documents.
+  $: canRecord=chainReady&&outputReady&&audioRetentionReady&&!processing&&(!simpleMode||!!simpleDirectory);
   $: localDirectoryAvailable=typeof window!=='undefined'&&canSaveToDirectory(window);
   $: selectedRecovery=recoveries.find((session)=>session.id===selectedRecoveryId);
   $: selectedRecoveryPlayable=selectedRecovery?.segments.filter((segment)=>segment.chunkCount>0)??[];
@@ -516,6 +517,8 @@
   }
 
   function requestedRetention():LiveRetention{
+    // The single authorized Simple-mode folder holds the final M4A as well as PDF/MD.
+    if(simpleMode&&simpleDirectory)return {mode:'client',handleKey:'pending'};
     if(audioRetentionMode==='server')return {mode:'server',directory:audioServerDir};
     if(audioRetentionMode==='client')return {mode:'client',handleKey:'pending'};
     return {mode:'none'};
@@ -534,6 +537,7 @@
     if(!chainReady){notify('error','Choose a transcription provider first.');return;}
     if(!outputReady){notify('error','Choose where to save the recording result first.');return;}
     if(!audioRetentionReady){notify('error','Choose a server folder for the final audio or another retention mode.');return;}
+    if(simpleMode&&!simpleDirectory){notify('error','Choose the destination folder before recording (audio, PDF and Markdown).');return;}
     if(simpleMode&&simpleDirectory){
       try{
         if(!(await ensureDirectoryPermission(simpleDirectory))){
@@ -558,8 +562,9 @@
         mimeType,
         audioBitsPerSecond:64000
       },stream);
-      if(audioRetentionMode==='client'&&clientAudioDirectory){
-        await recoveryStore.saveClientDirectoryHandle(manifest.id,clientAudioDirectory);
+      const finalAudioDirectory=simpleMode?simpleDirectory:clientAudioDirectory;
+      if((simpleMode&&simpleDirectory||audioRetentionMode==='client')&&finalAudioDirectory){
+        await recoveryStore.saveClientDirectoryHandle(manifest.id,finalAudioDirectory);
       }
       submitted=undefined;
       recoveries=[];
@@ -1009,7 +1014,7 @@
           <button class="record-button" class:recording disabled={processing&&!recording||(!recording&&!canRecord)} on:click={()=>recording?stopRecording():startRecording()} aria-label={recording?'Stop recording':'Start recording'}>
             <span></span>
           </button>
-          <strong>{recording?'Recording — press again to stop':processing?'Finalizing recording…':permissionState==='requesting'?'Requesting microphone…':permissionState==='denied'?'Microphone unavailable':permissionState==='idle'?'Enable microphone':'Ready to record'}</strong>
+          <strong>{recording?'Recording — press again to stop':processing?'Finalizing recording…':permissionState==='requesting'?'Requesting microphone…':permissionState==='denied'?'Microphone unavailable':permissionState==='idle'?'Enable microphone':simpleMode&&!simpleDirectory?'Choose destination folder':'Ready to record'}</strong>
           <span class="muted small">{recording?`Audio is being checkpointed locally. ${formatBytes(protectedBytes)} is already protected.`:'Browser-delivered audio is stored progressively for crash/reload recovery before the final server upload.'}</span>
         </div>
 
@@ -1131,7 +1136,7 @@
           {#if simpleMode}
             <div class="row wrap">
               <button class="btn primary" disabled={!localDirectoryAvailable||recording} on:click={chooseSimpleDestination}>Choose destination folder</button>
-              <span class="help">{simpleDirectoryName||'Choose once to save the PDF draft and the source Markdown automatically when processing finishes.'}</span>
+              <span class="help">{simpleDirectoryName?`Audio M4A, PDF et transcription Markdown enregistrés dans ${simpleDirectoryName}`:'Choisir une fois le dossier local pour enregistrer automatiquement audio M4A, PDF et transcription Markdown.'}</span>
             </div>
             {#if !localDirectoryAvailable}<div class="notice warning compact">Automatic local folder saving requires this desktop browser to support the Directory Picker API. The manual export buttons remain available.</div>{/if}
             {#if outputMode==='server'}<span class="help">Existing server-side Markdown folder: {outputDir}. Change it in Advanced settings.</span>{/if}
