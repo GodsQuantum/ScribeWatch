@@ -76,3 +76,5 @@ python3 scripts/auto-tune.py --env
 ## 开发与贡献
 
 后端采用 Rust/Axum、SQLite；前端采用 SvelteKit，使用 FFmpeg/FFprobe 和文档导出工具。欢迎通过 [GitHub Issues](https://github.com/GodsQuantum/ScribeWatch/issues) 报告可重现的问题，也欢迎提交 Pull Request；请遵守 [CONTRIBUTING](.github/CONTRIBUTING.md) 与 [SECURITY](.github/SECURITY.md)。源码采用 [MIT 许可证](LICENSE)，作者 [Arezki Chougar](https://arezkichougar.com)。
+
+**转录引擎来源：** Windows 完整安装包含 **[Speaches Reloaded](https://github.com/GodsQuantum/Speaches-Reloaded)** 原生可执行程序与完整依赖，不只是 `transcribe.cpp`；旧版可执行文件名仍为 `Cloud9-Speaches`。

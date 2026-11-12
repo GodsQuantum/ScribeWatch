@@ -1,0 +1,226 @@
+name: Native full local-AI installers - macOS and Linux
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'packaging/appimage/**'
+      - 'packaging/desktop/**'
+      - 'src/api/embedded.rs'
+      - '.github/workflows/native-full-portable.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packaging/appimage/**'
+      - 'packaging/desktop/**'
+      - 'src/api/embedded.rs'
+      - '.github/workflows/native-full-portable.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  mac-full:
+    name: Full macOS / ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+            speech_sha: b09c450e2d7d9d0b4b97e849ea5de6b5bc0dead3d5330989be4ae5012aed3115
+            llama_arch: arm64
+            llama_sha: 4f5b8de12e0b9516658ca6a5764c6ffb3d7c659c3dd538556b1413c7b4050662
+          - arch: amd64
+            runner: macos-15-intel
+            speech_sha: 4c06d82001bb7d97a356ed35158a2193dca57daed63acfde797e34c3b6f353c7
+            llama_arch: x64
+            llama_sha: c8094268b6bf62f4998f0e45656fd9f5e2d4afb6b1cd0044d761db64be1dd47d
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Pinned frontend and Rust desktop launcher
+        shell: bash
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal
+          rustup default 1.98.0
+          cd frontend && npm ci && npm run build && cd ..
+          cargo build --release --locked
+          cargo build --release --locked --manifest-path packaging/desktop/launcher/Cargo.toml
+      - name: Fetch official Speaches Reloaded RC7 and llama.cpp b12110
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/scribewatch-native/inputs"
+          cd "$RUNNER_TEMP/scribewatch-native/inputs"
+          gh release download desktop-v0.1.0-rc.7 -R GodsQuantum/Speaches-Reloaded --pattern 'Cloud9-Speaches-macos-${{ matrix.arch }}.dmg'
+          gh release download b12110 -R ggml-org/llama.cpp --pattern 'llama-b12110-bin-macos-${{ matrix.llama_arch }}.tar.gz'
+          echo '${{ matrix.speech_sha }}  Cloud9-Speaches-macos-${{ matrix.arch }}.dmg' | shasum -a 256 -c -
+          echo '${{ matrix.llama_sha }}  llama-b12110-bin-macos-${{ matrix.llama_arch }}.tar.gz' | shasum -a 256 -c -
+      - name: Assemble portable native engines (no downloaded model weights)
+        shell: bash
+        run: |
+          set -euo pipefail
+          inputs="$RUNNER_TEMP/scribewatch-native/inputs"
+          mount="$RUNNER_TEMP/scribewatch-native/mount"
+          mkdir -p "$mount"
+          hdiutil attach -readonly -quiet -nobrowse -mountpoint "$mount" "$inputs/Cloud9-Speaches-macos-${{ matrix.arch }}.dmg"
+          trap 'hdiutil detach -quiet "$mount" || true' EXIT
+          native="$mount/Cloud9-Speaches.app/Contents/Resources/Cloud9-Speaches"
+          test -x "$native/Cloud9-Speaches"
+          python packaging/desktop/portable_engines.py \
+            --platform macos-${{ matrix.arch }} \
+            --speaches-dmg "$inputs/Cloud9-Speaches-macos-${{ matrix.arch }}.dmg" \
+            --speaches-tree "$native" --speaches-sha '${{ matrix.speech_sha }}' \
+            --llm-cpu "$inputs/llama-b12110-bin-macos-${{ matrix.llama_arch }}.tar.gz" \
+            --llm-cpu-sha '${{ matrix.llama_sha }}' \
+            --output "$RUNNER_TEMP/scribewatch-native/engines"
+          hdiutil detach -quiet "$mount"
+          trap - EXIT
+      - name: Install, mount, smoke test both real engines and create DMG
+        shell: bash
+        env:
+          SCRIBEWATCH_EMBEDDED_DIR: ${{ runner.temp }}/scribewatch-native/engines
+          SCRIBEWATCH_NATIVE_AUTOINIT: '0'
+        run: |
+          python -m unittest discover -s packaging/desktop -p test_portable_engines.py -v
+          python packaging/desktop/native_pipeline.py
+      - name: Upload full native macOS installer and checksum
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: 'scribewatch-full-macos-${{ matrix.arch }}'
+          path: |
+            dist/desktop/*-standalone.dmg
+            dist/desktop/*-standalone.dmg.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  linux-full:
+    name: Full Linux / ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 115
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            speech_arch: amd64
+            llama_arch: x64
+            deb_arch: amd64
+            runner: ubuntu-24.04
+            speech_sha: 79bd93e73ecb27c9267a46be16753e499bb5f5cefb58fc2ba739d4a998ee9d8e
+            cpu_sha: 368227edcc229be5f9bed16a2223d79b5e41d0ac2e19bcf5825e82291c060e55
+            vulkan_sha: a5d741940956ec62e8783aee7e5a4c7c761af867d6f027c3277a51e1a3ac59b0
+          - arch: aarch64
+            speech_arch: arm64
+            llama_arch: arm64
+            deb_arch: arm64
+            runner: ubuntu-24.04-arm
+            speech_sha: 224fe183096b27a41683fbc93e64c688cbf278c03d8e922666d19839946116a1
+            cpu_sha: 4758b51335e37b4346251f2687d64841ff1c07ecb27fc46323945bb2ec9c44d2
+            vulkan_sha: 1c68bf23d35230cc607e3d30f8d447d21fef500d9fa8d65e15520dfa3619ad73
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install AppImage build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            appstream curl desktop-file-utils ffmpeg file fontconfig \
+            libjack0 musl-tools procps python3 shellcheck dpkg-dev
+          rustup toolchain install 1.98.0 --profile minimal
+          rustup default 1.98.0
+          rustup target add '${{ matrix.arch }}-unknown-linux-musl'
+      - name: Build desktop frontend and static Rust server
+        run: |
+          cd frontend && npm ci && npm run build && cd ..
+          cargo build --release --locked --target '${{ matrix.arch }}-unknown-linux-musl'
+      - name: Download pinned Speaches Reloaded and llama.cpp native Linux runtimes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/scribewatch-native/inputs"
+          cd "$RUNNER_TEMP/scribewatch-native/inputs"
+          gh release download desktop-v0.1.0-rc.7 -R GodsQuantum/Speaches-Reloaded --pattern 'Cloud9-Speaches-linux-${{ matrix.speech_arch }}.zip'
+          gh release download b12110 -R ggml-org/llama.cpp \
+            --pattern 'llama-b12110-bin-ubuntu-${{ matrix.llama_arch }}.tar.gz' \
+            --pattern 'llama-b12110-bin-ubuntu-vulkan-${{ matrix.llama_arch }}.tar.gz'
+          echo '${{ matrix.speech_sha }}  Cloud9-Speaches-linux-${{ matrix.speech_arch }}.zip' | sha256sum -c -
+          echo '${{ matrix.cpu_sha }}  llama-b12110-bin-ubuntu-${{ matrix.llama_arch }}.tar.gz' | sha256sum -c -
+          echo '${{ matrix.vulkan_sha }}  llama-b12110-bin-ubuntu-vulkan-${{ matrix.llama_arch }}.tar.gz' | sha256sum -c -
+      - name: Build complete native engines with SHA256 manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          inputs="$RUNNER_TEMP/scribewatch-native/inputs"
+          python3 packaging/desktop/portable_engines.py \
+            --platform linux-${{ matrix.speech_arch }} \
+            --speaches "$inputs/Cloud9-Speaches-linux-${{ matrix.speech_arch }}.zip" \
+            --speaches-sha '${{ matrix.speech_sha }}' \
+            --llm-cpu "$inputs/llama-b12110-bin-ubuntu-${{ matrix.llama_arch }}.tar.gz" \
+            --llm-cpu-sha '${{ matrix.cpu_sha }}' \
+            --llm-vulkan "$inputs/llama-b12110-bin-ubuntu-vulkan-${{ matrix.llama_arch }}.tar.gz" \
+            --llm-vulkan-sha '${{ matrix.vulkan_sha }}' \
+            --output "$RUNNER_TEMP/scribewatch-native/engines"
+          python3 -m unittest discover -s packaging/desktop -p test_portable_engines.py -v
+          python3 -m unittest discover -s packaging/appimage -p 'test_*.py' -v
+      - name: Build full standalone AppImage and Debian package
+        env:
+          SCRIBEWATCH_BINARY: ${{ github.workspace }}/target/${{ matrix.arch }}-unknown-linux-musl/release/scribewatch
+          SCRIBEWATCH_EMBEDDED_DIR: ${{ runner.temp }}/scribewatch-native/engines
+          SCRIBEWATCH_APPIMAGE_BUILD_DIR: ${{ runner.temp }}/scribewatch-appimage-build
+          SCRIBEWATCH_APPIMAGE_OUTPUT_DIR: ${{ github.workspace }}/dist
+          SCRIBEWATCH_APPIMAGE_KEEP_APPDIR: '1'
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: |
+          set -euo pipefail
+          shellcheck packaging/appimage/AppRun packaging/appimage/build.sh packaging/appimage/build-deb.sh
+          packaging/appimage/build.sh '${{ matrix.arch }}'
+          version="$(python3 -c 'import tomllib;print(tomllib.load(open("Cargo.toml","rb"))["package"]["version"])')"
+          packaging/appimage/build-deb.sh \
+            "$SCRIBEWATCH_APPIMAGE_BUILD_DIR/ScribeWatch.AppDir" \
+            "$SCRIBEWATCH_APPIMAGE_OUTPUT_DIR" "$version" '${{ matrix.deb_arch }}'
+          cd dist && sha256sum -c ./*.sha256
+      - name: Actual Linux native engine start/stop smoke
+        env:
+          SCRIBEWATCH_LLM_FORCE_CPU: '1'
+        run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/scribewatch-native-smoke"
+          mkdir -p "$stage/bin" "$stage/frontend"
+          ln -s "$GITHUB_WORKSPACE/target/${{ matrix.arch }}-unknown-linux-musl/release/scribewatch" "$stage/bin/scribewatch-server"
+          ln -s "$RUNNER_TEMP/scribewatch-native/engines" "$stage/bin/engines"
+          ln -s "$GITHUB_WORKSPACE/frontend/build/index.html" "$stage/frontend/index.html"
+          python3 packaging/desktop/standalone_real_smoke.py --installed "$stage"
+      - name: Upload full native Linux packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: 'scribewatch-full-linux-${{ matrix.arch }}'
+          path: |
+            dist/*-standalone.AppImage
+            dist/*-standalone.AppImage.sha256
+            dist/*.deb
+            dist/*.deb.sha256
+          if-no-files-found: error
+          retention-days: 14

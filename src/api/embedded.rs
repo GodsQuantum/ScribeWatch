@@ -332,6 +332,24 @@ pub struct DownloadModel {
     model: String,
 }
 
+#[cfg(target_os = "linux")]
+fn native_linux_llm_candidates(
+    folder: &Path,
+    has_render_node: bool,
+    prefer_cpu: bool,
+) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    let vulkan = folder.join("vulkan/llama-server");
+    if has_render_node && !prefer_cpu && vulkan.is_file() {
+        candidates.push(vulkan);
+    }
+    let cpu = folder.join("llama-server");
+    if cpu.is_file() {
+        candidates.push(cpu);
+    }
+    candidates
+}
+
 #[derive(Clone)]
 pub struct EmbeddedManager {
     root: Option<PathBuf>,
@@ -370,12 +388,19 @@ impl EmbeddedManager {
         };
         match kind {
             EngineKind::Stt => {
-                let file = root.join("speaches").join(if cfg!(windows) {
-                    "Cloud9-Speaches.exe"
-                } else {
-                    "Cloud9-Speaches"
-                });
-                file.is_file().then_some(file).into_iter().collect()
+                // Speaches Reloaded retained the historical portable binary
+                // name in RC7. Accept its future branded filename as well.
+                ["Cloud9-Speaches", "Speaches-Reloaded"]
+                    .into_iter()
+                    .map(|name| {
+                        root.join("speaches").join(if cfg!(windows) {
+                            format!("{name}.exe")
+                        } else {
+                            name.to_owned()
+                        })
+                    })
+                    .filter(|file| file.is_file())
+                    .collect()
             }
             EngineKind::Llm => {
                 let folder = root.join("llm");
@@ -399,8 +424,24 @@ impl EmbeddedManager {
                         }
                     }
                 }
+                #[cfg(target_os = "linux")]
+                {
+                    let has_render_node =
+                        std::fs::read_dir("/dev/dri").ok().is_some_and(|entries| {
+                            entries.filter_map(Result::ok).any(|entry| {
+                                entry.file_name().to_string_lossy().starts_with("renderD")
+                            })
+                        });
+                    let prefer_cpu =
+                        std::env::var("SCRIBEWATCH_LLM_FORCE_CPU").as_deref() == Ok("1");
+                    result.extend(native_linux_llm_candidates(
+                        &folder,
+                        has_render_node,
+                        prefer_cpu,
+                    ));
+                }
                 let fallback = folder.join(name);
-                if fallback.is_file() {
+                if fallback.is_file() && !result.contains(&fallback) {
                     result.push(fallback);
                 }
                 result
@@ -1198,6 +1239,28 @@ pub async fn download(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_linux_llm_prefers_packaged_vulkan_only_with_gpu_and_falls_back_to_cpu() {
+        let base = std::env::temp_dir().join(format!(
+            "scribewatch-native-candidates-{}",
+            std::process::id()
+        ));
+        let folder = base.join("llm");
+        std::fs::create_dir_all(folder.join("vulkan")).unwrap();
+        std::fs::write(folder.join("vulkan/llama-server"), b"gpu").unwrap();
+        std::fs::write(folder.join("llama-server"), b"cpu").unwrap();
+        assert_eq!(native_linux_llm_candidates(&folder, true, false).len(), 2);
+        assert_eq!(native_linux_llm_candidates(&folder, false, false).len(), 1);
+        assert_eq!(native_linux_llm_candidates(&folder, true, true).len(), 1);
+        assert!(
+            native_linux_llm_candidates(&folder, true, false)[0]
+                .to_string_lossy()
+                .contains("vulkan")
+        );
+        std::fs::remove_dir_all(base).unwrap();
+    }
 
     #[test]
     fn modes_are_optional_and_default_external() {

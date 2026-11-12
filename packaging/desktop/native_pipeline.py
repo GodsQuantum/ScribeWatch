@@ -115,7 +115,11 @@ def main() -> None:
             for file in (bundle/"Contents"/"Resources"/"bin").iterdir():
                 if file.is_file():
                     run("codesign","--force","--sign","-","--timestamp=none",file)
-            run("codesign","--force","--sign","-","--timestamp=none",bundle)
+            if optional_engines:
+                # Nested Speaches Reloaded dynamic libraries are ad-hoc signed
+                # with the containing native application.
+                run("xattr", "-cr", bundle)
+            run("codesign","--force","--deep","--sign","-","--timestamp=none",bundle)
             run("codesign","--verify","--deep","--strict",bundle)
             output=DIST/(APPNAME+"-"+VERSION+"-"+VARIANT+("-standalone" if optional_engines else "")+".dmg")
             run("hdiutil","create","-volname",APPNAME,"-format","UDZO","-srcfolder",stage,output)
@@ -126,6 +130,13 @@ def main() -> None:
                 binary=mount/(APPNAME+".app")/"Contents"/"MacOS"/APPNAME
                 run(binary,"--check-install",env=env)
                 run(binary,"--smoke",env=env)
+                if optional_engines:
+                    run(
+                        sys.executable,
+                        ROOT/"packaging"/"desktop"/"standalone_real_smoke.py",
+                        "--installed", binary.parent.parent/"Resources",
+                        env=env,
+                    )
             finally:
                 run("hdiutil","detach","-quiet",mount)
                 mount.rmdir()

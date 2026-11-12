@@ -88,6 +88,34 @@ physical microphone/GPU/clinical-quality gate 4, code signing or all hardware.
 Mac/Linux retain lightweight builds until their native bundles pass their
 independent CI. No patient material is included in public tests.
 
+## macOS and Linux full local-AI installers (qualification in progress)
+
+The source build now supports the same local-first bootstrap as the tested
+Windows full installer. Speaches Reloaded (formerly Cloud9-Speaches) is
+bundled as its **complete verified portable application**, not merely
+transcribe.cpp, alongside the pinned upstream llama.cpp server.
+
+- macOS Apple Silicon/Intel: native `.dmg` with both engines and the existing
+  Rust desktop launcher. The packaged `.app` requires actual Apple-hosted
+  code-signature, mount, engine-startup and uninstall validation.
+- Linux x86-64/ARM64: bundled AppImage plus a conventional `.deb` desktop
+  package. The native engines are loaded directly from within the package;
+  Parakeet Ultra and Qwen 4B model weights download into per-user storage.
+- Linux Vulkan is attempted only when a render node exists; a CPU-only
+  fallback remains packaged. OpenSSL 3 shared libraries are reused from
+  the verified Speaches Reloaded native distribution to avoid installing
+  obsolete host-wide libraries.
+- The hosted CI matrix `native-full-portable.yml` downloads the exact pinned
+  RC7 Speaches Reloaded release and llama.cpp b12110 archives, rejects
+  checksum mismatches and tests actual native start/stop before publishing
+  **candidate artifacts**, not official public releases.
+
+These candidates are **not** claimed production-ready until their real
+CI jobs finish successfully on all four OS/architecture runners. Physical
+GPU/microphone tests, model acquisition, clinical-report accuracy, signed
+macOS notarization and distribution-specific compatibility remain separate.
+The existing public v0.6.2 lightweight AppImages/DMGs are unchanged.
+
 ## Reproducible clinical engine contract
 
 llama-runtime-lock.json is the reviewed source of truth for the exact

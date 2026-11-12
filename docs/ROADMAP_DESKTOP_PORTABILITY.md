@@ -10,6 +10,13 @@ Last reviewed against **ScribeWatch v0.6.2**, released November 12, 2026.
 - Original transcript preservation, resilient browser recording, structured notes, PDF and other document exports, configurable local/external provider chains.
 - GitHub Actions have exercised packaging/install/smoke for the full Windows installer, and built the lightweight platforms.
 
+## Work in progress in main (not yet a release)
+
+The new pinned `native-full-portable.yml` build pipeline prepares full local-AI
+macOS DMGs and Linux AppImages/deb packages using Speaches Reloaded
+and llama.cpp. It must pass host-native installation and engine tests
+before the edition is promoted or the website downloads are changed.
+
 ## Not yet certified
 
 - A fresh physical end-to-end microphone/GPU/large-model/PDF test on each supported hardware variant; production clinical quality must be independently validated and clinician-reviewed.

@@ -316,3 +316,5 @@ Si ScribeWatch trouve sa place dans votre stack, une ⭐ aide d’autres utilisa
 [MIT](LICENSE)
 
 Créé et maintenu par [Arezki Chougar](https://arezkichougar.com) · [MIT](LICENSE).
+
+**Moteur de transcription :** l’édition Windows autonome complète embarque une distribution native de **[Speaches Reloaded](https://github.com/GodsQuantum/Speaches-Reloaded)** (le binaire conserve historiquement le nom `Cloud9-Speaches`), et pas uniquement `transcribe.cpp`. Elle comporte les API, exécutants et dépendances de Speaches ; `transcribe.cpp` n’est qu’un moteur possible.

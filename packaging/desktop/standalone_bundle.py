@@ -164,7 +164,7 @@ def compose(
         license_dest.mkdir()
         shutil.copy2(license_source, license_dest / "llama.cpp-LICENSE.txt")
         (engines / "THIRD-PARTY-NATIVE-RUNTIMES.txt").write_text(
-            "Cloud9-Speaches: source https://github.com/GodsQuantum/Cloud9-Speaches; "
+            "Speaches Reloaded: source https://github.com/GodsQuantum/Speaches-Reloaded; "
             "the distributed speaches/bin/LICENSE and bin/THIRD_PARTY_NOTICES.txt apply.\n"
             "llama.cpp: source https://github.com/ggml-org/llama.cpp; "
             "see licenses/llama.cpp-LICENSE.txt.\n"

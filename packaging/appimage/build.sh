@@ -145,6 +145,18 @@ if [ -n "$libjack" ]; then
 fi
 
 cp -a -- "$frontend/." "$appdir/usr/share/scribewatch/frontend/"
+
+# A full AppImage adds the verified local native engines; slim builds are unchanged.
+if [ -n "${SCRIBEWATCH_EMBEDDED_DIR:-}" ]; then
+  engines="$SCRIBEWATCH_EMBEDDED_DIR"
+  require_file "$engines/BUNDLED-RUNTIMES-SHA256.json"
+  require_exec "$engines/speaches/Cloud9-Speaches"
+  require_exec "$engines/llm/llama-server"
+  if ! cp -al -- "$engines" "$appdir/usr/share/scribewatch/engines"; then
+    rm -rf -- "$appdir/usr/share/scribewatch/engines"
+    cp -a -- "$engines" "$appdir/usr/share/scribewatch/engines"
+  fi
+fi
 cp -- "$ROOT/packaging/appimage/AppRun" "$appdir/AppRun"
 chmod +x "$appdir/AppRun"
 
@@ -175,7 +187,11 @@ if [ -z "${SOURCE_DATE_EPOCH:-}" ] && command -v git >/dev/null 2>&1; then
   export SOURCE_DATE_EPOCH
 fi
 
-output="$out_dir/ScribeWatch-$version-$arch.AppImage"
+edition=""
+if [ -n "${SCRIBEWATCH_EMBEDDED_DIR:-}" ]; then
+  edition="-standalone"
+fi
+output="$out_dir/ScribeWatch-$version-$arch$edition.AppImage"
 rm -f -- "$output" "$output.sha256"
 APPIMAGE_EXTRACT_AND_RUN=1 ARCH="$arch" VERSION="$version" \
   "$appimagetool" --runtime-file "$appimage_runtime" "$appdir" "$output"
