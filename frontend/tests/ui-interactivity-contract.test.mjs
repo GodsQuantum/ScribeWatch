@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {join, relative} from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 const root = new URL('../src/', import.meta.url);
 const read = (name)=>readFileSync(new URL(name,root),'utf8');
@@ -18,7 +19,7 @@ function collectSvelte(dir){
 
 test('all ScribeWatch buttons trigger a click action or form submit',()=>{
   let count=0;
-  const rootPath=new URL('.',root).pathname;
+  const rootPath=fileURLToPath(root);
   for(const file of collectSvelte(rootPath)){
     const source=readFileSync(file,'utf8');
     for(const match of source.matchAll(/<button\b[^>]*>/gs)){
