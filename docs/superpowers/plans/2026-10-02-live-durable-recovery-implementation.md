@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Cloud9 only; canonical repo is `/srv/storage/private/user/Projets/Ssker Content Production/ScribeWatch`.
+- The repository is checked out at an operator-selected location; no absolute private deployment path is required by the application.
 - No WebRTC transport, continuous server-side live streaming, live STT, tus protocol, new frontend framework, or new database.
 - Do not change Cloud9 mounts, NFS architecture, allowed-root layout, or existing user storage paths.
 - MediaRecorder checkpoint target remains approximately 5 seconds at 64 kb/s mono-oriented speech capture.
@@ -451,7 +451,7 @@ Expected: all tests pass, 0 Svelte errors/warnings.
 **Files:**
 - Modify: `README.md`
 - Modify: `README.fr.md`
-- Modify deployment only: `/srv/lxc/travail/compose/scribewatch/compose.yaml`
+- Modify deployment only: operator-managed Compose and local environment configuration, outside the public repository.
 - No product logic changes unless verification exposes a defect; any defect returns to the owning task's RED/GREEN cycle first.
 
 **Interfaces:**

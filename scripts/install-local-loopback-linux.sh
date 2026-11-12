@@ -16,7 +16,7 @@ fi
 TARGET="${1:-${SCRIBEWATCH_TARGET:-}}"
 if [[ -z "$TARGET" ]]; then
   echo "Usage: $0 <NAS-host-or-IP:ScribeWatch-HTTP-port>" >&2
-  echo "Example: $0 192.0.2.42:3052" >&2
+  echo "Example: $0 nas.local:3052" >&2
   exit 2
 fi
 PROXY="$(command -v systemd-socket-proxyd || true)"

@@ -946,7 +946,7 @@
         </div>
         {#if localProxyNeedsTarget}<div class="notice warning compact">You opened ScribeWatch through HTTPS. Enter the NAS local hostname or IPv4 address and its plain HTTP ScribeWatch port below; do not enter the public HTTPS reverse-proxy address.</div>{/if}
         <div class="grid three local-proxy-fields">
-          <div class="field"><label for="proxy-host">NAS hostname / IPv4</label><input id="proxy-host" class="input mono" bind:value={localProxyHost} placeholder="192.0.2.42 or nas.local" /></div>
+          <div class="field"><label for="proxy-host">NAS hostname / IPv4</label><input id="proxy-host" class="input mono" bind:value={localProxyHost} placeholder="nas.local or nas.local" /></div>
           <div class="field"><label for="proxy-target-port">ScribeWatch HTTP port</label><input id="proxy-target-port" class="input mono" type="number" min="1" max="65535" bind:value={localProxyTargetPort} /></div>
           <div class="field"><label for="proxy-local-port">Local port</label><input id="proxy-local-port" class="input mono" type="number" min="1" max="65535" bind:value={localProxyPort} /></div>
         </div>
