@@ -468,7 +468,7 @@ mod tests {
             assert!(!safe_ip(addr.parse::<std::net::Ipv4Addr>().unwrap().into()));
         }
         assert!(safe_ip("127.0.0.1".parse().unwrap()));
-        assert!(safe_ip("192.168.1.4".parse().unwrap()));
+        assert!(safe_ip("172.20.20.10".parse().unwrap()));
     }
     #[tokio::test]
     async fn probe_real_local_http_catalogue() {
@@ -568,7 +568,7 @@ mod tests {
                 .is_ok()
         );
         assert!(
-            validate_endpoint("http://192.168.1.10:13305/v1/chat/completions")
+            validate_endpoint("http://172.20.20.10:13305/v1/chat/completions")
                 .await
                 .is_ok()
         );
