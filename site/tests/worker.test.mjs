@@ -5,7 +5,7 @@ const base='https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/
 const names={'windows-full':'ScribeWatch-0.6.2-windows-amd64-standalone-setup.exe','windows-light':'ScribeWatch-0.6.2-windows-amd64-setup.exe','mac-arm64':'ScribeWatch-0.6.2-darwin-arm64.dmg','mac-amd64':'ScribeWatch-0.6.2-darwin-amd64.dmg','linux-amd64':'ScribeWatch-0.6.2-x86_64.AppImage','linux-arm64':'ScribeWatch-0.6.2-aarch64.AppImage'};
 const mock={tag_name:'v0.6.2',draft:false,prerelease:false,assets:Object.values(names).map((name)=>({name,size:12345,browser_download_url:base+name}))};
 test('All six exact release assets match the correct platform',()=>{
-  assert.equal(Object.keys(ASSETS).length,6);
+  assert.equal(Object.keys(ASSETS).length,12);
   for(const [key,name] of Object.entries(names))assert.equal(selectAsset(mock,key)?.name,name);
 });
 test('Never match SHA sidecars, untrusted domain or arbitrary target',()=>{
@@ -31,4 +31,22 @@ test('Download redirect chooses official GitHub URL',async(t)=>{
 test('Unsupported download platform fails closed',async()=>{
   const r=await worker.fetch(new Request('https://scribewatch.arezkichougar.com/download/windows-arm64'),{ASSETS:{fetch:()=>new Response('ok')}});
   assert.equal(r.status,404);
+});
+
+test('Portable local-AI releases expose exact full DMG, AppImage and Debian assets',()=>{
+  const future='https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.3/';
+  const optional={
+    'mac-arm64-full':'ScribeWatch-0.6.3-darwin-arm64-standalone.dmg',
+    'mac-amd64-full':'ScribeWatch-0.6.3-darwin-amd64-standalone.dmg',
+    'linux-amd64-full':'ScribeWatch-0.6.3-x86_64-standalone.AppImage',
+    'linux-arm64-full':'ScribeWatch-0.6.3-aarch64-standalone.AppImage',
+    'linux-amd64-deb':'scribewatch_0.6.3_amd64.deb',
+    'linux-arm64-deb':'scribewatch_0.6.3_arm64.deb',
+  };
+  const release={tag_name:'v0.6.3',assets:Object.values(optional).map(name=>({name,browser_download_url:future+name,size:2000}))};
+  for(const [key,name] of Object.entries(optional)) assert.equal(selectAsset(release,key)?.name,name);
+  // Full and light binaries must never be mixed by a regex.
+  assert.equal(selectAsset(mock,'mac-arm64-full'),null);
+  assert.equal(selectAsset(mock,'linux-amd64-full'),null);
+  assert.equal(selectAsset(mock,'linux-amd64-deb'),null);
 });

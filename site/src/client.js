@@ -9,6 +9,7 @@
   const button = document.getElementById('smart-download');
   const note = document.getElementById('platform-note');
   const ua = navigator.userAgent || '';
+  let detectedTarget = null;
   async function choose() {
     let target = null;
     let label = words.other;
@@ -32,22 +33,49 @@
       if (/aarch64|arm64/i.test(architecture + ' ' + ua)) { target = 'linux-arm64'; label = words.linux; }
       else if (/x86_64|amd64|x64/i.test(architecture + ' ' + ua)) { target = 'linux-amd64'; label = words.linux; }
     }
+    detectedTarget = target;
     button.textContent = label;
     button.href = target ? '/download/' + target : '#downloads';
     note.textContent = target ? words.ready : words.select;
   }
-  choose();
+  const choiceReady = choose();
   fetch('/api/release', { headers: {Accept:'application/json'} })
     .then((r) => r.ok ? r.json() : null)
-    .then((data) => {
+    .then(async (data) => {
+      await choiceReady;
       if (!data?.version) return;
       const tag = document.getElementById('release-tag');
       if (tag) tag.textContent = data.version;
+      // Only promote a full local-AI download if GitHub already published it.
+      // The currently official lightweight DMG/AppImage remains the fallback.
+      if (detectedTarget) {
+        const next = ['mac-arm64','mac-amd64','linux-amd64','linux-arm64'].includes(detectedTarget)
+          && data.assets?.[detectedTarget + '-full']
+          ? detectedTarget + '-full'
+          : detectedTarget;
+        if (data.assets?.[next]) button.href = '/download/' + next;
+      }
+      const hasMacFull = Boolean(data.assets?.['mac-arm64-full'] || data.assets?.['mac-amd64-full']);
+      const hasLinuxFull = Boolean(data.assets?.['linux-amd64-full'] || data.assets?.['linux-arm64-full']);
+      for (const [platform, enabled] of [['macos', hasMacFull], ['linux', hasLinuxFull]]) {
+        if (!enabled) continue;
+        const card = document.querySelector('[data-platform="' + platform + '"]');
+        const description = card?.querySelector('[data-platform-description]');
+        if (description && card?.dataset.fullCopy) description.textContent = card.dataset.fullCopy;
+      }
+      if (hasMacFull || hasLinuxFull) {
+        const caution = document.querySelector('[data-full-warning]');
+        const warningText = caution?.querySelector('[data-warning-body]');
+        if (warningText && caution?.dataset.fullWarning) warningText.textContent = caution.dataset.fullWarning;
+      }
       for (const [key, asset] of Object.entries(data.assets || {})) {
         const size = document.querySelector('[data-size="' + key + '"]');
         if (size && asset?.size) size.textContent = (asset.size / 1024 / 1024).toFixed(0) + ' MB';
         const link = document.querySelector('[data-download="' + key + '"]');
-        if (link) link.hidden = !asset;
+        if (link) {
+          const row = link.closest('.asset');
+          if (row) row.hidden = !asset;
+        }
       }
     }).catch(() => {});
 })();

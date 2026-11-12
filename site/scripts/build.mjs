@@ -99,6 +99,12 @@ function render(lang, t) {
   const link=(to,label)=>'<a href="'+to+'">'+esc(label)+'</a>';
   const shots=['record','documents','settings'];
   const targets=[['windows-full','windows-light'],['mac-arm64','mac-amd64'],['linux-amd64','linux-arm64']];
+  const localeExtra = {
+    en: {mac:'Local AI standalone edition — first launch downloads models',linux:'Local AI AppImage and installable Debian package — first launch downloads models',warning:'Bundled AI editions automatically download local Parakeet Ultra and Qwen3.5-4B models on first launch when available. Keep an internet connection for initial downloads. Clinical documents require practitioner review. Unnotarized or unsigned binaries may trigger security warnings.',labels:{'mac-arm64-full':'Apple Silicon · full AI','mac-amd64-full':'Intel · full AI','linux-amd64-full':'x86-64 · full AI AppImage','linux-arm64-full':'ARM64 · full AI AppImage','linux-amd64-deb':'Ubuntu / Debian x86-64 · installable','linux-arm64-deb':'Ubuntu / Debian ARM64 · installable'}},
+    fr: {mac:'Version autonome avec IA locale — téléchargement des modèles au premier lancement',linux:'AppImage avec IA locale et paquet Debian installable — téléchargement des modèles au premier lancement',warning:'Les éditions complètes avec IA locale téléchargent Parakeet Ultra et Qwen3.5-4B au premier lancement. Une connexion Internet est nécessaire initialement. Les documents cliniques exigent une relecture professionnelle. Les binaires non signés ou non notarisés peuvent déclencher un avertissement de sécurité.',labels:{'mac-arm64-full':'Apple Silicon · IA complète','mac-amd64-full':'Intel · IA complète','linux-amd64-full':'x86-64 · AppImage IA complète','linux-arm64-full':'ARM64 · AppImage IA complète','linux-amd64-deb':'Ubuntu / Debian x86-64 · à installer','linux-arm64-deb':'Ubuntu / Debian ARM64 · à installer'}},
+    'zh-CN': {mac:'完整本地 AI 版，首次启动自动下载模型',linux:'完整 AI AppImage 和可安装 Debian 软件包，首次启动自动下载模型',warning:'完整本地 AI 版本首次启动时下载 Parakeet Ultra 和 Qwen3.5-4B 模型。首次下载需要联网。医疗文档需要专业人员审核。未签名或未经 Apple 公证的程序可能显示安全警告。',labels:{'mac-arm64-full':'Apple Silicon · 完整 AI','mac-amd64-full':'Intel · 完整 AI','linux-amd64-full':'x86-64 · 完整 AI AppImage','linux-arm64-full':'ARM64 · 完整 AI AppImage','linux-amd64-deb':'Ubuntu / Debian x86-64 · 可安装','linux-arm64-deb':'Ubuntu / Debian ARM64 · 可安装'}}
+  }[lang];
+  const additionalTargets=[[],['mac-arm64-full','mac-amd64-full'],['linux-amd64-full','linux-arm64-full','linux-amd64-deb','linux-arm64-deb']];
   const lines=[
   '<!doctype html><html lang="'+lang+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
   '<title>'+esc(t.title)+'</title><meta name="description" content="'+esc(t.description)+'">',
@@ -128,9 +134,10 @@ function render(lang, t) {
   ...t.trust.map(([h,p])=>'<div><strong>'+esc(h)+'</strong><span>'+esc(p)+'</span></div>'),
   '</div></aside>',
   '<section class="section" id="downloads"><div class="wrap"><div class="section-head"><h2>'+esc(t.download)+'</h2><p class="lead">'+esc(t.downloadLead)+'</p></div><div class="downloads">',
-  ...t.cards.map((card,i)=>'<article class="download-card '+(i===0?'emphasis':'')+'"><span class="tag">'+esc(card[3])+'</span><div><h3>'+esc(card[0])+'</h3><p>'+esc(card[1])+'</p></div><p>'+esc(card[2])+'</p>'+
-     targets[i].map((kind,j)=>'<div class="asset"><a data-download="'+kind+'" href="/download/'+kind+'">'+esc(card[j+4])+'</a><span data-size="'+kind+'"></span></div>').join('')+'</article>'),
-  '</div><p class="caution"><strong>'+esc(t.warning)+'</strong> '+esc(t.warningBody)+'</p></div></section></main>',
+  ...t.cards.map((card,i)=>'<article class="download-card '+(i===0?'emphasis':'')+'" data-platform="'+['windows','macos','linux'][i]+'" data-full-copy="'+esc(i===1?localeExtra.mac:i===2?localeExtra.linux:'')+'"><span class="tag">'+esc(card[3])+'</span><div><h3>'+esc(card[0])+'</h3><p>'+esc(card[1])+'</p></div><p data-platform-description>'+esc(card[2])+'</p>'+
+     targets[i].map((kind,j)=>'<div class="asset"><a data-download="'+kind+'" href="/download/'+kind+'">'+esc(card[j+4])+'</a><span data-size="'+kind+'"></span></div>').join('')+
+     additionalTargets[i].map(kind=>'<div class="asset" hidden><a data-download="'+kind+'" href="/download/'+kind+'">'+esc(localeExtra.labels[kind])+'</a><span data-size="'+kind+'"></span></div>').join('')+'</article>'),
+  '</div><p class="caution" data-full-warning="'+esc(localeExtra.warning)+'"><strong>'+esc(t.warning)+'</strong> <span data-warning-body>'+esc(t.warningBody)+'</span></p></div></section></main>',
   '<footer class="footer"><div class="wrap footer-inner"><span>'+esc(t.author)+'</span><div class="footer-links">',
   link('https://github.com/GodsQuantum/ScribeWatch',t.github)+link('https://github.com/GodsQuantum/ScribeWatch/releases/latest',t.releases),
   '</div></div></footer></body></html>'

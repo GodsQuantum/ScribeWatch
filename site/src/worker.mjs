@@ -5,7 +5,13 @@ export const ASSETS = Object.freeze({
   'mac-arm64': /-darwin-arm64\.dmg$/i,
   'mac-amd64': /-darwin-amd64\.dmg$/i,
   'linux-amd64': /-x86_64\.AppImage$/i,
-  'linux-arm64': /-aarch64\.AppImage$/i
+  'linux-arm64': /-aarch64\.AppImage$/i,
+  'mac-arm64-full': /-darwin-arm64-standalone\.dmg$/i,
+  'mac-amd64-full': /-darwin-amd64-standalone\.dmg$/i,
+  'linux-amd64-full': /-x86_64-standalone\.AppImage$/i,
+  'linux-arm64-full': /-aarch64-standalone\.AppImage$/i,
+  'linux-amd64-deb': /^scribewatch_[0-9]+\.[0-9]+\.[0-9]+_amd64\.deb$/i,
+  'linux-arm64-deb': /^scribewatch_[0-9]+\.[0-9]+\.[0-9]+_arm64\.deb$/i
 });
 export function selectAsset(release, target) {
   if (!Object.hasOwn(ASSETS, target) || !Array.isArray(release?.assets)) return null;
