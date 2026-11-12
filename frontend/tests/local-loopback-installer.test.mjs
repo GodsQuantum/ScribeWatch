@@ -21,7 +21,7 @@ test('desktop platform detection covers Windows, macOS and Linux', () => {
 
 test('installers bind only localhost and stay reversible', () => {
   const linux=buildLocalProxyInstaller('linux','nas.local',3052);
-  const windows=buildLocalProxyInstaller('windows','192.0.2.42',3052);
+  const windows=buildLocalProxyInstaller('windows','172.20.20.10',3052);
   const mac=buildLocalProxyInstaller('macos','nas.local',3052);
   assert.match(linux,/systemd-socket-proxyd/);
   assert.match(linux,/127\.0\.0\.1:\$LOCAL_PORT/);

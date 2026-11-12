@@ -4,7 +4,7 @@ import { normalizeSpeachesUrl, probeSpeaches, probeSpeachesViaApp } from '../src
 
 test('keeps localhost/private LAN HTTP and refuses public HTTP and credentials', () => {
   assert.equal(normalizeSpeachesUrl('http://127.0.0.1:8005/v1'), 'http://127.0.0.1:8005');
-  assert.equal(normalizeSpeachesUrl('http://192.0.2.42:8005'), 'http://192.0.2.42:8005');
+  assert.equal(normalizeSpeachesUrl('http://172.20.20.10:8005'), 'http://172.20.20.10:8005');
   assert.equal(normalizeSpeachesUrl('https://speaches.example.test'), 'https://speaches.example.test');
   assert.throws(() => normalizeSpeachesUrl('http://example.com'), /HTTPS/);
   assert.throws(() => normalizeSpeachesUrl('http://user:secret@127.0.0.1:8005'), /credentials/);
@@ -43,18 +43,18 @@ test('one-click connection performs same-origin authenticated-app-server probe o
   const fake = async (url, options) => {
     calls.push({ url, options });
     return { ok: true, json: async () => ({
-      origin: 'http://192.0.2.42:8005',
-      transcriptionUrl: 'http://192.0.2.42:8005/v1/audio/transcriptions',
-      alignmentUrl: 'http://192.0.2.42:8005/align',
+      origin: 'http://172.20.20.10:8005',
+      transcriptionUrl: 'http://172.20.20.10:8005/v1/audio/transcriptions',
+      alignmentUrl: 'http://172.20.20.10:8005/align',
       model: 'handy-computer/whisper-large-v3-turbo-gguf',
       alignmentModel: 'fastconformer-fr-q4', backend: 'vulkan', backendVerified: false,
     }) };
   };
-  const result = await probeSpeachesViaApp('http://192.0.2.42:8005', fake);
+  const result = await probeSpeachesViaApp('http://172.20.20.10:8005', fake);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, '/api/v1/speaches/probe');
   assert.equal(calls[0].options.method, 'POST');
-  assert.deepEqual(JSON.parse(calls[0].options.body), {url:'http://192.0.2.42:8005'});
+  assert.deepEqual(JSON.parse(calls[0].options.body), {url:'http://172.20.20.10:8005'});
   assert.equal(result.model, 'handy-computer/whisper-large-v3-turbo-gguf');
 });
 
@@ -63,7 +63,7 @@ test('one-click connection surfaces same-origin upstream errors without modifyin
     error: {message: 'FastConformer French acoustic aligner unavailable'}
   })});
   await assert.rejects(
-    () => probeSpeachesViaApp('http://192.0.2.42:8005', fake),
+    () => probeSpeachesViaApp('http://172.20.20.10:8005', fake),
     /FastConformer/
   );
 });
