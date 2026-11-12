@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { api } from '$lib/api';
+  import { defaultQwen4bModelReady } from '$lib/native-model-ready';
   import ReportEditor from '$lib/components/ReportEditor.svelte';
   import { locale, t } from '$lib/i18n';
   import { canSaveToDirectory, ensureDirectoryPermission, saveMarkdownLocally, saveResponseToDirectory, uniqueDirectoryFilename } from '$lib/local-save';
@@ -74,10 +75,9 @@
       const [transcribers,writers]=await Promise.all([
         api.embeddedModels('stt'),api.embeddedModels('llm')
       ]);
-      const ids=(items:typeof transcribers)=>[...(items.data??items.models??[])]
-        .map(item=>(item.id??item.model??'').toLowerCase());
-      const asrReady=ids(transcribers).some(id=>id.includes('parakeet-ultra'));
-      const llmReady=ids(writers).some(id=>id.includes('qwen3.5-4b')&&id.includes('q4_k_m'));
+      const asrReady=(transcribers.data??transcribers.models??[])
+        .some(item=>(item.id??item.model??'').toLowerCase().includes('parakeet-ultra'));
+      const llmReady=(writers.data??writers.models??[]).some(defaultQwen4bModelReady);
       nativeSetup=asrReady&&llmReady?'ready':'pending';
       nativeSetupMessage=asrReady&&llmReady?'Parakeet Ultra and Qwen3.5-4B are installed locally.':
         t($locale, 'Default models are being installed locally. This first download happens once.')+' '+(asrReady?t($locale,'Parakeet ready'):t($locale,'Parakeet downloading'))+' · '+(llmReady?t($locale,'Qwen4B ready'):t($locale,'Qwen4B downloading'));

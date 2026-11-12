@@ -49,6 +49,21 @@ const LLM_SUGGESTIONS: &[&str] = &[
     "unsloth/Qwen3.5-2B-GGUF:Q4_K_M", // small-memory fallback; requires review
 ];
 
+/// The local llama.cpp router may advertise incomplete/downloading files
+/// in /v1/models. A catalog entry alone is NOT model readiness.
+fn default_qwen4b_downloaded(entry: &Value) -> bool {
+    let id = entry.get("id").and_then(Value::as_str);
+    let correct_model = matches!(
+        id,
+        Some("unsloth/Qwen3.5-4B-GGUF:Q4_K_M" | "Qwen3.5-4B-Q4_K_M" | "Qwen3.5-4B-Q4_K_M.gguf")
+    );
+    correct_model
+        && matches!(
+            entry.pointer("/status/value").and_then(Value::as_str),
+            Some("loaded" | "unloaded" | "sleeping")
+        )
+}
+
 // Use the upstream llama.cpp server on every supported desktop OS: no
 // extra model manager and no GPU-specific custom daemon. Memory heuristics
 // select a safe default; expert overrides are opt-in and range checked.
@@ -591,11 +606,7 @@ impl EmbeddedManager {
                 .await
                 .ok()
                 .and_then(|doc| doc.get("data").and_then(Value::as_array).cloned())
-                .is_some_and(|items| {
-                    items
-                        .iter()
-                        .any(|item| item.get("id").and_then(Value::as_str) == Some(llm_model))
-                }),
+                .is_some_and(|items| items.iter().any(default_qwen4b_downloaded)),
             _ => false,
         };
         if !cached {
@@ -1205,6 +1216,31 @@ mod tests {
         assert!(!valid_hf_repo("a/b/c:Q4"));
         assert!(!allowed_model(EngineKind::Stt, "unknown/repo"));
     }
+    #[test]
+    fn model_catalog_does_not_equal_download_completed() {
+        for id in [
+            "unsloth/Qwen3.5-4B-GGUF:Q4_K_M",
+            "Qwen3.5-4B-Q4_K_M",
+            "Qwen3.5-4B-Q4_K_M.gguf",
+        ] {
+            assert!(default_qwen4b_downloaded(&json!({
+                "id":id,"status":{"value":"unloaded"}
+            })));
+        }
+        for status in ["downloading", "incomplete", "error", "pending"] {
+            assert!(!default_qwen4b_downloaded(&json!({
+                "id":"unsloth/Qwen3.5-4B-GGUF:Q4_K_M",
+                "status":{"value":status}
+            })));
+        }
+        assert!(!default_qwen4b_downloaded(&json!({
+            "id":"unsloth/Qwen3.5-4B-GGUF:Q4_K_M"
+        })));
+        assert!(!default_qwen4b_downloaded(&json!({
+            "id":"Qwen3.5-9B-Q4_K_M","status":{"value":"unloaded"}
+        })));
+    }
+
     #[test]
     fn clinically_tested_defaults_are_preferred_across_desktop_platforms() {
         assert_eq!(PACK_MODELS[0], "handy-computer/parakeet-ultra-gguf");
