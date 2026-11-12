@@ -36,6 +36,12 @@ export function patientFacingMedicalBody(body:string):string{
   for(const line of body.split('\n')){
     const trimmed=line.trim();
     if(internal.test(trimmed)){suppress=true;continue;}
+    // Long-source 'Partie N' is internal segmentation, not a clinical theme.
+    // Remove only the literal generated heading; preserve every clinical line.
+    if(/^##\s+Partie\s+\d+\s*[—–-]\s*déroulement de la consultation\s*$/i.test(trimmed)){
+      if(kept.at(-1)?.trim()==='')kept.pop();
+      continue;
+    }
     if(suppress && /^#{1,6}\s+/.test(trimmed))suppress=false;
     if(suppress)continue;
     if(contact.test(trimmed))continue;
@@ -135,7 +141,7 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
   // Source IDs, model names and checksums must never appear in patient PDFs.
   const regular=await pdf.embedFont(StandardFonts.Helvetica);
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
-  const W=595.28,H=841.89,M=compactLastPage?47:49,contentWidth=W-2*M;
+  const W=595.28,H=841.89,M=compactLastPage?44:49,contentWidth=W-2*M;
   // Neutral print letter: avoid decorative app branding on medical correspondence.
   const navy=rgb(.14,.16,.18),teal=rgb(.14,.16,.18),muted=rgb(.42,.46,.5);
   let page!:PDFPage;let y=0;const pages:PDFPage[]=[];
@@ -166,18 +172,18 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     }
   };
   const draw=(text:string,style:'title'|'section'|'subsection'|'body'|'bullet'|'table'='body')=>{
-    const size=style==='title'?17:style==='section'?12:style==='subsection'?10.8:(compactLastPage?10:10.3);
+    const size=style==='title'?17:style==='section'?(compactLastPage?11.6:12):style==='subsection'?(compactLastPage?10.6:10.8):(compactLastPage?10.2:10.3);
     const font=style==='body'||style==='bullet'?regular:bold;
     const marker=style==='section'?sectionIcon(text):null;
-    const indent=(style==='bullet'?12:0)+(marker?18:0),leading=size*(compactLastPage?1.32:1.37);
+    const indent=(style==='bullet'?12:0)+(marker?18:0),leading=size*(compactLastPage?1.26:1.37);
     const rich=(style==='body'||style==='bullet')?wrapRichText(text,regular,bold,size,contentWidth-indent):null;
     const plain=rich?null:wrap(text,font,size,contentWidth-indent);
     if(!(rich?.length||plain?.length))return;
     // Section and subsection headings must stay with at least two text lines.
     // Avoid a heading being orphaned at the foot of an A4 page.
     ensure((style==='section'||style==='subsection')?leading*4+18:leading*2+8);
-    if(style==='title'||style==='section'){y-=compactLastPage?7:9;ensure(16);y-=compactLastPage?5:7;}
-    else if(style==='subsection'){y-=4;ensure(12);y-=4;}
+    if(style==='title'||style==='section'){y-=compactLastPage?5:9;ensure(16);y-=compactLastPage?4:7;}
+    else if(style==='subsection'){y-=compactLastPage?3:4;ensure(12);y-=compactLastPage?3:4;}
     if(marker)drawSectionIcon(marker,y);
     for(let i=0;i<(rich?.length??plain?.length??0);i++){
       ensure(leading);
@@ -191,7 +197,7 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
       }else if(plain){page.drawText(plain[i],{x:M+indent,y,size,font,color:teal});}
       y-=leading;
     }
-    y-=style==='title'||style==='section'?(compactLastPage?7:9):style==='subsection'?6:(compactLastPage?3:4);
+    y-=style==='title'||style==='section'?(compactLastPage?5:9):style==='subsection'?(compactLastPage?4:6):(compactLastPage?2:4);
   };
   // Preflight with the same font, wrap and line-spacing metrics used when
   // actually drawing. Move a short section/subsection together, but only
@@ -202,16 +208,16 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
     | {kind:'text'; text:string; style:'section'|'subsection'|'body'|'bullet';level?:number}
     | {kind:'table'; rows:string[][]};
   const estimateText=(text:string,style:'section'|'subsection'|'body'|'bullet')=>{
-    const size=style==='section'?12:style==='subsection'?10.8:(compactLastPage?10:10.3);
+    const size=style==='section'?(compactLastPage?11.6:12):style==='subsection'?(compactLastPage?10.6:10.8):(compactLastPage?10.2:10.3);
     const font=style==='body'||style==='bullet'?regular:bold;
     const indent=(style==='bullet'?12:0)+(style==='section'&&sectionIcon(text)?18:0);
     const count=(style==='body'||style==='bullet'
       ?wrapRichText(text,regular,bold,size,contentWidth-indent).length
       :wrap(text,font,size,contentWidth-indent).length);
     if(!count)return 0;
-    const leading=size*(compactLastPage?1.32:1.37);
-    const before=style==='section'?(compactLastPage?12:16):style==='subsection'?8:0;
-    const after=style==='section'?(compactLastPage?7:9):style==='subsection'?6:(compactLastPage?3:4);
+    const leading=size*(compactLastPage?1.26:1.37);
+    const before=style==='section'?(compactLastPage?9:16):style==='subsection'?(compactLastPage?6:8):0;
+    const after=style==='section'?(compactLastPage?5:9):style==='subsection'?(compactLastPage?4:6):(compactLastPage?2:4);
     return before+count*leading+after;
   };
   const tableRowHeight=(cells:string[],columns:number,headline:boolean)=>{
@@ -367,8 +373,8 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
         // A near-page-sized section should not leave a mostly empty sheet
         // behind it. Keep compact sections together, but let an almost-full
         // page of content flow when there is ample useful space left.
-        const nearPageSized=height>availableOnFreshPage*0.68;
-        const substantialSpaceLeft=remaining>availableOnFreshPage*0.43;
+        const nearPageSized=height>availableOnFreshPage*0.55;
+        const substantialSpaceLeft=remaining>availableOnFreshPage*0.36;
         if(remaining<height && !(nearPageSized && substantialSpaceLeft))addPage();
       }else{
         // Cannot keep a lengthy section on one page. At least keep the
@@ -402,23 +408,23 @@ export async function createMedicalPdf(markdown:string,patient:PatientMetadata,d
             // position AFTER its parent heading. If the child would start
             // on the next page, its parent must follow it, never orphaned.
             const remainingAfterParent=y-67-estimate(block);
-            const childIsPageSized=childHeight>availableOnFreshPage*0.68;
+            const childIsPageSized=childHeight>availableOnFreshPage*0.55;
             firstChildWouldMove=childHeight<=availableOnFreshPage
               && remainingAfterParent<childHeight
-              && !(childIsPageSized&&remainingAfterParent>availableOnFreshPage*0.43);
+              && !(childIsPageSized&&remainingAfterParent>availableOnFreshPage*0.36);
           }
         }
         const left=y-67;
-        const nearFullOpening=opening>availableOnFreshPage*0.68;
+        const nearFullOpening=opening>availableOnFreshPage*0.55;
         if(firstChildWouldMove
-          || (left<opening && !(nearFullOpening&&left>availableOnFreshPage*0.43)))
+          || (left<opening && !(nearFullOpening&&left>availableOnFreshPage*0.36)))
           addPage();
       }
     }else if(block.kind==='table' && estimate(block)<=availableOnFreshPage){
       // Standalone table must not start as an orphan at a page foot.
       if(y-estimate(block)<67)addPage();
     }
-    if(block.kind==='space')y-=3;
+    if(block.kind==='space')y-=compactLastPage?2:3;
     else if(block.kind==='table')drawTable(block.rows);
     else draw(block.text,block.style);
   }
