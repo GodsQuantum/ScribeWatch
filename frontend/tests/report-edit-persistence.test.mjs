@@ -5,6 +5,7 @@ import {PDFDocument} from 'pdf-lib';
 import {splitEditable,composeEditable} from '../src/lib/report-edit.ts';
 import {structuredMedicalBody,createMedicalPdf} from '../src/lib/medical-report.ts';
 import {buildSavedClinicalPdf} from '../src/lib/clinical-report-export.ts';
+import {buildSavedNotePdf} from '../src/lib/note-pdf.ts';
 
 const ORIGINAL = [
   '---','source: "consultation.m4a"','---','',
@@ -73,4 +74,21 @@ test('re-opened report with corrected metadata generates native medical PDF with
   const pdf=await PDFDocument.load(await blob.arrayBuffer());
   assert.equal(pdf.getTitle(),'Compte rendu de consultation');
   assert.ok(pdf.getPageCount()>=1);
+});
+
+test('edited generic note has built-in PDF export independent of Pandoc and WeasyPrint',async()=>{
+  const changed='# Réunion\n\n## Décisions\n\nVersion corrigée, texte vérifié.\n\n'+
+    'Compte rendu de réunion. '.repeat(250);
+  const stored={
+    jobId:'5f8d6b33-0000-0000-0000-000000000000',revision:2,
+    originalMarkdown:'# Réunion\n\nAncienne version.',markdown:changed
+  };
+  const {blob,filename}=await buildSavedNotePdf(stored);
+  assert.equal(filename,'compte-rendu_5f8d6b33_v2.pdf');
+  assert.equal(blob.type,'application/pdf');
+  const data=new Uint8Array(await blob.arrayBuffer());
+  assert.equal(new TextDecoder().decode(data.subarray(0,4)),'%PDF');
+  const pdf=await PDFDocument.load(data);
+  assert.equal(pdf.getTitle(),'Compte rendu');
+  assert.ok(pdf.getPageCount()>=2);
 });

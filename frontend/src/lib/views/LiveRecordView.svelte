@@ -762,6 +762,14 @@
         const filename=target?await uniqueMedicalFilename(target,medicalFilename(patient,documentDate)):medicalFilename(patient,documentDate);
         await saveResponseToDirectory(new Response(blob),filename,target,window);
         if(!silent)notify('success','Brouillon PDF créé. Vérifier les faits, archiver le Markdown source et faire valider par le praticien.');
+      }else if(format==='pdf'){
+        const saved=await api.jobReport(current.id);
+        const {buildSavedNotePdf}=await import('$lib/note-pdf');
+        const file=await buildSavedNotePdf(saved);
+        const target=pdfDestination??markdownDestination;
+        const filename=target?await uniqueDirectoryFilename(target,file.filename):file.filename;
+        await saveResponseToDirectory(new Response(file.blob),filename,target,window);
+        if(!silent)notify('success','PDF corrigé enregistré.');
       }else{
         const result=await api.jobExport(current.id,format);
         const filename=silent&&markdownDestination

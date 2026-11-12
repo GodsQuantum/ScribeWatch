@@ -89,6 +89,12 @@
         const result=await buildSavedClinicalPdf(current,report,encounter);
         const method=await saveResponseToDirectory(new Response(result.blob),result.filename,markdownDestination,window);
         notify('success',method==='directory'?'PDF clinique corrigé enregistré.':'PDF clinique téléchargé.');
+      }else if(format==='pdf'){
+        const saved=await api.jobReport(current.id);
+        const {buildSavedNotePdf}=await import('$lib/note-pdf');
+        const result=await buildSavedNotePdf(saved);
+        const method=await saveResponseToDirectory(new Response(result.blob),result.filename,markdownDestination,window);
+        notify('success',method==='directory'?'PDF corrigé enregistré.':'PDF corrigé téléchargé.');
       }else{
         const result=await api.jobExport(current.id,format);
         const method=await saveResponseToDirectory(new Response(result.blob),result.filename,markdownDestination,window);

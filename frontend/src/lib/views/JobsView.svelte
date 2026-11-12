@@ -78,6 +78,12 @@
         await saveMarkdownLocally(result.filename,result.blob);
         if(!encounter)notify('error','Ancien document sans identité patient mémorisée : vérifier et compléter les champs du PDF.');
         else notify('success','PDF clinique corrigé enregistré · version '+saved.revision+'.');
+      }else if(format==='pdf'&&job){
+        const saved=await api.jobReport(id);
+        const {buildSavedNotePdf}=await import('$lib/note-pdf');
+        const result=await buildSavedNotePdf(saved);
+        await saveMarkdownLocally(result.filename,result.blob);
+        notify('success','PDF corrigé enregistré · version '+saved.revision+'.');
       }else{
         const result=await api.jobExport(id,format);
         await saveMarkdownLocally(result.filename,result.blob);

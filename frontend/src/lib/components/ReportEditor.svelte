@@ -80,7 +80,11 @@
     exporting=format;
     try{
       if(onexport){await onexport(format);}
-      else{
+      else if(format==='pdf'){
+        const {buildSavedNotePdf}=await import('$lib/note-pdf');
+        const file=await buildSavedNotePdf(report);
+        await saveMarkdownLocally(file.filename,file.blob);
+      }else{
         const file=await api.jobExport(jobId,format);
         await saveMarkdownLocally(file.filename,file.blob);
       }
