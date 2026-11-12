@@ -1,5 +1,7 @@
 <script lang="ts">
   import { api } from '$lib/api';
+  import ReportEditor from '$lib/components/ReportEditor.svelte';
+  import {buildSavedClinicalPdf} from '$lib/clinical-report-export';
   import { saveMarkdownLocally } from '$lib/local-save';
   import type { ExportFormat, Job, TranscriptionAttempt, Workflow, Space, SpaceMembership, SpaceKind } from '$lib/types';
   export let jobs:Job[]=[];
@@ -63,14 +65,26 @@
   }
   async function retry(id:string){try{await api.retryJob(id);await refresh();notify('success','Job queued for retry.');}catch(e){notify('error',e instanceof Error?e.message:String(e));}}
   async function cancel(id:string){try{await api.cancelJob(id);await refresh();notify('success','Cancellation requested.');}catch(e){notify('error',e instanceof Error?e.message:String(e));}}
-  async function remove(id:string){if(!confirm('Delete this history record? Media files are not deleted.'))return;try{await api.deleteJob(id);await refresh();}catch(e){notify('error',e instanceof Error?e.message:String(e));}}
-  async function exportResult(id:string,format:ExportFormat){
-    exporting=`${id}:${format}`;
+  async function remove(id:string){if(!confirm('Supprimer ce document enregistré et son historique de corrections ? Les fichiers audio restent conservés.'))return;try{await api.deleteJob(id);await refresh();}catch(e){notify('error',e instanceof Error?e.message:String(e));}}
+  async function exportResult(id:string,format:ExportFormat):Promise<boolean>{
+    exporting=id+':'+format;
     try{
-      const result=await api.jobExport(id,format);
-      await saveMarkdownLocally(result.filename,result.blob);
-      notify('success',`${format.toUpperCase()} export saved.`);
-    }catch(e){notify('error',e instanceof Error?e.message:String(e));}
+      const job=jobs.find((item)=>item.id===id);
+      const clinical=!!job?.structuredProfileId &&
+        /dental|medical|consultation/i.test(job.structuredProfileId);
+      if(format==='pdf'&&job&&clinical&&job.structuredProfileName&&!job.structuringError){
+        const [saved,encounter]=await Promise.all([api.jobReport(id),api.jobEncounter(id)]);
+        const result=await buildSavedClinicalPdf(job,saved,encounter);
+        await saveMarkdownLocally(result.filename,result.blob);
+        if(!encounter)notify('error','Ancien document sans identité patient mémorisée : vérifier et compléter les champs du PDF.');
+        else notify('success','PDF clinique corrigé enregistré · version '+saved.revision+'.');
+      }else{
+        const result=await api.jobExport(id,format);
+        await saveMarkdownLocally(result.filename,result.blob);
+        notify('success',format.toUpperCase()+' export saved.');
+      }
+      return true;
+    }catch(e){notify('error',e instanceof Error?e.message:String(e));return false;}
     finally{exporting='';}
   }
   const when=(ms:number)=>new Date(ms).toLocaleString();
@@ -165,6 +179,11 @@
                 {/each}
               </div>
             {/if}
+            {#if job.status==='done'&&job.markdownPublished}<ReportEditor jobId={job.id} {notify}
+                clinical={!!job.structuredProfileId&&/dental|medical|consultation/i.test(job.structuredProfileId)}
+                onexport={async(format)=>{
+                if(!(await exportResult(job.id,format)))throw Error('Export failed');
+              }}/>{/if}
             {#if job.status==='error'||job.status==='interrupted'||job.status==='cancelled'}<button class="btn primary" on:click={()=>retry(job.id)}>Retry</button>{/if}
             {#if !terminal.has(job.status)}<button class="btn danger" on:click={()=>cancel(job.id)}>Cancel</button>{/if}
             {#if terminal.has(job.status)}<button class="btn ghost" on:click={()=>remove(job.id)}>Remove record</button>{/if}

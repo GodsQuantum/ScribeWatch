@@ -156,6 +156,8 @@ async fn process_quick_inner(
             (path, result_name)
         }
     };
+    let generated = tokio::fs::read_to_string(&markdown_path).await?;
+    crate::reports::retain_generated(&state.db, &job.id, &generated)?;
     update_job(state, &job.id, |job| {
         job.status = JobStatus::Done;
         job.markdown_published = true;

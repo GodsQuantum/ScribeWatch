@@ -146,6 +146,8 @@ async fn process_workflow_job(
     })
     .await
     .context("Markdown publication task failed")??;
+    let generated = tokio::fs::read_to_string(&markdown_path).await?;
+    crate::reports::retain_generated(&state.db, &job.id, &generated)?;
     update_job(state, &job.id, |job| {
         job.markdown_published = true;
         job.markdown_path = Some(markdown_path.clone());

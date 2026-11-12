@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { api } from '$lib/api';
+  import ReportEditor from '$lib/components/ReportEditor.svelte';
   import { locale, t } from '$lib/i18n';
   import { canSaveToDirectory, ensureDirectoryPermission, saveMarkdownLocally, saveResponseToDirectory, uniqueDirectoryFilename } from '$lib/local-save';
   import { buildLocalProxyInstaller, detectLocalProxyPlatform, inferLocalProxyTarget, localProxyFilename, type LocalProxyPlatform } from '$lib/local-loopback-installer';
@@ -590,7 +591,15 @@
         fetchAudio:api.jobAudio,
         saveClient:(response,filename,handle)=>saveResponseToDirectory(response,filename,handle,window)
       });
-      if(submitted)metadataByJob.set(submitted.id,encounter);
+      if(submitted){
+        metadataByJob.set(submitted.id,encounter);
+        if(encounter.medicalReportEnabled){
+          try{await api.saveJobEncounter(submitted.id,encounter);}
+          catch(error){
+            notify('error','Compte-rendu en cours, mais les informations patient ne sont pas encore conservées : '+String(error));
+          }
+        }
+      }
       if(submitted && selectedSpace!=='all' && selectedSpace!=='unassigned'){
         try{await onassign(submitted.id,selectedSpace);}catch{/* audio and job remain safe */}
       }
@@ -722,7 +731,9 @@
   async function exportResult(format:ExportFormat,silent=false):Promise<boolean>{
     if(!current||current.status!=='done')return false;
     exporting=format;
-    const encounter=metadataByJob.get(current.id)??snapshotEncounter();
+    const originalEncounter=metadataByJob.get(current.id)??snapshotEncounter();
+    const encounter=(format==='pdf'&&originalEncounter.medicalReportEnabled
+      ?await api.jobEncounter(current.id).catch(()=>null):null)??originalEncounter;
     try{
       if(format==='pdf'&&encounter.medicalReportEnabled){
         if(current.structuringError||!current.structuredProfileName)throw new Error('Clinical AI draft is incomplete: a patient PDF cannot be generated from the raw transcript.');
@@ -1180,6 +1191,11 @@
             {#if current.structuringError}<div class="notice warning compact">Transcript succeeded; AI structuring failed: {current.structuringError}</div>{/if}
             {#if current.quick?.outputKind==='server'&&current.markdownPath}<code class="result-path">{current.markdownPath}</code>{/if}
             {#if current.quick?.sourceKind==='live'}<button class="btn compact" on:click={saveFinalAudio}>Save final audio…</button>{/if}
+            <ReportEditor jobId={current.id} {notify}
+              clinical={!!current.structuredProfileId&&/dental|medical|consultation/i.test(current.structuredProfileId)}
+              onexport={async(format)=>{
+              if(!(await exportResult(format)))throw Error('Export failed; check the notification.');
+            }}/>
             <div class="result-export-panel">
               <strong>Export result</strong><span class="help">Download / save as</span>
               <div class="export-actions">

@@ -45,6 +45,33 @@ impl Database {
         Ok(())
     }
 
+    /// Insert only on the first generation so retries cannot erase edits.
+    pub fn insert_if_absent<T: Serialize>(&self, kind: &str, id: &str, value: &T) -> Result<bool> {
+        let json = serde_json::to_string(value)?;
+        let count = self.conn().execute(
+            "INSERT OR IGNORE INTO sw_objects(kind,id,json,updated_at) VALUES(?1,?2,?3,unixepoch())",
+            params![kind, id, json],
+        )?;
+        Ok(count == 1)
+    }
+
+    /// An atomic compare-and-swap avoids lost clinical edits from two tabs.
+    pub fn compare_and_swap<T: Serialize>(
+        &self,
+        kind: &str,
+        id: &str,
+        previous: &T,
+        updated: &T,
+    ) -> Result<bool> {
+        let old_json = serde_json::to_string(previous)?;
+        let new_json = serde_json::to_string(updated)?;
+        let count = self.conn().execute(
+            "UPDATE sw_objects SET json=?1,updated_at=unixepoch() WHERE kind=?2 AND id=?3 AND json=?4",
+            params![new_json, kind, id, old_json],
+        )?;
+        Ok(count == 1)
+    }
+
     pub fn get<T: DeserializeOwned>(&self, kind: &str, id: &str) -> Result<Option<T>> {
         let json: Option<String> = self
             .conn()
