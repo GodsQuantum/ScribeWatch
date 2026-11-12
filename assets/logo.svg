@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+<title id="title">ScribeWatch</title><desc id="desc">Audio waveform entering a Markdown note</desc>
+<rect width="128" height="128" rx="28" fill="#09100f"/>
+<path d="M20 67h10l6-20 9 38 9-58 9 48 7-22 6 14h9" fill="none" stroke="#5ee0bb" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M82 28h18l14 14v58H82z" fill="#13231f" stroke="#ecf5f1" stroke-width="5" stroke-linejoin="round"/>
+<path d="M100 28v16h14M90 60h16M90 74h16M90 88h11" fill="none" stroke="#ecf5f1" stroke-width="5" stroke-linecap="round"/>
+</svg>
