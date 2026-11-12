@@ -17,7 +17,7 @@
       const values = navigator.userAgentData?.getHighEntropyValues ? await navigator.userAgentData.getHighEntropyValues(['architecture']) : null;
       architecture = (values?.architecture || '').toLowerCase();
     } catch {}
-    if (/android|iphone|ipad|ipod/i.test(ua)) {
+    if (/android|iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) {
       label = words.other; // Desktop AppImages and installers are not mobile packages.
     } else if (/windows/i.test(ua)) {
       label = words.windows;
