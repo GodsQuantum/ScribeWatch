@@ -11,7 +11,7 @@ class ReleaseNativeArtifactContract(unittest.TestCase):
         self.assertIn('workflow_call:',PORTABLE)
         self.assertIn('  full-native:',RELEASE)
         self.assertIn('uses: ./.github/workflows/native-full-portable.yml',RELEASE)
-        self.assertIn('needs: [publish, appimage, windows-standalone, full-native]',RELEASE)
+        self.assertIn('needs: [publish, appimage, windows-standalone, full-native, slim-desktop]',RELEASE)
 
     def test_release_requires_and_checks_both_linux_architectures_and_macos(self):
         self.assertIn('pattern: scribewatch-full-linux-*',RELEASE)
@@ -20,8 +20,10 @@ class ReleaseNativeArtifactContract(unittest.TestCase):
         self.assertIn('dist/full/*.deb',RELEASE)
         self.assertIn('dist/full/*-standalone.AppImage',RELEASE)
         self.assertIn('sha256sum -c',RELEASE)
+        self.assertIn('uses: ./.github/workflows/desktop-installer.yml',RELEASE)
+        self.assertIn('pattern: desktop-unsigned-*',RELEASE)
         # A failed native installer must not move the Docker :latest tag.
-        self.assertIn('needs: [image, full-native, windows-standalone, appimage]',RELEASE)
+        self.assertIn('needs: [image, full-native, windows-standalone, appimage, slim-desktop]',RELEASE)
 
 if __name__=='__main__':
     unittest.main()

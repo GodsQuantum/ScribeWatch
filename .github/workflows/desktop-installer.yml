@@ -1,6 +1,7 @@
 name: Unsigned native desktop installer candidate
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - 'src/**'
