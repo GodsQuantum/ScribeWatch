@@ -26,6 +26,8 @@ ScribeWatch turns recordings into **clean, titled Markdown notes** using your ow
 
 The transcript remains canonical and deterministic. When a workflow needs more structure, an optional OpenAI-compatible LLM can add a reusable meeting, consultation, brainstorm or custom structured view **without replacing the original transcript**.
 
+Profile optimization is handled by the engine for **all profiles, including those you create yourself in the future**: full-source coverage, source-based checks, and adaptive context handling. The document profile changes the requested structure, not the factual safeguards.
+
 It is especially useful as a **voice notes → Obsidian** bridge, but nothing is Obsidian-specific: any Markdown folder works.
 
 <p align="center">

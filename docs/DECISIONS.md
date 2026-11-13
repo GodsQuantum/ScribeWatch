@@ -75,3 +75,57 @@ Sources:
 ## Deliberately deferred
 
 No LLM is required for v1. Summary, title, chapters, action items, speakers, and tags remain future enrichment hooks rather than hard dependencies. No video rendering, subtitle editing, asset library, presets, or manual upload workflow is retained from AutoSubs.
+
+## Universal, profile-independent source-fidelity policy (2026-11-13)
+
+**Decision:** data processing and accuracy safeguards belong to the ScribeWatch
+**engine**, never to a fixed list of built-in profile IDs. Every current
+and future user-created profile inherits:
+
+- The unchanged source transcript as the canonical factual record; the profile
+  prompt and optional template may control *structure and relevance*, never
+  overwrite source evidence or silently invent missing fields.
+- Whole-source coverage, including the first/middle/final passages and
+  contradictions. A long source is split and processed in order, with
+  context-aware passage sizes and bounded retries on actual context errors.
+- On local embedded LLMs, an optional evidence ledger when the available
+  context budget permits (source-only factual extraction followed by a
+  source-verified synthesis); if not, source-preserving ordered sections
+  remain available instead of a truncated or invented completion.
+- A bounded omission/contradiction review of actual source passages on local
+  models, for *any* profile ID, with exact-span quotation, unchanged numbers,
+  speaker-claim checks and a conservative reject-on-uncertainty policy.
+- Profile-aware language, terminology and preferred headings. Dental drafts
+  retain their clinically tested specialized prompt; meetings preserve
+  decisions versus proposals, brainstorms preserve minority/rejected ideas,
+  medical drafts preserve uncertainty and attribution. Unknown custom profiles
+  receive a safe source-grounding default rather than an empty policy.
+
+**Hardware adaptation:** model loading, quantization, context and chunk sizes
+depend on detected resources; the requirement to preserve every source part
+does not. CPU-only, low-VRAM and large-VRAM paths share the same safety and
+profile contracts. Performance and output quality still require measurement
+on representative machines; a unit test or a passing installer does not
+certify accuracy.
+
+**Release gates:** the private, permission-controlled benchmark must compare
+identical source-audio SHA-256, actual ASR output, the app's real structured
+report, clinician-reviewed content and export PDFs. A 48-item lexical
+checklist is a diagnostic, **not** a stand-alone clinical correctness metric.
+Regression checks must also use synthetic long/short inputs across all
+built-in profiles and randomly named custom profiles. Never publish patient
+transcripts, names, PDFs, or results in public source-control histories.
+
+**UTF-8 benchmark correctness:** QA tools must decode raw HTTP JSON response
+**bytes** as strict UTF-8 before reading or scoring multilingual content.
+Windows PowerShell 5.1 may silently decode Content-Type application/json
+without an explicit charset as Latin-1; accent corruption changes lexical
+scores, document pagination and hashes. Do not diagnose ASR or model
+regressions from corrupted benchmark transcripts. Verify untouched source
+SHA-256 and keep private references outside the public repository.
+
+**Current qualification status:** the universal code path and automated
+contracts have been implemented, but must pass end-to-end quality, regression
+and native-installer release tests **before** replacing a production build.
+The CAB1/CAB2 v0.6.4 installations must not be described as having an
+unverified quality fix.

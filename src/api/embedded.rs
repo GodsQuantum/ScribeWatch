@@ -1088,6 +1088,31 @@ fn valid_hf_repo(model: &str) -> bool {
     valid(a) && valid(b) && parts.next().is_none() && quant.len() < 30 && valid(quant)
 }
 
+/// Choose the highest-fidelity practical model from the upstream catalogue.
+/// Compare actual available quantizations; never infer their existence from the
+/// repository name. A reduced-memory machine gets smaller weights but keeps
+/// the same transcription protocol and can still use CPU fallback.
+fn select_asr_variant_for_memory(variants: &[Value], ram_mib: Option<u64>) -> Option<&str> {
+    let preferred: &[&str] = if ram_mib.is_some_and(|mib| mib >= 6_144) {
+        &["-Q8_0.GGUF", "-Q6_K.GGUF", "-Q5_K_M.GGUF", "-Q4_K_M.GGUF"]
+    } else {
+        &["-Q6_K.GGUF", "-Q5_K_M.GGUF", "-Q4_K_M.GGUF", "-Q8_0.GGUF"]
+    };
+    let catalog = variants
+        .iter()
+        .filter_map(|entry| entry.get("filename").and_then(Value::as_str))
+        .collect::<Vec<_>>();
+    preferred
+        .iter()
+        .find_map(|suffix| {
+            catalog
+                .iter()
+                .copied()
+                .find(|filename| filename.to_ascii_uppercase().ends_with(suffix))
+        })
+        .or_else(|| catalog.first().copied())
+}
+
 // Shared upstream-native curated ASR download used by initial desktop
 // provisioning and explicit model selection. No secondary downloader service.
 async fn install_curated_asr(client: &Client, model: &str) -> Result<(), String> {
@@ -1109,22 +1134,7 @@ async fn install_curated_asr(client: &Client, model: &str) -> Result<(), String>
         .get("variants")
         .and_then(Value::as_array)
         .ok_or_else(|| "Invalid ASR quantization catalog".to_owned())?;
-    let file = entries
-        .iter()
-        .filter_map(|entry| entry.get("filename").and_then(Value::as_str))
-        .find(|name| name.to_ascii_uppercase().ends_with("-Q6_K.GGUF"))
-        .or_else(|| {
-            entries
-                .iter()
-                .filter_map(|entry| entry.get("filename").and_then(Value::as_str))
-                .find(|name| name.to_ascii_uppercase().ends_with("-Q4_K_M.GGUF"))
-        })
-        .or_else(|| {
-            entries
-                .iter()
-                .filter_map(|entry| entry.get("filename").and_then(Value::as_str))
-                .next()
-        })
+    let file = select_asr_variant_for_memory(entries, system_memory_mib())
         .ok_or_else(|| "ASR repo has no suitable GGUF variant".to_owned())?;
     let response = client
         .post(format!("{origin}/v1/desktop-asr/install"))
@@ -1302,6 +1312,32 @@ mod tests {
         assert!(!default_qwen4b_downloaded(&json!({
             "id":"Qwen3.5-9B-Q4_K_M","status":{"value":"unloaded"}
         })));
+    }
+
+    #[test]
+    fn clean_install_prefers_q8_asr_when_ram_allows_and_q6_when_constrained() {
+        let variants = vec![
+            json!({"filename":"parakeet-ultra-Q4_K_M.gguf"}),
+            json!({"filename":"parakeet-ultra-Q6_K.gguf"}),
+            json!({"filename":"parakeet-ultra-Q8_0.gguf"}),
+        ];
+        assert_eq!(
+            select_asr_variant_for_memory(&variants, Some(16_384)),
+            Some("parakeet-ultra-Q8_0.gguf")
+        );
+        assert_eq!(
+            select_asr_variant_for_memory(&variants, Some(4_096)),
+            Some("parakeet-ultra-Q6_K.gguf")
+        );
+        assert_eq!(
+            select_asr_variant_for_memory(&variants, None),
+            Some("parakeet-ultra-Q6_K.gguf")
+        );
+        assert_eq!(
+            select_asr_variant_for_memory(&variants[..2], Some(32_768)),
+            Some("parakeet-ultra-Q6_K.gguf")
+        );
+        assert_eq!(select_asr_variant_for_memory(&[], Some(32_768)), None);
     }
 
     #[test]

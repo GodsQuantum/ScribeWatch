@@ -26,6 +26,8 @@ ScribeWatch transforme vos enregistrements en **notes Markdown propres et titré
 
 Le transcript reste canonique et déterministe. Pour les usages qui demandent davantage de structure, un LLM compatible OpenAI peut ajouter après transcription une vue structurée réutilisable — réunion, consultation, brainstorm ou profil personnalisé — **sans jamais remplacer le transcript original**.
 
+Les optimisations appartiennent au moteur et s’appliquent à **tous les profils, y compris ceux que vous créerez plus tard** : prise en compte de toute la source, vérification des faits et gestion adaptative du contexte. Le profil personnalise le document, jamais les règles de fidélité.
+
 Le cas d’usage naturel est **notes vocales → Obsidian**, mais rien n’est verrouillé à Obsidian : n’importe quel dossier Markdown fonctionne.
 
 <p align="center">
