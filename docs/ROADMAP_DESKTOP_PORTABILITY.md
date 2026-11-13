@@ -19,6 +19,12 @@ macOS DMGs and Linux AppImages/deb packages using Speaches Reloaded
 and llama.cpp. It must pass host-native installation and engine tests
 before the edition is promoted or the website downloads are changed.
 
+The next desktop packaging pass is also adding complete native
+Pandoc/Typst document exporters and Noto Sans CJK fonts with SHA-256
+source verification. Every format must pass an actual installer smoke
+test without system-wide dependencies; this is not retroactive to the
+v0.6.2 downloadable installers.
+
 ## Not yet certified
 
 - A fresh physical end-to-end microphone/GPU/large-model/PDF test on each supported hardware variant; production clinical quality must be independently validated and clinician-reviewed.

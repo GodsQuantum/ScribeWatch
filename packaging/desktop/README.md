@@ -123,6 +123,33 @@ GPU/microphone tests, model acquisition, clinical-report accuracy, signed
 macOS notarization and distribution-specific compatibility remain separate.
 The existing public v0.6.2 lightweight AppImages/DMGs are unchanged.
 
+## Built-in document exports: no host dependency (next release)
+
+ScribeWatch packages **Pandoc 3.14**, **Typst 0.15.1** and the
+**Noto Sans CJK** multilingual font (including upstream redistribution
+licenses) into its own application resources on Windows, macOS and Linux
+for both slim and full editions. No administrator package installation
+or runtime download of these tools is necessary. Only the initial
+STT/LLM model weights need network access.
+
+The Rust API uses \`SCRIBEWATCH_EXPORT_TOOLS_DIR\` when explicitly provided,
+then the installed server's sibling \`bin/\` (Pandoc + Typst), with an
+existing Docker system package fallback. PDF uses Pandoc's Typst backend,
+A4 pages, and the bundled font path. The frontend pdf-lib route remains
+independent of Pandoc and continues to work. The Docker container retains
+its existing Pandoc/WeasyPrint compatibility path.
+
+Immutable upstream archive SHA-256 hashes are checked at CI build time
+by \`prepare_export_tools.py\`. The packaging smoke gate executes real
+TXT/HTML/DOCX/ODT/PDF conversions with French accents and Chinese text
+both before staging and after installing/mounting native desktop apps;
+appimage/deb stages require the same tool manifest. Any missing file or
+failed conversion causes the installer CI job to fail.
+
+This change is **source-stage work until validated in a new tagged release**.
+The existing downloadable v0.6.2 installers must not be represented as
+containing these additional exporters.
+
 ## Reproducible clinical engine contract
 
 llama-runtime-lock.json is the reviewed source of truth for the exact

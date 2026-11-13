@@ -49,6 +49,8 @@ Le cas d’usage naturel est **notes vocales → Obsidian**, mais rien n’est v
 
 L'installateur complet a passé les tests CI de packaging, installation et démarrage. **Une vérification physique complète du microphone, de tous les GPU et de la qualité clinique sur chaque PC n'est pas encore certifiée.** macOS, Linux, les éditions légères et Docker ne disposent pas actuellement de ce même pack IA local zéro configuration. Les documents cliniques restent des brouillons à relire par un praticien.
 
+**Prévu dans la prochaine release packagée (pas encore dans les installeurs v0.6.2 téléchargeables) :** toutes les éditions desktop Windows, macOS et Linux embarquent Pandoc 3.14, Typst 0.15.1 et la police Noto Sans CJK, avec empreintes vérifiées. Les exports **MD, TXT, HTML, DOCX, ODT et PDF** fonctionnent alors sans Pandoc, WeasyPrint, LaTeX, Python ou LibreOffice préinstallés sur l'hôte. L'export PDF du navigateur était déjà autonome ; l'API serveur privilégiera les exécutables livrés. Les poids des modèles IA exigent encore un téléchargement initial.
+
 Les binaires ne sont pas nécessairement signés ni notarisés par Apple ; vérifiez le SHA-256 et les notes de publication.
 
 ## Interface actuelle

@@ -35,11 +35,20 @@ class StageTest(unittest.TestCase):
             (engines / "speaches/Cloud9-Speaches.exe").write_text("asr")
             (engines / "llm/cpu/llama-server.exe").write_text("llm")
             (engines / "BUNDLED-RUNTIMES-SHA256.json").write_text('{"files":{}}')
+            exporters = t / "exporters"
+            (exporters / "fonts").mkdir(parents=True)
+            (exporters / "licenses").mkdir(parents=True)
+            (exporters / "pandoc.exe").write_bytes(b"portable-pandoc")
+            (exporters / "typst.exe").write_bytes(b"portable-typst")
+            (exporters / "fonts/NotoSansCJK-Regular.ttc").write_bytes(b"portable-font")
+            (exporters / "licenses/pandoc-COPYING.md").write_text("GPL")
+            (exporters / "EXPORT-TOOLS-SHA256.json").write_text('{"files_sha256":{}}')
             command = [
                 sys.executable, str(STAGE), "--repo", str(repo),
                 "--platform", "windows", "--server", str(artifact / "scribewatch-server.exe"),
                 "--launcher", str(artifact / "ScribeWatch.exe"),
                 "--ffmpeg", str(artifact), "--engines", str(engines),
+                "--export-tools", str(exporters),
                 "--output", str(t / "installed"),
             ]
             with patch.object(sys, "argv", command[1:]), patch(
@@ -52,6 +61,10 @@ class StageTest(unittest.TestCase):
                 "bin/engines/speaches/Cloud9-Speaches.exe",
                 "bin/engines/llm/cpu/llama-server.exe",
                 "bin/engines/BUNDLED-RUNTIMES-SHA256.json",
+                "bin/pandoc.exe",
+                "bin/typst.exe",
+                "bin/fonts/NotoSansCJK-Regular.ttc",
+                "bin/EXPORT-TOOLS-SHA256.json",
             ):
                 self.assertIn(item, manifest["files"])
                 digest = hashlib.sha256((result / item).read_bytes()).hexdigest()

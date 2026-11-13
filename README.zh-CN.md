@@ -17,6 +17,8 @@
 | Linux x86-64 | AppImage | [下载 x86-64](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-x86_64.AppImage) | 需配置兼容引擎 |
 | Linux ARM64 | AppImage | [下载 ARM64](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-aarch64.AppImage) | 需配置兼容引擎 |
 
+**下一次正式安装包更新（当前可下载的 v0.6.2 尚未包含）：** Windows、macOS、Linux 桌面安装包均会内置 SHA-256 验证过的 Pandoc 3.14、Typst 0.15.1 和 Noto Sans CJK 字体。因此 MD、TXT、HTML、DOCX、ODT、PDF 导出无需在主机单独安装 Pandoc、WeasyPrint、LaTeX、Python 或 LibreOffice。浏览器 PDF 原本已独立运行，服务器端导出也将优先使用打包工具。首次下载 AI 模型仍需联网。
+
 所有发布文件均提供对应的 SHA-256 校验文件。桌面安装包未必具备正式的代码签名或 Apple 公证，请核对官方发布说明。
 
 ## Windows 完整独立版：首次安装

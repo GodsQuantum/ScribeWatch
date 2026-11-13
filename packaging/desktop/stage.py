@@ -18,6 +18,7 @@ def main() -> None:
         ap.add_argument("--"+k,required=True,type=Path)
     ap.add_argument("--platform",required=True,choices=("windows","macos"))
     ap.add_argument("--engines",type=Path,help="Validated native engines asset tree for full standalone only")
+    ap.add_argument("--export-tools",type=Path,help="Mandatory verified native Pandoc/Typst/font bundle for ScribeWatch")
     x=ap.parse_args()
     repo=x.repo.resolve(strict=True)
     manifest=tomllib.loads((repo/"Cargo.toml").read_text())
@@ -40,6 +41,23 @@ def main() -> None:
     for name in ("ffmpeg","ffprobe"):
         src=x.ffmpeg.resolve(strict=True)/(name+suffix)
         shutil.copy2(src,bin_dir/src.name)
+    if package=="scribewatch":
+        if x.export_tools is None:
+            raise SystemExit("ScribeWatch installers must ship self-contained Pandoc, Typst and multilingual fonts")
+        source=x.export_tools.resolve(strict=True)
+        for executable in ("pandoc"+suffix,"typst"+suffix):
+            file=source/executable
+            if not file.is_file():
+                raise SystemExit("Missing verified portable export executable: "+str(file))
+            shutil.copy2(file,bin_dir/executable)
+        for folder in ("fonts","licenses"):
+            if not (source/folder).is_dir():
+                raise SystemExit("Missing portable exporter "+folder)
+            shutil.copytree(source/folder,bin_dir/folder)
+        provenance=source/"EXPORT-TOOLS-SHA256.json"
+        if not provenance.is_file():
+            raise SystemExit("Missing native export source SHA-256 manifest")
+        shutil.copy2(provenance,bin_dir/provenance.name)
     frontend=repo/"frontend"/"build"
     assert (frontend/"index.html").exists()
     shutil.copytree(frontend,resources/"frontend")
@@ -78,7 +96,8 @@ def main() -> None:
         plist["CFBundleIconFile"]="AppIcon"
         with (resources.parent/"Info.plist").open("wb") as file:
             plistlib.dump(plist,file)
-        for path in (launcher_dest,bin_dir/(package+"-server"),bin_dir/"ffmpeg",bin_dir/"ffprobe"):
+        for path in (launcher_dest,bin_dir/(package+"-server"),bin_dir/"ffmpeg",bin_dir/"ffprobe",
+                     *([bin_dir/"pandoc",bin_dir/"typst"] if package=="scribewatch" else [])):
             path.chmod(0o755)
     # Redistribute FFmpeg license terms and build/source provenance.
     import subprocess

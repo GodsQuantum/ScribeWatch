@@ -49,6 +49,8 @@ It is especially useful as a **voice notes → Obsidian** bridge, but nothing is
 
 The full Windows bundle and its startup have passed packaged-install CI. **A first-install physical microphone/GPU and full clinical-quality E2E test on every possible PC is not yet certified.** Other OS editions and Docker do not currently include this same zero-configuration local AI package. Clinical documents are drafts requiring practitioner review.
 
+**Coming in the next packaged release (not in the downloadable v0.6.2 installers):** every Windows, macOS and Linux desktop edition embeds its own verified Pandoc 3.14, Typst 0.15.1 and Noto Sans CJK font assets. **MD, TXT, HTML, DOCX, ODT and PDF** exports then work without globally installed Pandoc, WeasyPrint, LaTeX, Python or LibreOffice. The browser PDF route was already self-contained; the server API will now prefer the bundled renderer. Model weights still require an initial download.
+
 Desktop binaries are not guaranteed to be code-signed or Apple-notarized; verify the matching checksum and the release notes before running them.
 
 ## The current interface

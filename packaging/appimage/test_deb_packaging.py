@@ -21,6 +21,11 @@ class DebPackagingTests(unittest.TestCase):
             (app/"AppRun").chmod(0o755)
             (app/"usr/bin/scribewatch").write_text("mock-binary")
             (app/"usr/share/scribewatch/engines/llm/llama-server").write_text("llm")
+            (app/"usr/bin/fonts").mkdir(parents=True)
+            (app/"usr/bin/pandoc").write_text("pandoc")
+            (app/"usr/bin/typst").write_text("typst")
+            (app/"usr/bin/fonts/NotoSansCJK-Regular.ttc").write_text("font")
+            (app/"usr/bin/EXPORT-TOOLS-SHA256.json").write_text("{}")
             (app/"usr/share/scribewatch/engines/speaches/Cloud9-Speaches").write_text("stt")
             (app/"usr/share/scribewatch/engines/BUNDLED-RUNTIMES-SHA256.json").write_text("{}")
             (app/"usr/share/applications/io.github.GodsQuantum.ScribeWatch.desktop").write_text("[Desktop Entry]\nName=ScribeWatch\n")
@@ -34,7 +39,7 @@ class DebPackagingTests(unittest.TestCase):
             self.assertIn("Architecture: amd64",meta)
             self.assertIn("Package: scribewatch",meta)
             listing=subprocess.check_output(["dpkg-deb","--contents",str(artifact)],text=True)
-            for name in ["opt/scribewatch/AppRun","opt/scribewatch/usr/share/scribewatch/engines/llm/llama-server","usr/bin/scribewatch","usr/share/applications/io.github.GodsQuantum.ScribeWatch.desktop"]:
+            for name in ["opt/scribewatch/AppRun","opt/scribewatch/usr/share/scribewatch/engines/llm/llama-server","usr/bin/scribewatch","opt/scribewatch/usr/bin/pandoc","opt/scribewatch/usr/bin/typst","usr/share/applications/io.github.GodsQuantum.ScribeWatch.desktop"]:
                 self.assertIn(name,listing)
             self.assertFalse("postinst" in subprocess.check_output(["dpkg-deb","--ctrl-tarfile",str(artifact)]).decode("latin1","ignore"))
 

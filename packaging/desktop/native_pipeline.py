@@ -53,6 +53,18 @@ def main() -> None:
         if APP=="autosubs":
             assert "subtitles" in filters and "ass" in filters, "FFmpeg libass/subtitles is mandatory for AutoSubs"
         verify_real_media(ffmpeg, ffprobe, needs_subtitles=APP=="autosubs")
+        export_tools=None
+        if APPNAME=="ScribeWatch":
+            configured_exports=os.environ.get("SCRIBEWATCH_EXPORT_TOOLS_DIR")
+            if configured_exports:
+                export_tools=Path(configured_exports)
+            else:
+                export_tools=FF/"portable-export-tools"
+                run(sys.executable,ROOT/"packaging"/"desktop"/"prepare_export_tools.py",
+                    "--variant",VARIANT.replace("darwin-", "macos-"),
+                    "--output",export_tools)
+            run(sys.executable,ROOT/"packaging"/"desktop"/"export_smoke.py",
+                "--tools-dir",export_tools)
         optional_engines=os.environ.get("SCRIBEWATCH_EMBEDDED_DIR")
         if optional_engines and APPNAME!="ScribeWatch":
             raise RuntimeError("Standalone dual-engine packaging is ScribeWatch-only")
@@ -60,6 +72,8 @@ def main() -> None:
             "--repo",ROOT,"--platform",OS,"--server",SERVER,
             "--launcher",LAUNCHER,"--ffmpeg",FF,"--output",stage
         ]
+        if export_tools:
+            stage_args.extend(["--export-tools",export_tools])
         if optional_engines:
             stage_args.extend(["--engines",Path(optional_engines)])
         run(sys.executable,ROOT/"packaging"/"desktop"/"stage.py",*stage_args)
@@ -93,6 +107,9 @@ def main() -> None:
             assert binary.is_file(), "NSIS did not install launcher"
             run(binary,"--check-install",env=env)
             run(binary,"--smoke",env=env)
+            if export_tools:
+                run(sys.executable,ROOT/"packaging"/"desktop"/"export_smoke.py",
+                    "--tools-dir",installed/"bin")
             if optional_engines:
                 run(
                     sys.executable,
@@ -130,6 +147,9 @@ def main() -> None:
                 binary=mount/(APPNAME+".app")/"Contents"/"MacOS"/APPNAME
                 run(binary,"--check-install",env=env)
                 run(binary,"--smoke",env=env)
+                if export_tools:
+                    run(sys.executable,ROOT/"packaging"/"desktop"/"export_smoke.py",
+                        "--tools-dir",binary.parent.parent/"Resources"/"bin")
                 if optional_engines:
                     run(
                         sys.executable,

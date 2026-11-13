@@ -14,6 +14,10 @@ for needed in \
   "$appdir/usr/share/scribewatch/engines/BUNDLED-RUNTIMES-SHA256.json" \
   "$appdir/usr/share/scribewatch/engines/speaches/Cloud9-Speaches" \
   "$appdir/usr/share/scribewatch/engines/llm/llama-server" \
+  "$appdir/usr/bin/pandoc" \
+  "$appdir/usr/bin/typst" \
+  "$appdir/usr/bin/fonts/NotoSansCJK-Regular.ttc" \
+  "$appdir/usr/bin/EXPORT-TOOLS-SHA256.json" \
   "$appdir/usr/share/applications/io.github.GodsQuantum.ScribeWatch.desktop" \
   "$appdir/usr/share/icons/hicolor/scalable/apps/scribewatch.svg"
 do

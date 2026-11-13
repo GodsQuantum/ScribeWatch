@@ -146,6 +146,27 @@ fi
 
 cp -a -- "$frontend/." "$appdir/usr/share/scribewatch/frontend/"
 
+# Portable exporters are part of BOTH slim and full builds. No host-wide
+# Pandoc, WeasyPrint, LaTeX, Python or LibreOffice install is ever needed.
+exports="${SCRIBEWATCH_EXPORT_TOOLS_DIR:-}"
+if [ -z "$exports" ]; then
+  exports="$build_dir/export-tools"
+  python3 "$ROOT/packaging/desktop/prepare_export_tools.py"     --variant "linux-$( [ "$arch" = x86_64 ] && printf amd64 || printf arm64 )"     --output "$exports"
+fi
+for executable in pandoc typst; do
+  require_exec "$exports/$executable"
+  cp -L -- "$exports/$executable" "$appdir/usr/bin/$executable"
+  chmod 755 "$appdir/usr/bin/$executable"
+done
+for folder in fonts licenses; do
+  test -d "$exports/$folder" || { echo "Missing portable export $folder" >&2; exit 66; }
+  cp -a -- "$exports/$folder" "$appdir/usr/bin/$folder"
+done
+require_file "$exports/EXPORT-TOOLS-SHA256.json"
+cp -a -- "$exports/EXPORT-TOOLS-SHA256.json" "$appdir/usr/bin/"
+python3 "$ROOT/packaging/desktop/export_smoke.py" --tools-dir "$appdir/usr/bin"
+
+
 # A full AppImage adds the verified local native engines; slim builds are unchanged.
 if [ -n "${SCRIBEWATCH_EMBEDDED_DIR:-}" ]; then
   engines="$SCRIBEWATCH_EMBEDDED_DIR"
