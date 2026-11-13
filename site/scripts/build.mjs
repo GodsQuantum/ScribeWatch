@@ -5,6 +5,7 @@ import {ASSETS} from '../src/worker.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const pub=path.join(root,'public');
 const app=path.resolve(root,'..');
+const sourceVersion=JSON.parse(fs.readFileSync(path.join(app,'frontend/package.json'),'utf8')).version;
 const locales={
   en:{
     title:'ScribeWatch — Voice recordings to useful documents',
@@ -12,14 +13,14 @@ const locales={
     nav:['How it works','Screenshots','Download'], badge:'OPEN SOURCE · LOCAL FIRST',
     heading:'Your recordings. Useful notes. On your terms.',
     intro:'Record a consultation, meeting or idea. ScribeWatch keeps the original transcript and can turn it into a structured document, Markdown note or PDF. No cloud account required.',
-    demo:'See the interface', system:'Choose your platform', screenCaption:'Actual ScribeWatch v0.6.2 interface — demonstration data only',
+    demo:'See the interface', system:'Choose your platform', screenCaption:`Actual ScribeWatch v${sourceVersion} interface — demonstration data only`,
     how:'From sound to document', howLead:'One coherent workspace for recording, transcription and review.',
     features:[
       ['01 / CAPTURE','Record or import','Use REC with browser microphone crash recovery, upload an existing file or monitor a folder.'],
       ['02 / TRANSCRIBE','Keep the original','Preserve the canonical transcript. Use a local speech model or your own compatible endpoint.'],
       ['03 / STRUCTURE','Make it readable','Generate structured notes and export as Markdown, TXT, HTML, DOCX, ODT or PDF.']
     ],
-    gallery:'The actual interface',galleryLead:'Screens from the latest published version, captured without private or clinical data.',
+    gallery:'The actual interface',galleryLead:'Screens captured from the current source version, without private or clinical data.',
     shots:['Record directly in REC','Documents and notes are organised in one place','Manage engines, models and profiles in Settings'],
     trust:[
       ['Your audio stays under your control','Local processing on the full Windows standalone package after first-time model downloads.'],
@@ -41,14 +42,14 @@ const locales={
     nav:['Fonctionnement','Captures','Téléchargements'],badge:'OPEN SOURCE · PRIORITÉ AU LOCAL',
     heading:'De la voix au document, sans détour.',
     intro:'Enregistrez une consultation, une réunion ou une idée. ScribeWatch conserve la transcription originale et peut créer un document structuré, une note Markdown ou un PDF. Sans compte cloud.',
-    demo:'Voir l’interface',system:'Choisir ma plateforme',screenCaption:'Interface réelle de ScribeWatch v0.6.2 — données de démonstration uniquement',
+    demo:'Voir l’interface',system:'Choisir ma plateforme',screenCaption:`Interface réelle de ScribeWatch v${sourceVersion} — données de démonstration uniquement`,
     how:'Du son au document',howLead:'Un même espace pour enregistrer, transcrire et relire.',
     features:[
       ['01 / CAPTURE','Enregistrer ou importer','Enregistrez dans REC avec récupération après interruption, importez un fichier ou surveillez un dossier.'],
       ['02 / TRANSCRIPTION','Préserver l’original','Conservez la transcription canonique. Utilisez un modèle local ou votre propre endpoint compatible.'],
       ['03 / STRUCTURATION','Obtenir un vrai document','Structurez les notes et exportez en Markdown, TXT, HTML, DOCX, ODT ou PDF.']
     ],
-    gallery:'L’interface, telle qu’elle est',galleryLead:'Captures de la dernière version publiée, sans aucune donnée privée ni clinique.',
+    gallery:'L’interface, telle qu’elle est',galleryLead:'Captures de la version actuelle du code, sans aucune donnée privée ni clinique.',
     shots:['Enregistrement direct dans REC','Documents et notes dans le même espace','Moteurs, modèles et profils dans Paramètres'],
     trust:[
       ['Vos audios restent sous votre contrôle','Sur Windows autonome complet, traitement local après téléchargement initial des modèles.'],
@@ -70,7 +71,7 @@ const locales={
     nav:['工作流程','界面截图','下载'],badge:'开源 · 本地优先',
     heading:'从录音到文档，一步完成。',
     intro:'录制会诊、会议或灵感。ScribeWatch 保留原始转录，并可生成结构化文档、Markdown 笔记或 PDF，无需云端账户。',
-    demo:'查看界面',system:'选择平台',screenCaption:'ScribeWatch v0.6.2 真实界面，仅使用演示数据',
+    demo:'查看界面',system:'选择平台',screenCaption:`ScribeWatch v${sourceVersion} 真实界面，仅使用演示数据`,
     how:'从声音到文档',howLead:'在同一个工作空间中完成录音、转录与检查。',
     features:[
       ['01 / 采集','录音或导入','在录音界面使用浏览器麦克风，支持中断恢复；也可上传音频或监控文件夹。'],

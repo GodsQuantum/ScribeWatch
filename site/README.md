@@ -17,3 +17,14 @@ Brand: existing audio-to-document icon, mint accent, graphite background and act
 ## Static fallback (Cloudflare DNS + GitHub Pages)
 
 When no Workers Scripts deployment token is configured, the same generated `site/public/` directory can be published in a `gh-pages` deployment branch. Cloudflare proxies the dedicated subdomain to GitHub Pages while the original Worker source remains available for a future native deployment. The browser falls back to GitHub’s public stable-release API when the Worker’s `/api/release` endpoint does not exist. Asset patterns come from the canonical Worker source and only verified GitHub release URLs are accepted. All initial download links remain safely pointed to the official Releases page if JavaScript or the API is unavailable. Do not alter the apex website DNS record.
+
+### Automated GitHub Pages publication
+
+The first-party GitHub Actions workflow `.github/workflows/site-pages.yml`
+rebuilds and tests the EN/FR/ZH-CN static website whenever `site/` or
+`docs/screenshots/` changes on `main`, then updates the existing `gh-pages`
+branch with a fast-forward commit (never a force-push). The DNS CNAME,
+HTTPS certificate and page-source settings remain unchanged. The public
+GitHub release API is used to discover the newest signed-off installer;
+the site never exposes unreleased candidates. Cloudflare Workers remains
+an optional native deployment path when scoped credentials are available.

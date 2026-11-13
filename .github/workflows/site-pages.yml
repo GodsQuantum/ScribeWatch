@@ -1,0 +1,59 @@
+name: Publish ScribeWatch static site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/screenshots/**'
+      - '.github/workflows/site-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scribewatch-site-static
+  cancel-in-progress: false
+
+jobs:
+  publish-static:
+    name: Validate and publish Pages site
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Node 22 and npm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Validate localized site, download links, and JS
+        run: |
+          cd site
+          npm ci
+          npm run check
+      - name: Update existing gh-pages branch without force-pushing
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin gh-pages:refs/remotes/origin/gh-pages
+          target="$(mktemp -d)"
+          git worktree add --detach "$target" origin/gh-pages
+          trap 'git worktree remove --force "$target" 2>/dev/null || true' EXIT
+          rsync -a --delete --exclude=.git site/public/ "$target/"
+          printf '%s\n' scribewatch.arezkichougar.com > "$target/CNAME"
+          touch "$target/.nojekyll"
+          git -C "$target" add -A
+          if ! git -C "$target" diff --cached --quiet; then
+            git -C "$target" -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "deploy(site): ${GITHUB_SHA:0:12}"
+            git -C "$target" push origin HEAD:gh-pages
+          else
+            echo "Static site assets already match gh-pages."
+          fi
