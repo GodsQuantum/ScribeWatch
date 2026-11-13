@@ -35,7 +35,7 @@
     }
     detectedTarget = target;
     button.textContent = label;
-    button.href = target ? '/download/' + target : '#downloads';
+    button.href = '#downloads'; // Static Pages needs a verified GitHub asset, never a Worker-only path.
     note.textContent = target ? words.ready : words.select;
   }
   const choiceReady = choose();
@@ -58,6 +58,47 @@
     }
     return {version:release.tag_name,assets};
   }
+
+  // Accessible full-size screenshot viewer. Use the images already shipped
+  // with the site, never fetch a third-party screenshot or tracking pixel.
+  const gallery = Array.from(document.querySelectorAll?.('[data-zoom]') || []);
+  const dialog = document.getElementById('image-dialog');
+  const dialogImage = document.getElementById('dialog-image');
+  const caption = document.getElementById('dialog-caption');
+  let currentShot = 0;
+  let focusedBeforeDialog = null;
+  const selectShot = (index) => {
+    if (!gallery.length || !dialogImage || !caption) return;
+    currentShot = (index + gallery.length) % gallery.length;
+    const source = gallery[currentShot].querySelector('img');
+    if (!source) return;
+    dialogImage.src = source.currentSrc || source.src;
+    dialogImage.alt = source.alt;
+    caption.textContent = source.alt;
+  };
+  gallery.forEach((button, index) => {
+    button.addEventListener('click', () => {
+      if (!dialog?.showModal) return;
+      focusedBeforeDialog = document.activeElement;
+      selectShot(index);
+      dialog.showModal();
+    });
+  });
+  dialog?.querySelector('[data-close]')?.addEventListener('click', () => dialog.close());
+  dialog?.querySelector('[data-prev]')?.addEventListener('click', () => selectShot(currentShot - 1));
+  dialog?.querySelector('[data-next]')?.addEventListener('click', () => selectShot(currentShot + 1));
+  dialog?.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog?.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowRight') { event.preventDefault(); selectShot(currentShot + 1); }
+    if (event.key === 'ArrowLeft') { event.preventDefault(); selectShot(currentShot - 1); }
+  });
+  dialog?.addEventListener('close', () => {
+    dialogImage?.removeAttribute('src');
+    if (focusedBeforeDialog?.focus) focusedBeforeDialog.focus();
+  });
+
   fetch('/api/release', { headers: {Accept:'application/json'} })
     .then((r) => r.ok ? r.json() : null)
     .then(async (data) => {
