@@ -11,15 +11,16 @@ const liveRelease='https://github.com/GodsQuantum/ScribeWatch/releases/latest';
 
 const locales={
   fr:{
-    title:'ScribeWatch — Vos notes, sans cloud',
-    description:'Enregistrez une consultation, une note vocale ou une réunion. Obtenez une transcription et un compte rendu sur votre ordinateur, sans envoyer vos fichiers au cloud.',
+    title:'ScribeWatch — Vos conversations deviennent des documents',
+    description:'Enregistrez, transcrivez et transformez consultations, réunions et notes vocales en documents éditables. Traitement local, export PDF et Word, sans compte.',
     nav:['Pourquoi','Comment ça marche','Captures','Installer'],
-    kicker:'Le carnet de notes qui écoute',
-    hero:'Parlez. Gardez vos idées. Pas vos fichiers dans un cloud.',
-    sub:'Enregistrez une consultation, une réunion ou une pensée à la volée. Retrouvez vos paroles à l’écrit et transformez-les en documents clairs, directement sur votre ordinateur.',
+    kicker:'De la voix au document. En local.',
+    hero:'Parlez naturellement. Repartez avec un document clair.',
+    sub:'Consultations, réunions ou idées à la volée : ScribeWatch transforme vos enregistrements en transcriptions et comptes rendus structurés, à relire, modifier et exporter en PDF, Word ou texte. Sur votre ordinateur, sans compte.',
     button:'Installer ScribeWatch',explore:'Découvrir l’application',
     secure:'Ni compte ni abonnement. Vos enregistrements restent ici lorsque vous utilisez les modèles locaux.',
-    proof:['Transcription sur votre ordinateur','Compte rendu prêt à exporter','Pas de compte à créer'],
+    proof:['Transcription en local','Compte rendu éditable','PDF, Word et texte'],
+    flow:['Voix','Transcription','Document'],flowLabel:'De la voix au document, en trois étapes',
     preview:'Voir l’interface ScribeWatch en grand',
     screenshot:'Capture réelle de l’application — données de démonstration, jamais de patients',
     privacy:'Votre voix n’appartient qu’à vous.',
@@ -29,12 +30,12 @@ const locales={
     howLead:'Trois gestes suffisent pour reprendre le fil d’une conversation.',
     steps:[
       ['Enregistrez','Lancez REC, parlez, puis arrêtez. Vous pouvez aussi importer un fichier audio déjà enregistré.'],
-      ['Retrouvez chaque mot','ScribeWatch transcrit l’audio en texte et conserve la transcription originale.'],
+      ['Obtenez votre transcription','ScribeWatch transcrit l’audio en texte consultable et conserve la transcription originale.'],
       ['Repartez avec un document','Choisissez un type de note : compte rendu de consultation, réunion, idées ou simple transcription. Exportez en PDF, Word ou texte.']
     ],
     useCases:'Fait pour vos vraies journées.',
     uses:[
-      ['Consultations','Gardez les éléments abordés pendant un échange et préparez un compte rendu structuré. Une relecture par le professionnel reste indispensable.'],
+      ['Consultations','Concentrez-vous sur l’échange. Retrouvez un compte rendu structuré, éditable avant export et prêt à rejoindre votre dossier patient.'],
       ['Notes vocales','Dites ce que vous avez en tête. Récupérez un texte que vous pouvez classer ou modifier.'],
       ['Réunions et entretiens','Conservez l’essentiel d’une discussion, les décisions et les choses à faire.']
     ],
@@ -66,22 +67,23 @@ const locales={
       ['Est-ce que mes audios partent sur Internet ?','Non, lorsque vous utilisez les moteurs locaux de la version complète : l’audio et le texte sont traités sur votre appareil. Le téléchargement initial des modèles nécessite Internet ; les services externes restent un choix avancé.'],
       ['Faut-il connaître l’intelligence artificielle ?','Non. Installez la version complète, laissez l’application préparer les modèles au premier lancement, puis enregistrez ou importez votre audio.'],
       ['Et si mon ordinateur n’a pas de grosse carte graphique ?','Le traitement peut fonctionner sur le processeur, mais il sera plus lent. Pour la rédaction de comptes rendus, 16 Go de RAM sont conseillés.'],
-      ['Puis-je l’utiliser pour une consultation médicale ?','Oui, il existe des profils pour les consultations dentaires et médicales. Le texte produit est un brouillon à vérifier et corriger par le praticien avant utilisation clinique.'],
+      ['Puis-je l’utiliser pour une consultation médicale ?','Oui. Les profils dentaires et médicaux structurent vos notes. Vous pouvez relire et modifier le compte rendu dans ScribeWatch avant de l’exporter puis de l’intégrer à votre logiciel clinique. Le praticien conserve la validation finale.'],
       ['Ai-je besoin de rester connecté ?','Une connexion est nécessaire la première fois pour récupérer les modèles. Avec les modèles locaux installés, les enregistrements et les comptes rendus peuvent ensuite être traités hors ligne.']
     ],
-    caution:'Documents médicaux : une relecture professionnelle reste indispensable. La qualité dépend de l’enregistrement, de la langue et du matériel.',
+    caution:'Documents médicaux : vous gardez la main sur le contenu. Relisez, adaptez et validez le compte rendu avant de l’intégrer au dossier patient.',
     github:'Code source',releases:'Toutes les versions',attribution:'Projet indépendant · Libre et open source',copyright:'© ScribeWatch'
   },
   en:{
-    title:'ScribeWatch — Your notes, without the cloud',
-    description:'Record an appointment, voice note or meeting. Transcribe and create structured documents right on your computer, without uploading your recordings to a cloud.',
+    title:'ScribeWatch — From conversation to document',
+    description:'Record, transcribe and turn appointments, meetings and voice notes into editable reports. Local processing, PDF and Word exports, no account required.',
     nav:['Why it matters','How it works','Screenshots','Download'],
-    kicker:'A notebook that listens',
-    hero:'Say it out loud. Keep the notes, not a cloud copy.',
-    sub:'Record an appointment, meeting or passing thought. Turn your words into searchable text and well-organized documents, right on your own computer.',
+    kicker:'From voice to document. On your device.',
+    hero:'Speak naturally. Leave with a clear document.',
+    sub:'Appointments, meetings or passing ideas: turn recordings into transcripts and structured reports you can review, edit and export as PDF, Word or text. Right on your computer, no account required.',
     button:'Get ScribeWatch',explore:'Explore the app',
     secure:'No account or subscription. Your recordings stay on your device with local models.',
-    proof:['On-device transcription','Ready-to-use documents','No account required'],
+    proof:['On-device transcription','Editable reports','PDF, Word and text'],
+    flow:['Audio','Transcript','Document'],flowLabel:'From audio to finished document, in three stages',
     preview:'Open ScribeWatch screenshot at full size',
     screenshot:'Real app screenshot, demo content only — never patient data',
     privacy:'Your voice stays yours.',
@@ -96,7 +98,7 @@ const locales={
     ],
     useCases:'For the things you actually do.',
     uses:[
-      ['Appointments','Keep the points covered in a conversation and draft a structured report. A professional must review medical reports.'],
+      ['Appointments','Focus on the conversation. Get a structured report you can edit before exporting to your patient record.'],
       ['Voice memos','Speak your thoughts. Get editable text you can find and organize later.'],
       ['Meetings and interviews','Keep a readable record of discussions, decisions and follow-up actions.']
     ],
@@ -128,22 +130,23 @@ const locales={
       ['Does my audio go to the Internet?','Not when you use the local models in the complete edition. Audio and text are processed on your device. The first model download needs Internet; external providers remain an optional advanced choice.'],
       ['Do I need to understand AI?','No. Install the complete edition, let it set up the local models on first launch, then record or import audio.'],
       ['What if I do not have a powerful graphics card?','The processor can do the work, only more slowly. For structured reports, 16 GB RAM is recommended.'],
-      ['Can I use it for medical consultations?','Yes. There are dental and medical templates. Every generated report is a draft requiring professional review and correction before clinical use.'],
+      ['Can I use it for medical consultations?','Yes. Dental and medical profiles help structure your notes. You can review and edit the report inside ScribeWatch before exporting and adding it to your clinical software. The clinician retains final approval.'],
       ['Does it work without Wi-Fi?','The first run needs Internet to download the models. Once those are installed, local recordings and reports can be processed offline.']
     ],
-    caution:'Medical records require professional review. Output quality depends on recording quality, language and hardware.',
+    caution:'For clinical documents, you stay in control: review, edit and approve the report before adding it to a patient record.',
     github:'Source code',releases:'All releases',attribution:'Independent project · Free and open source',copyright:'© ScribeWatch'
   },
   'zh-CN':{
-    title:'ScribeWatch — 笔记留在电脑里',
-    description:'在本机录音、转写和整理就诊、语音笔记或会议内容。使用本地模型时，不需将录音上传云端。',
+    title:'ScribeWatch — 把对话变成清晰的文档',
+    description:'本机录音与转写，将问诊、会议和语音笔记整理为可编辑的文档。支持 PDF、Word 导出，无需注册账号。',
     nav:['为什么选它','使用方法','界面预览','下载安装'],
-    kicker:'会听写的笔记本',
-    hero:'说出想法。留下文字，不留下云端副本。',
-    sub:'录制问诊、会议和生活中的灵感。在自己的电脑上把录音转成文字，整理成清晰的文档。',
+    kicker:'从声音到文档，全程本地处理',
+    hero:'自然交流，轻松获得清晰文档。',
+    sub:'无论问诊、会议还是灵感记录，都能将录音整理为可查看、编辑并导出 PDF、Word 或文本的结构化文档。无需账号，本机完成。',
     button:'下载 ScribeWatch',explore:'了解应用',
     secure:'本地模式无需账号、无需订阅，录音不会上传到远程服务',
-    proof:['电脑本地转写','可导出的整理文档','无需注册账号'],
+    proof:['电脑本地转写','报告可编辑','PDF、Word 和文本'],
+    flow:['录音','转写','文档'],flowLabel:'从录音到文档的三个步骤',
     preview:'放大查看 ScribeWatch 界面',screenshot:'真实程序截图，仅使用演示数据，不包含患者资料',
     privacy:'你的声音，留在你的设备上。',
     privacyLead:'完整版本在你的电脑上运行录音转写和文档整理模型，处理内容不必发送到远程服务。',
@@ -151,7 +154,7 @@ const locales={
     how:'从录音到文档，只需三步。',howLead:'不用反复听录音，也能找回一段对话的重要内容。',
     steps:[['开始录音','点击 REC 开始和结束录音，也可以导入已有音频。'],['查看文字','应用转写录音，并保留完整原始转录。'],['导出文档','选择问诊、会议、头脑风暴或原文模式，再导出 PDF、Word 或文本。']],
     useCases:'适合日常工作与生活。',
-    uses:[['就诊记录','整理咨询中的要点。医疗内容在使用前必须由专业人员审核。'],['语音备忘录','随时说出想法，得到可以编辑和归档的文字。'],['会议与访谈','整理讨论、决策和后续事项。']],
+    uses:[['就诊记录','专注于交流，生成结构化记录，编辑确认后即可导出至患者档案。'],['语音备忘录','随时说出想法，得到可以编辑和归档的文字。'],['会议与访谈','整理讨论、决策和后续事项。']],
     screens:'实际应用界面。',screensLead:'不是设计稿。点击任意截图即可放大查看。',shots:['录制或导入音频','查看和编辑文档','调整个人设置'],zoom:'放大截图',close:'关闭截图',previous:'上一张截图',next:'下一张截图',
     install:'准备开始？',installLead:'选择你的电脑。大多数用户适合完整版本：无需自己配置转写和文档整理服务。',
     full:'完整版本',fullText:'在本机录音、转写和整理文档。第一次启动时自动下载所需模型。',
@@ -166,8 +169,8 @@ const locales={
     need:[['转录音频','较新的 64 位电脑、录音用麦克风以及下载语音模型的磁盘空间。'],['生成结构化报告','建议使用 16 GB 内存。配置较低的设备可能运行更慢。'],['提高速度','兼容的显卡可以加速，没有独立显卡时也可以使用处理器，但耗时更长。']],
     requirementsNote:'请为模型预留数 GB 磁盘空间，实际大小取决于系统和所选模型。新版完整安装包内置文档导出工具，无需自行安装 Pandoc 或 LibreOffice。',
     questions:'常见问题。',
-    faq:[['音频会上传云端吗？','使用完整版的本地模型时不会。首次下载模型需要联网，外部服务仅作为高级可选配置。'],['需要了解人工智能吗？','不需要。安装完整版，首次启动等待模型下载完成后即可录音或导入音频。'],['没有强大的显卡怎么办？','可以使用处理器，但速度较慢。整理结构化报告建议 16 GB 内存。'],['可以用于医疗咨询吗？','有牙科和医疗报告模板，但生成内容必须由专业人员审核修改后才能用于临床。'],['离线可以使用吗？','首次需要联网下载模型，之后即可在本机离线处理录音和文档。']],
-    caution:'医疗报告必须由专业人员审核。结果质量受录音清晰度、语言和设备性能影响。',
+    faq:[['音频会上传云端吗？','使用完整版的本地模型时不会。首次下载模型需要联网，外部服务仅作为高级可选配置。'],['需要了解人工智能吗？','不需要。安装完整版，首次启动等待模型下载完成后即可录音或导入音频。'],['没有强大的显卡怎么办？','可以使用处理器，但速度较慢。整理结构化报告建议 16 GB 内存。'],['可以用于医疗咨询吗？','可以。牙科与医疗模板可帮助整理记录。你可以在 ScribeWatch 内查看并编辑报告，再导出并添加到临床软件中。最终由专业人员确认。'],['离线可以使用吗？','首次需要联网下载模型，之后即可在本机离线处理录音和文档。']],
+    caution:'医疗文档由你掌控：查看、编辑并最终确认内容后，再将其加入患者档案。',
     github:'源代码',releases:'所有版本',attribution:'独立项目 · 免费开源',copyright:'© ScribeWatch'
   }
 };
@@ -177,7 +180,7 @@ const link=(href,label,attrs='')=>'<a href="'+href+'" '+attrs+'>'+esc(label)+'</
 function render(lang,t){
   const url='https://scribewatch.arezkichougar.com/'+lang+'/';
   const screen=(name,alt,priority=false)=>'<img '+(priority?'fetchpriority="high"':'loading="lazy"')+' src="/assets/screens/'+lang+'-'+name+'.png" alt="'+esc(alt)+'" width="1440" height="900">';
-  const zoomButton=(name,label,extra='')=>'<button type="button" class="shot-zoom '+extra+'" data-zoom="'+name+'" aria-label="'+esc(t.zoom)+': '+esc(label)+'">'+screen(name,label)+'<span class="zoom-label">'+esc(t.zoom)+' ↗</span></button>';
+  const zoomButton=(name,label,extra='')=>'<button type="button" class="shot-zoom '+extra+'" data-zoom="'+name+'" aria-label="'+esc(t.zoom)+': '+esc(label)+'">'+screen(name,label,extra==='preview-shot')+'<span class="zoom-label">'+esc(t.zoom)+' ↗</span></button>';
   const primary=['windows-full','mac-arm64-full','mac-amd64-full','linux-amd64-full','linux-arm64-full','linux-amd64-deb','linux-arm64-deb'];
   const lite=['windows-light','mac-arm64','mac-amd64','linux-amd64','linux-arm64'];
   const full=(key)=>'<a class="asset asset-primary" data-download="'+key+'" hidden href="'+liveRelease+'">'+esc(t.fullTargets[key])+' <span data-size="'+key+'"></span><span aria-hidden="true">↗</span></a>';
@@ -203,12 +206,12 @@ function render(lang,t){
 '<div class="hero-actions"><a id="smart-download" class="button button-primary" href="#downloads">'+esc(t.button)+'</a><a class="button button-text" href="#screens">'+esc(t.explore)+' <span aria-hidden="true">↗</span></a></div>',
 '<p class="hero-footnote">'+esc(t.secure)+'</p><span id="platform-note" class="sr-only"></span>',
 '</div><div class="hero-media"><div class="preview"><div class="preview-bar"><span class="window-dots" aria-hidden="true"><b></b><b></b><b></b></span><small>ScribeWatch</small><span class="record-indicator" aria-hidden="true"></span></div>',
-zoomButton('home',t.preview,'preview-shot')+'</div><p class="preview-caption">'+esc(t.screenshot)+'</p></div></div></section>',
+zoomButton('home',t.preview,'preview-shot')+'</div><div class="signal-panel" aria-label="'+esc(t.flowLabel)+'"><div class="signal-wave" aria-hidden="true">'+Array.from({length:19},(_,i)=>'<span style="--wave-h:'+(8+Math.round(27*Math.abs(Math.sin(i*.78))))+'px;--wave-delay:'+(i*63)+'ms"></span>').join('')+'</div><div class="signal-route">'+t.flow.map((label,i)=>'<span class="signal-node">'+esc(label)+'</span>'+(i<2?'<span class="signal-arrow" aria-hidden="true">→</span>':'')).join('')+'</div></div><p class="preview-caption">'+esc(t.screenshot)+'</p></div></div></section>',
 '<div class="proofrail" aria-label="ScribeWatch"><div class="wrap proofrail-inner">'+t.proof.map((point,i)=>'<div class="proofrail-item"><span class="proofrail-index">0'+(i+1)+'</span><span>'+esc(point)+'</span></div>').join('')+'</div></div>',
 '<section class="privacy" id="privacy"><div class="wrap privacy-grid"><div><span class="section-number">01 / '+esc(t.nav[0])+'</span><h2>'+esc(t.privacy)+'</h2></div><div><p class="privacy-lead">'+esc(t.privacyLead)+'</p><p class="privacy-note">'+esc(t.privacyNote)+'</p></div></div></section>',
 '<section class="section" id="how"><div class="wrap"><div class="section-intro"><span class="section-number">02 / '+esc(t.nav[1])+'</span><h2>'+esc(t.how)+'</h2><p>'+esc(t.howLead)+'</p></div>',
 '<ol class="steps">'+t.steps.map(([heading,body],i)=>'<li class="step"><span class="step-number">'+String(i+1).padStart(2,'0')+'</span><h3>'+esc(heading)+'</h3><p>'+esc(body)+'</p></li>').join('')+'</ol>',
-'<div class="usecases"><h3>'+esc(t.useCases)+'</h3><div class="uses">'+t.uses.map(([heading,body])=>'<article><h4>'+esc(heading)+'</h4><p>'+esc(body)+'</p></article>').join('')+'</div></div></div></section>',
+'<div class="usecases"><h3>'+esc(t.useCases)+'</h3><div class="uses">'+t.uses.map(([heading,body],i)=>'<article><span class="usecase-mark" aria-hidden="true">'+['✚','≋','☷'][i]+'</span><h4>'+esc(heading)+'</h4><p>'+esc(body)+'</p></article>').join('')+'</div></div></div></section>',
 '<section class="section section-gallery" id="screens"><div class="wrap"><div class="section-intro"><span class="section-number">03 / '+esc(t.nav[2])+'</span><h2>'+esc(t.screens)+'</h2><p>'+esc(t.screensLead)+'</p></div><div class="gallery">',
 ...['record','documents','settings'].map((name,i)=>'<figure class="gallery-item '+(i===0?'gallery-main':'')+'">'+zoomButton(name,t.shots[i])+'<figcaption>'+esc(t.shots[i])+'</figcaption></figure>'),
 '</div></div></section>',

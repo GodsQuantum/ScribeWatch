@@ -39,7 +39,7 @@ test('product-led dark hero, three local-first trust points and natural translat
   assert.equal((html.match(/data-zoom="/g)||[]).length,4);
   assert.ok(html.includes('assets/screens/'+lang+'-home.png'));
  }
- assert.match(site('fr'),/Traitement sur votre ordinateur|Transcription sur votre ordinateur/);
+ assert.match(site('fr'),/Traitement sur votre ordinateur|Transcription sur votre ordinateur|Transcription en local/);
  assert.match(site('en'),/On-device transcription/);
  assert.match(site('zh-CN'),/电脑本地转写/);
 });
@@ -80,5 +80,38 @@ test('all large captures are served from local ScribeWatch assets and have acces
   assert.match(html,/data-close/);
   assert.match(html,/data-prev/);
   assert.match(html,/data-next/);
+ }
+});
+
+
+test('marketing highlights editable clinical documents and a meaningful audio-to-document visual',()=>{
+ const french=site('fr');
+ const english=site('en');
+ const chinese=site('zh-CN');
+ assert.doesNotMatch(french,/Le texte produit est un brouillon à vérifier et corriger/);
+ assert.doesNotMatch(english,/Every generated report is a draft requiring/);
+ assert.match(french,/modifier le compte rendu/);
+ assert.match(english,/edit the report/);
+ assert.match(chinese,/编辑/);
+ for(const html of [french,english,chinese]){
+  assert.match(html,/class="signal-panel"/);
+  assert.match(html,/class="signal-wave"/);
+  assert.match(html,/class="signal-route"/);
+  assert.equal((html.match(/class="signal-node"/g)||[]).length,3);
+ }
+ const css=fs.readFileSync(path.join(root,'src/style.css'),'utf8');
+ assert.match(css,/\.signal-wave span\{/);
+ assert.match(css,/@keyframes signal-breathe/);
+ assert.match(css,/@media\s*\(prefers-reduced-motion:reduce\)/);
+});
+
+
+test('above-the-fold product screenshot is prioritized and gallery remains lazy',()=>{
+ for(const lang of ['fr','en','zh-CN']){
+  const html=site(lang);
+  assert.match(html,new RegExp('fetchpriority="high" src="/assets/screens/'+lang+'-home\\.png"'));
+  for(const name of ['record','documents','settings']){
+   assert.match(html,new RegExp('loading="lazy" src="/assets/screens/'+lang+'-'+name+'\\.png"'));
+  }
  }
 });
