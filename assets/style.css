@@ -165,3 +165,61 @@ h1,h2,.usecases h3{font-family:"Iowan Old Style","Palatino Linotype",Baskerville
  .proofrail-item:last-child{border-bottom:0}
  .requirements-grid article{min-height:auto;padding:20px}
 }
+
+
+/* ScribeWatch audio-to-document signature — light, responsive, no tracking. */
+.hero{position:relative;isolation:isolate;background-image:radial-gradient(ellipse at 79% 24%,#285349 0%,transparent 57%)}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.24;background-image:linear-gradient(#aad6c31b 1px,transparent 1px),linear-gradient(90deg,#aad6c31b 1px,transparent 1px);background-size:54px 54px;mask-image:linear-gradient(90deg,transparent 15%,#000 95%)}
+.hero-layout{position:relative;z-index:1}
+.hero-copy{animation:arrival 650ms ease-out both}
+.hero-media{animation:arrival 850ms 110ms ease-out both}
+@keyframes arrival{from{opacity:.2;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.signal-panel{margin-top:17px;padding:13px 19px;display:flex;align-items:center;gap:22px;min-height:76px;border:1px solid #5b8275;border-radius:14px;background:#1c4038;box-shadow:0 12px 28px #071e1836}
+.signal-wave{display:flex;align-items:center;justify-content:center;flex:0 0 118px;gap:3px;min-height:46px;border-right:1px solid #568476;padding-right:19px}
+.signal-wave span{display:block;width:4px;height:var(--wave-h);border-radius:7px;background:#b7ebd5;animation:signal-breathe 1.65s ease-in-out infinite;animation-delay:var(--wave-delay);transform-origin:center}
+@keyframes signal-breathe{0%,100%{transform:scaleY(.54);opacity:.64}50%{transform:scaleY(1);opacity:1}}
+.signal-route{display:flex;align-items:center;justify-content:space-between;gap:9px;flex:1;min-width:0}
+.signal-node{font-size:12px;letter-spacing:.01em;font-weight:650;color:#f1f9f4;white-space:nowrap}
+.signal-node:last-child{color:#b8f0d8}
+.signal-arrow{color:#91cbb6;flex:0 0 auto;font-size:15px}
+.preview{border-radius:16px;box-shadow:0 36px 86px #03171070}
+.preview-shot img{transition:transform .38s cubic-bezier(.2,.8,.2,1)}
+.button,.asset-primary{transition:background-color .2s,color .2s,box-shadow .2s,transform .2s}
+.button-primary:hover,.asset-primary:hover{transform:translateY(-2px);box-shadow:0 14px 28px #071e1830}
+.steps{gap:18px}
+.step{border:1px solid #c9d9d0;border-radius:15px;padding:25px 27px 30px;background:#ffffff;box-shadow:0 10px 26px #103a2a08}
+.step h3{margin:24px 0 10px}
+.usecases{border-top:0}
+.uses{gap:18px}
+.uses article{background:#fff;border:1px solid #ceddd2;border-radius:15px;padding:24px 26px 27px;min-height:235px;transition:transform .25s,box-shadow .25s,border-color .25s}
+.uses article:nth-child(2){background:#deeee4}
+.uses article:hover{transform:translateY(-3px);border-color:#99c6ad;box-shadow:0 16px 30px #163e2816}
+.usecase-mark{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border:1px solid #9fbfae;color:#1c6858;background:#eff8f1;border-radius:12px;font-size:24px;margin-bottom:30px;font-family:Georgia,serif}
+.gallery-item{transition:transform .25s,box-shadow .25s}
+.gallery-item:hover{transform:translateY(-3px);box-shadow:0 23px 44px #1a302121}
+@media(max-width:700px){
+ .hero::before{opacity:.12}
+ .signal-panel{gap:10px;padding:12px;min-height:65px}
+ .signal-wave{flex-basis:77px;gap:2px;padding-right:9px}
+ .signal-wave span{width:3px}
+ .signal-node{font-size:11px}
+ .signal-route{gap:5px}
+ .steps{gap:13px}
+ .step{padding:22px}
+ .uses article{min-height:auto;padding:22px}
+ .usecase-mark{margin-bottom:18px}
+}
+@media(max-width:410px){.signal-wave{flex-basis:62px}.signal-node{font-size:10px}.signal-arrow{font-size:12px}}
+@media(prefers-reduced-motion:reduce){
+ html{scroll-behavior:auto}
+ .hero-copy,.hero-media,.signal-wave span{animation:none!important}
+ .button,.asset-primary,.uses article,.gallery-item,.preview-shot img{transition:none!important}
+ .button-primary:hover,.asset-primary:hover,.uses article:hover,.gallery-item:hover{transform:none}
+}
+
+@media(max-width:410px){
+ .signal-panel{flex-direction:column;align-items:stretch;gap:6px}
+ .signal-wave{flex-basis:auto;width:100%;min-height:26px;border-right:0;border-bottom:1px solid #568476;padding:0 0 8px}
+ .signal-wave span{max-height:27px}
+ .signal-route{padding:6px 2px 0}
+}
