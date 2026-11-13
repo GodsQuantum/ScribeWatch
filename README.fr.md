@@ -32,30 +32,25 @@ Le cas d’usage naturel est **notes vocales → Obsidian**, mais rien n’est v
   <img src="docs/screenshots/fr/home.png" width="100%" alt="Tableau de bord ScribeWatch et Quick Transcribe">
 </p>
 
-## Télécharger ScribeWatch v0.6.2
+## Télécharger ScribeWatch v0.6.4
 
-**Code source : v0.6.4.** Les liens ci-dessous restent volontairement sur la dernière version **officiellement publiée et vérifiée, v0.6.2**, pendant la qualification de v0.6.4. Les captures proviennent d’une instance réelle isolée de v0.6.4 ; l’interface est inchangée.
+**[Site officiel](https://scribewatch.arezkichougar.com/)** · **[Dernière release GitHub](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [Empreintes SHA-256](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.4) · [Code source](https://github.com/GodsQuantum/ScribeWatch)
 
+**Choisissez la version complète pour commencer.** Elle contient les moteurs de transcription et de rédaction locale. Les modèles sont téléchargés au premier lancement ; ensuite, ces traitements locaux ne nécessitent pas d'envoyer les enregistrements ou les textes à un serveur distant.
 
+| Système | Version locale complète | Installateur |
+|---|---|---|
+| **Windows 11 x64** | Recommandée | [Installateur Windows complet](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-windows-amd64-standalone-setup.exe) |
+| macOS Apple Silicon | IA locale incluse | [DMG Apple Silicon](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-darwin-arm64-standalone.dmg) |
+| macOS Intel | IA locale incluse | [DMG Intel](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-darwin-amd64-standalone.dmg) |
+| Linux x86-64 | IA locale incluse | [AppImage complète](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-x86_64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/scribewatch_0.6.4_amd64.deb) |
+| Linux ARM64 | IA locale incluse | [AppImage complète](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-aarch64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/scribewatch_0.6.4_arm64.deb) |
 
-**[Dernière version officielle](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [Code source](https://github.com/GodsQuantum/ScribeWatch) · [Vérifier les empreintes SHA-256](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.2)
+**Première utilisation :** installez ScribeWatch, laissez les modèles se télécharger une fois (plusieurs gigaoctets), choisissez un type de note, enregistrez ou importez un audio, puis exportez en PDF, Word, ODT, HTML, TXT ou Markdown. Les versions complètes embarquent Pandoc 3.14, Typst 0.15.1 et les polices nécessaires ; inutile de les installer séparément. Un processeur 64 bits récent suffit pour démarrer, mais une carte graphique compatible accélère les traitements ; **16 Go de RAM sont conseillés pour les comptes rendus structurés**, sans constituer un minimum certifié.
 
-| Système | Édition | Télécharger | Contenu |
-|---|---|---|---|
-| **Windows 11 x64** | **Autonome complet — recommandé** | [Installateur complet](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-windows-amd64-standalone-setup.exe) | ScribeWatch, moteurs locaux STT/LLM et téléchargement automatique des modèles au premier démarrage |
-| Windows x64 | Léger | [Installateur léger](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-windows-amd64-setup.exe) | Application ; raccorder un moteur STT/LLM existant |
-| macOS Apple Silicon | Léger | [DMG ARM64](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-darwin-arm64.dmg) | Application ; configurer ses moteurs compatibles |
-| macOS Intel | Léger | [DMG Intel](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-darwin-amd64.dmg) | Application ; configurer ses moteurs compatibles |
-| Linux x86-64 | AppImage | [AppImage x86-64](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-x86_64.AppImage) | Application ; configurer ses moteurs compatibles |
-| Linux ARM64 | AppImage | [AppImage ARM64](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-aarch64.AppImage) | Application ; configurer ses moteurs compatibles |
+**Pour utilisateurs avancés :** des versions légères Windows/macOS/Linux existent dans les [releases GitHub](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.4). Elles **n'installent pas de moteur local de transcription ou de rédaction**. Elles s'adressent à ceux qui disposent déjà de services STT/LLM compatibles.
 
-**Windows autonome complet :** sur une installation vierge, ScribeWatch prépare automatiquement Parakeet Ultra pour la transcription, Qwen3.5-4B Q4_K_M pour la rédaction structurée et cinq profils (consultation dentaire, consultation médicale, réunion, brainstorm, note structurée). Il faut une connexion Internet et plusieurs Go libres pour télécharger les modèles une seule fois. L'application configure ses moteurs en fonction du GPU et de la mémoire dans la limite des matériels pris en charge. Quand REC signale la disponibilité, renseignez les détails du document, choisissez le dossier, autorisez le micro, puis **REC** et **Stop** pour exporter le compte rendu ou PDF.
-
-L'installateur complet a passé les tests CI de packaging, installation et démarrage. **Une vérification physique complète du microphone, de tous les GPU et de la qualité clinique sur chaque PC n'est pas encore certifiée.** macOS, Linux, les éditions légères et Docker ne disposent pas actuellement de ce même pack IA local zéro configuration. Les documents cliniques restent des brouillons à relire par un praticien.
-
-**Prévu dans la prochaine release packagée (pas encore dans les installeurs v0.6.2 téléchargeables) :** toutes les éditions desktop Windows, macOS et Linux embarquent Pandoc 3.14, Typst 0.15.1 et la police Noto Sans CJK, avec empreintes vérifiées. Les exports **MD, TXT, HTML, DOCX, ODT et PDF** fonctionnent alors sans Pandoc, WeasyPrint, LaTeX, Python ou LibreOffice préinstallés sur l'hôte. L'export PDF du navigateur était déjà autonome ; l'API serveur privilégiera les exécutables livrés. Les poids des modèles IA exigent encore un téléchargement initial.
-
-Les binaires ne sont pas nécessairement signés ni notarisés par Apple ; vérifiez le SHA-256 et les notes de publication.
+Les installateurs complets et leurs moteurs passent la CI multi-OS, mais les microphones physiques, tous les GPU et la qualité des rapports cliniques ne sont **pas certifiés sur chaque ordinateur**. Les brouillons médicaux doivent être relus par le praticien. Si vous choisissez un fournisseur externe, ses règles de confidentialité s'appliquent. Les binaires peuvent être non signés ou non notarisés : vérifiez les SHA-256.
 
 ## Interface actuelle
 
@@ -300,7 +295,7 @@ bash scripts/e2e-v02.sh
 
 ## Profil matériel prudent, détecté sans modification
 
-**Versions :** [Tous les installateurs officiels ScribeWatch v0.6.2](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.2), potentiellement non signés ni notarisés. Vérifier les SHA256.
+**Versions :** [Tous les installateurs officiels ScribeWatch v0.6.4](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.4), potentiellement non signés ni notarisés. Vérifier les SHA256.
 
 ~~~bash
 python3 scripts/auto-tune.py

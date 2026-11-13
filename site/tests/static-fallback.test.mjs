@@ -48,7 +48,7 @@ test('browser detects Windows and falls back to actual GitHub release when Worke
 test('static HTML links remain safe when scripts or release API are unavailable',()=>{
   for(const locale of ['en','fr','zh-CN']){
     const html=fs.readFileSync(path.join(root,'public',locale,'index.html'),'utf8');
-    const hrefs=[...html.matchAll(/data-download="[^"]+"\s+href="([^"]+)"/g)].map(x=>x[1]);
+    const hrefs=[...html.matchAll(/data-download="[^"]+"[^>]*href="([^"]+)"/g)].map(x=>x[1]);
     assert.equal(hrefs.length,12);
     assert.ok(hrefs.every(x=>x==='https://github.com/GodsQuantum/ScribeWatch/releases/latest'));
   }

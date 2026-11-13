@@ -6,32 +6,27 @@
 
 <p align="center"><img src="docs/screenshots/zh-CN/home.png" width="100%" alt="ScribeWatch v0.6.4 中文首页"></p>
 
-## ScribeWatch v0.6.2 下载
+## ScribeWatch v0.6.4 下载
 
-**源代码版本：v0.6.4。** 在 v0.6.4 发布验证完成前，下列安装包链接仍指向最后一个已正式发布并校验的 **v0.6.2**。界面截图采集自隔离运行的 v0.6.4，布局未改变。
+**[官方网站](https://scribewatch.arezkichougar.com/)** · **[最新 GitHub 正式版本](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [SHA-256 校验](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.4) · [源代码](https://github.com/GodsQuantum/ScribeWatch)
 
+**新用户请选择完整版本。** 完整安装包包含本地语音转写和文档整理引擎；首次启动需联网下载模型，此后使用本地模型时无需将录音和文档发送至云端。
 
+| 系统 | 完整本地版本 | 安装包 |
+|---|---|---|
+| **Windows 11 x64** | 推荐 | [Windows 完整安装程序](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-windows-amd64-standalone-setup.exe) |
+| macOS Apple Silicon | 本地模型 | [Apple Silicon DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-darwin-arm64-standalone.dmg) |
+| macOS Intel | 本地模型 | [Intel DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-darwin-amd64-standalone.dmg) |
+| Linux x86-64 | 本地模型 | [完整 AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-x86_64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/scribewatch_0.6.4_amd64.deb) |
+| Linux ARM64 | 本地模型 | [完整 AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-aarch64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/scribewatch_0.6.4_arm64.deb) |
 
-| 系统 | 版本 | 官方安装包 | 说明 |
-|---|---|---|---|
-| **Windows 11 x64** | **完整独立版（推荐）** | [下载完整安装包](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-windows-amd64-standalone-setup.exe) | 包含本地 STT/LLM 引擎，首次启动自动下载模型 |
-| Windows x64 | 轻量版 | [下载安装包](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-windows-amd64-setup.exe) | 需配置兼容的转录和可选 LLM 服务 |
-| macOS Apple Silicon | 轻量版 | [下载 ARM64 DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-darwin-arm64.dmg) | 需配置兼容引擎 |
-| macOS Intel | 轻量版 | [下载 Intel DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-darwin-amd64.dmg) | 需配置兼容引擎 |
-| Linux x86-64 | AppImage | [下载 x86-64](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-x86_64.AppImage) | 需配置兼容引擎 |
-| Linux ARM64 | AppImage | [下载 ARM64](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.2/ScribeWatch-0.6.2-aarch64.AppImage) | 需配置兼容引擎 |
+**使用方法：** 安装后首次联网下载数 GB 模型，选择文档类型，录音或导入音频，然后导出 PDF、Word、ODT、HTML、TXT 或 Markdown。完整版本内置 Pandoc 3.14、Typst 0.15.1 及字体，无需另行安装。普通 64 位处理器也可使用，兼容显卡会加快速度；**结构化报告建议 16 GB 内存**，这不是所有设备的保证最低配置。
 
-**下一次正式安装包更新（当前可下载的 v0.6.2 尚未包含）：** Windows、macOS、Linux 桌面安装包均会内置 SHA-256 验证过的 Pandoc 3.14、Typst 0.15.1 和 Noto Sans CJK 字体。因此 MD、TXT、HTML、DOCX、ODT、PDF 导出无需在主机单独安装 Pandoc、WeasyPrint、LaTeX、Python 或 LibreOffice。浏览器 PDF 原本已独立运行，服务器端导出也将优先使用打包工具。首次下载 AI 模型仍需联网。
+**高级用户：** [GitHub 正式版本](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.4) 还提供各平台轻量版。轻量版**不包含本地转写和文档模型**，需要事先配置兼容服务，不适合新用户。
 
-所有发布文件均提供对应的 SHA-256 校验文件。桌面安装包未必具备正式的代码签名或 Apple 公证，请核对官方发布说明。
+安装程序通过多平台 CI 测试，但不同实体麦克风、显卡以及医疗报告质量仍需要单独验证。医疗内容必须由专业人员审阅。选择外部服务时，适用该服务的隐私政策。安装包可能未经过正式代码签名或 Apple 公证，请核对 SHA-256。
 
-## Windows 完整独立版：首次安装
-
-安装完成后启动 ScribeWatch。应用会自动创建 Parakeet Ultra 转录服务、Qwen3.5-4B Q4_K_M 本地文档生成服务，并准备五个报告模板：**牙科会诊、普通医疗会诊、会议、头脑风暴、结构化笔记**。首次下载需要联网并预留数 GB 空间，后续在本机处理音频和文档。应用会根据受支持的显卡和内存调整运行参数。
-
-等待 REC 显示模型就绪，填写文档信息、选择存储位置、授权麦克风，按 **REC** 开始，按 **Stop** 完成，随后可导出 PDF 或其他格式。生成的医疗报告仅供专业人员审核，不能代替诊断和病历复核。Windows 安装与引擎启动通过了 CI 自动测试，但尚未在所有实际 GPU、麦克风和医疗环境中完成端到端认证。其他系统不包含同样的完整自动 AI 安装包。
-
-## v0.6.2 当前界面
+## v0.6.4 当前界面
 
 **首页（Home）**：总览、快速转录、监控文件夹入口。**录音（REC）**：浏览器麦克风录制、断线恢复。**文档（Documents）**：历史任务、文档和导出。**设置（Settings）**：转录和 LLM 服务、模型、报告模板、高级参数。支持英语、法语、简体中文、五种主题及简单/高级模式。
 
