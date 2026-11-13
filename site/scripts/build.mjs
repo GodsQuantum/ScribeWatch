@@ -213,7 +213,7 @@ zoomButton('home',t.preview,'preview-shot')+'</div><p class="preview-caption">'+
 ...['record','documents','settings'].map((name,i)=>'<figure class="gallery-item '+(i===0?'gallery-main':'')+'">'+zoomButton(name,t.shots[i])+'<figcaption>'+esc(t.shots[i])+'</figcaption></figure>'),
 '</div></div></section>',
 '<section class="section section-install" id="downloads"><div class="wrap"><div class="section-intro"><span class="section-number">04 / '+esc(t.nav[3])+'</span><h2>'+esc(t.install)+'</h2><p>'+esc(t.installLead)+'</p></div>',
-'<div class="install-panel"><div class="install-panel-header"><div><span class="recommendation">'+esc(t.full)+'</span><h3>'+esc(t.fullText)+'</h3></div><p><span id="release-tag">v0.6.2</span><br>'+esc(t.available)+'</p></div>',
+'<div class="install-panel"><div class="install-panel-header"><div><span class="recommendation">'+esc(t.full)+'</span><h3>'+esc(t.fullText)+'</h3></div><p><span id="release-tag">v'+esc(sourceVersion)+'</span><br>'+esc(t.available)+'</p></div>',
 '<div class="platform-grid">',
 '<article data-platform="windows"><h4>'+esc(t.downloads.windows)+'</h4>'+full('windows-full')+'</article>',
 '<article data-platform="macos"><h4>'+esc(t.downloads.macos)+'</h4>'+full('mac-arm64-full')+full('mac-amd64-full')+'</article>',

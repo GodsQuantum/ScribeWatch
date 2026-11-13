@@ -124,8 +124,18 @@ scores, document pagination and hashes. Do not diagnose ASR or model
 regressions from corrupted benchmark transcripts. Verify untouched source
 SHA-256 and keep private references outside the public repository.
 
-**Current qualification status:** the universal code path and automated
-contracts have been implemented, but must pass end-to-end quality, regression
-and native-installer release tests **before** replacing a production build.
-The CAB1/CAB2 v0.6.4 installations must not be described as having an
-unverified quality fix.
+**Current qualification status (v0.6.5, 2026-11-13):** all release
+platform workflows, native installer gates and public-repository privacy
+checks passed. The native Windows end-to-end pipeline on two separate
+workstations produced complete, source-grounded dental drafts and document
+exports from the same private benchmark audio. The two Windows installations
+and the self-hosted Docker deployment were updated successfully, preserving
+existing configuration and job history. The original benchmark regression
+claim was invalidated: Windows PowerShell 5.1 corrupted UTF-8 JSON during
+benchmark collection, not during application transcription or writing.
+Scores against a single private lexical checklist **do not establish
+clinical accuracy, patient safety or quality on all hardware or future
+custom profiles**. Custom profiles inherit the engine safeguards and have
+automated regression tests, but representative human-reviewed evaluation
+remains necessary. No patient media or private reference data belong in
+this repository.

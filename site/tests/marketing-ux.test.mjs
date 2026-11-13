@@ -44,6 +44,15 @@ test('product-led dark hero, three local-first trust points and natural translat
  assert.match(site('zh-CN'),/电脑本地转写/);
 });
 
+test('static release fallback uses the version declared by the application',()=>{
+ const version=JSON.parse(fs.readFileSync(path.join(root,'..','frontend','package.json'),'utf8')).version;
+ for(const lang of ['fr','en','zh-CN']){
+  const html=site(lang);
+  assert.ok(html.includes('id="release-tag">v'+version+'</span>'));
+  assert.ok(!html.includes('id="release-tag">v0.6.2'));
+ }
+});
+
 test('local model privacy is not generalized to advanced remote providers',()=>{
  assert.match(site('fr'),/modèles locaux/);
  assert.match(site('fr'),/service externe/);

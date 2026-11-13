@@ -31,26 +31,26 @@ Profile optimization is handled by the engine for **all profiles, including thos
 It is especially useful as a **voice notes → Obsidian** bridge, but nothing is Obsidian-specific: any Markdown folder works.
 
 <p align="center">
-  <img src="docs/screenshots/en/home.png" width="100%" alt="ScribeWatch dashboard and Quick Transcribe">
+  <a href="docs/screenshots/en/home.png"><img src="docs/screenshots/en/home.png" width="100%" alt="ScribeWatch dashboard and Quick Transcribe"></a>
 </p>
 
-## Download ScribeWatch v0.6.4
+## Download ScribeWatch v0.6.5
 
-**[Official website](https://scribewatch.arezkichougar.com/)** · **[Latest GitHub release](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [SHA-256 checksums](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.4) · [Source code](https://github.com/GodsQuantum/ScribeWatch)
+**[Official website](https://scribewatch.arezkichougar.com/)** · **[Latest GitHub release](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [SHA-256 checksums](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.5) · [Source code](https://github.com/GodsQuantum/ScribeWatch)
 
 **Start with the complete edition.** It includes the local speech-transcription and structured-writing engines. It downloads their model files the first time you open it; after that, processing with those local models does not require sending your recordings or text to a remote service.
 
 | Operating system | Complete local edition | Installer |
 |---|---|---|
-| **Windows 11 x64** | Recommended | [Complete Windows installer](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-windows-amd64-standalone-setup.exe) |
-| macOS Apple Silicon | Local AI included | [Apple Silicon DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-darwin-arm64-standalone.dmg) |
-| macOS Intel | Local AI included | [Intel DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-darwin-amd64-standalone.dmg) |
-| Linux x86-64 | Local AI included | [Full AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-x86_64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/scribewatch_0.6.4_amd64.deb) |
-| Linux ARM64 | Local AI included | [Full AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-aarch64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/scribewatch_0.6.4_arm64.deb) |
+| **Windows 11 x64** | Recommended | [Complete Windows installer](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-windows-amd64-standalone-setup.exe) |
+| macOS Apple Silicon | Local AI included | [Apple Silicon DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-darwin-arm64-standalone.dmg) |
+| macOS Intel | Local AI included | [Intel DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-darwin-amd64-standalone.dmg) |
+| Linux x86-64 | Local AI included | [Full AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-x86_64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/scribewatch_0.6.5_amd64.deb) |
+| Linux ARM64 | Local AI included | [Full AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-aarch64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/scribewatch_0.6.5_arm64.deb) |
 
 **Getting started:** Install ScribeWatch, allow the initial model downloads (several gigabytes), choose a note type, record or import audio, then export PDF, DOCX, ODT, HTML, TXT or Markdown. The complete editions bundle Pandoc 3.14, Typst 0.15.1 and multilingual fonts; you do not need system-wide PDF tools. A modern 64-bit processor works, but a compatible GPU speeds up local processing; **16 GB RAM is recommended for structured reports**, not a certified minimum.
 
-**For advanced users only:** Lightweight Windows/macOS/Linux builds are also provided in [GitHub releases](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.4). They **do not install local transcription or writing engines**. Choose them only if you have an existing compatible STT/LLM service.
+**For advanced users only:** Lightweight Windows/macOS/Linux builds are also provided in [GitHub releases](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.5). They **do not install local transcription or writing engines**. Choose them only if you have an existing compatible STT/LLM service.
 
 The complete editions install and start on their certified CI runners, but the physical microphone, every GPU and medical-report accuracy are **not independently certified on all possible computers**. Medical drafts require practitioner review. If you configure an optional external provider, its privacy terms apply; do not assume external providers are local. Binaries may be unsigned or non-notarized; compare SHA-256 checksums before running them.
 
@@ -58,7 +58,7 @@ The complete editions install and start on their certified CI runners, but the p
 
 **Home** provides an overview and access to quick transcription and watched folders. **REC** is the recording workspace. **Documents** contains completed jobs and exports. **Settings** contains transcription providers, local/external AI engines, structure profiles and advanced options. The interface supports **English, French and Simplified Chinese**, five themes, and **Simple / Advanced** modes.
 
-<p align="center"><img src="docs/screenshots/en/record.png" width="49%" alt="ScribeWatch v0.6.4 REC recording workspace"><img src="docs/screenshots/en/settings.png" width="49%" alt="ScribeWatch v0.6.4 Settings"></p>
+<p align="center"><a href="docs/screenshots/en/record.png"><img src="docs/screenshots/en/record.png" width="49%" alt="ScribeWatch REC recording workspace"></a><a href="docs/screenshots/en/settings.png"><img src="docs/screenshots/en/settings.png" width="49%" alt="ScribeWatch Settings"></a></p>
 
 Captures are from an isolated demonstration instance running the release itself, not mockups and not patient material.
 
@@ -92,8 +92,8 @@ Captures are from an isolated demonstration instance running the release itself,
 | Typical use | “I just recorded an idea” | Meeting / consultation / brainstorm | Phone/sync folder → Obsidian automatically |
 
 <p align="center">
-  <img src="docs/screenshots/en/record.png" width="49%" alt="ScribeWatch Quick Transcribe">
-  <img src="docs/screenshots/en/documents.png" width="49%" alt="ScribeWatch workflow folders">
+  <a href="docs/screenshots/en/record.png"><img src="docs/screenshots/en/record.png" width="49%" alt="ScribeWatch Quick Transcribe"></a>
+  <a href="docs/screenshots/en/documents.png"><img src="docs/screenshots/en/documents.png" width="49%" alt="ScribeWatch workflow folders"></a>
 </p>
 
 ## Provider + model fallbacks
@@ -195,7 +195,7 @@ Built-in profiles cover general structured notes, meetings/phone calls, conserva
 Long transcripts are processed in bounded evidence chunks before final synthesis. The system prompt treats transcript text as untrusted data, forbids invented facts, and requires uncertainty to remain explicit. If the LLM fails, **the job still succeeds with the canonical transcript** and records the structuring error separately.
 
 <p align="center">
-  <img src="docs/screenshots/en/mobile.png" width="390" alt="ScribeWatch Quick Transcribe on mobile">
+  <a href="docs/screenshots/en/mobile.png"><img src="docs/screenshots/en/mobile.png" width="390" alt="ScribeWatch Quick Transcribe on mobile"></a>
 </p>
 
 ## Workflow model
@@ -300,7 +300,7 @@ bash scripts/e2e-v02.sh
 
 ## Hardware-aware safe performance starter
 
-**Downloads:** [All official ScribeWatch v0.6.4 installers](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.4). Builds may be unsigned or not Apple-notarized. Check SHA256 before trusting a binary.
+**Downloads:** [All official ScribeWatch v0.6.5 installers](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.5). Builds may be unsigned or not Apple-notarized. Check SHA256 before trusting a binary.
 
 ~~~bash
 python3 scripts/auto-tune.py           # read-only CPU and RAM detection

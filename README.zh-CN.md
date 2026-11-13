@@ -4,34 +4,34 @@
 <p align="center"><a href="README.md">English</a> · <a href="README.fr.md">Français</a> · <strong>简体中文</strong></p>
 <p align="center"><a href="https://github.com/GodsQuantum/ScribeWatch/releases/latest">下载最新版本</a> · <a href="https://github.com/GodsQuantum/ScribeWatch/issues">反馈问题</a> · <a href="https://arezkichougar.com">作者 Arezki Chougar</a></p>
 
-<p align="center"><img src="docs/screenshots/zh-CN/home.png" width="100%" alt="ScribeWatch v0.6.4 中文首页"></p>
+<p align="center"><a href="docs/screenshots/zh-CN/home.png"><img src="docs/screenshots/zh-CN/home.png" width="100%" alt="ScribeWatch 中文首页"></a></p>
 
-## ScribeWatch v0.6.4 下载
+## ScribeWatch v0.6.5 下载
 
-**[官方网站](https://scribewatch.arezkichougar.com/)** · **[最新 GitHub 正式版本](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [SHA-256 校验](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.4) · [源代码](https://github.com/GodsQuantum/ScribeWatch)
+**[官方网站](https://scribewatch.arezkichougar.com/)** · **[最新 GitHub 正式版本](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [SHA-256 校验](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.5) · [源代码](https://github.com/GodsQuantum/ScribeWatch)
 
 **新用户请选择完整版本。** 完整安装包包含本地语音转写和文档整理引擎；首次启动需联网下载模型，此后使用本地模型时无需将录音和文档发送至云端。
 
 | 系统 | 完整本地版本 | 安装包 |
 |---|---|---|
-| **Windows 11 x64** | 推荐 | [Windows 完整安装程序](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-windows-amd64-standalone-setup.exe) |
-| macOS Apple Silicon | 本地模型 | [Apple Silicon DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-darwin-arm64-standalone.dmg) |
-| macOS Intel | 本地模型 | [Intel DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-darwin-amd64-standalone.dmg) |
-| Linux x86-64 | 本地模型 | [完整 AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-x86_64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/scribewatch_0.6.4_amd64.deb) |
-| Linux ARM64 | 本地模型 | [完整 AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/ScribeWatch-0.6.4-aarch64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.4/scribewatch_0.6.4_arm64.deb) |
+| **Windows 11 x64** | 推荐 | [Windows 完整安装程序](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-windows-amd64-standalone-setup.exe) |
+| macOS Apple Silicon | 本地模型 | [Apple Silicon DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-darwin-arm64-standalone.dmg) |
+| macOS Intel | 本地模型 | [Intel DMG](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-darwin-amd64-standalone.dmg) |
+| Linux x86-64 | 本地模型 | [完整 AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-x86_64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/scribewatch_0.6.5_amd64.deb) |
+| Linux ARM64 | 本地模型 | [完整 AppImage](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-aarch64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/scribewatch_0.6.5_arm64.deb) |
 
 **使用方法：** 安装后首次联网下载数 GB 模型，选择文档类型，录音或导入音频，然后导出 PDF、Word、ODT、HTML、TXT 或 Markdown。完整版本内置 Pandoc 3.14、Typst 0.15.1 及字体，无需另行安装。普通 64 位处理器也可使用，兼容显卡会加快速度；**结构化报告建议 16 GB 内存**，这不是所有设备的保证最低配置。
 
-**高级用户：** [GitHub 正式版本](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.4) 还提供各平台轻量版。轻量版**不包含本地转写和文档模型**，需要事先配置兼容服务，不适合新用户。
+**高级用户：** [GitHub 正式版本](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.5) 还提供各平台轻量版。轻量版**不包含本地转写和文档模型**，需要事先配置兼容服务，不适合新用户。
 
 安装程序通过多平台 CI 测试，但不同实体麦克风、显卡以及医疗报告质量仍需要单独验证。医疗内容必须由专业人员审阅。选择外部服务时，适用该服务的隐私政策。安装包可能未经过正式代码签名或 Apple 公证，请核对 SHA-256。
 
-## v0.6.4 当前界面
+## v0.6.5 当前界面
 
 **首页（Home）**：总览、快速转录、监控文件夹入口。**录音（REC）**：浏览器麦克风录制、断线恢复。**文档（Documents）**：历史任务、文档和导出。**设置（Settings）**：转录和 LLM 服务、模型、报告模板、高级参数。支持英语、法语、简体中文、五种主题及简单/高级模式。
 
-<p align="center"><img src="docs/screenshots/zh-CN/record.png" width="49%" alt="简体中文 REC 录音界面"><img src="docs/screenshots/zh-CN/settings.png" width="49%" alt="简体中文设置界面"></p>
-<p align="center"><img src="docs/screenshots/zh-CN/documents.png" width="80%" alt="简体中文文档列表界面"></p>
+<p align="center"><a href="docs/screenshots/zh-CN/record.png"><img src="docs/screenshots/zh-CN/record.png" width="49%" alt="简体中文 REC 录音界面"></a><a href="docs/screenshots/zh-CN/settings.png"><img src="docs/screenshots/zh-CN/settings.png" width="49%" alt="简体中文设置界面"></a></p>
+<p align="center"><a href="docs/screenshots/zh-CN/documents.png"><img src="docs/screenshots/zh-CN/documents.png" width="80%" alt="简体中文文档列表界面"></a></p>
 
 所有截图都来自隔离的真实应用演示环境，不含私人或患者信息。
 
