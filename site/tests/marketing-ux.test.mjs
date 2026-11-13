@@ -24,6 +24,26 @@ test('public-facing site starts with everyday language and an honest local-priva
  }
 });
 
+test('product-led dark hero, three local-first trust points and natural translation survive build',()=>{
+ const css=fs.readFileSync(path.join(root,'src/style.css'),'utf8');
+ assert.match(css,/\.hero\{[^}]*background:#142c2c/);
+ assert.match(css,/\.site-header\{[^}]*background:#142c2c/);
+ assert.match(css,/\.section-install\{[^}]*background:#1b3833/);
+ assert.match(css,/\.proofrail-inner\{[^}]*grid-template-columns:repeat\(3/);
+ for(const lang of ['fr','en','zh-CN']){
+  const html=site(lang);
+  assert.match(html,/class="proofrail"/);
+  assert.equal((html.match(/class="proofrail-item"/g)||[]).length,3);
+  assert.ok(html.indexOf('class="proofrail"')>html.indexOf('class="hero"'));
+  assert.ok(html.indexOf('class="proofrail"')<html.indexOf('id="privacy"'));
+  assert.equal((html.match(/data-zoom="/g)||[]).length,4);
+  assert.ok(html.includes('assets/screens/'+lang+'-home.png'));
+ }
+ assert.match(site('fr'),/Traitement sur votre ordinateur|Transcription sur votre ordinateur/);
+ assert.match(site('en'),/On-device transcription/);
+ assert.match(site('zh-CN'),/电脑本地转写/);
+});
+
 test('local model privacy is not generalized to advanced remote providers',()=>{
  assert.match(site('fr'),/modèles locaux/);
  assert.match(site('fr'),/service externe/);
