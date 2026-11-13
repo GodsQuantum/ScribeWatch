@@ -48,7 +48,17 @@ jobs:
           rsync -a --delete --exclude=.git site/public/ "$target/"
           printf '%s\n' scribewatch.arezkichougar.com > "$target/CNAME"
           touch "$target/.nojekyll"
+          # The static fallback must match the current app even when the
+          # latest-release API cannot be reached by the visitor.
+          expected="$(node -p "require('./frontend/package.json').version")"
+          for locale in fr en zh-CN; do
+            grep -Fq "id=\"release-tag\">v$expected</span>" "$target/$locale/index.html"
+          done
           git -C "$target" add -A
+          # Explicitly include localized pages; never silently accept an
+          # untracked or globally ignored release-version update.
+          git -C "$target" add -f -- fr/index.html en/index.html zh-CN/index.html
+          git -C "$target" diff --cached --stat
           if ! git -C "$target" diff --cached --quiet; then
             git -C "$target" -c user.name='github-actions[bot]' \
               -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
@@ -56,4 +66,8 @@ jobs:
             git -C "$target" push origin HEAD:gh-pages
           else
             echo "Static site assets already match gh-pages."
+            for locale in fr en zh-CN; do
+              git -C "$target" show "HEAD:$locale/index.html" |
+                grep -Fq "id=\"release-tag\">v$expected</span>"
+            done
           fi
