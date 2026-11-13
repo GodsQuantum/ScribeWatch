@@ -4,9 +4,13 @@
 <p align="center"><a href="README.md">English</a> · <a href="README.fr.md">Français</a> · <strong>简体中文</strong></p>
 <p align="center"><a href="https://github.com/GodsQuantum/ScribeWatch/releases/latest">下载最新版本</a> · <a href="https://github.com/GodsQuantum/ScribeWatch/issues">反馈问题</a> · <a href="https://arezkichougar.com">作者 Arezki Chougar</a></p>
 
-<p align="center"><img src="docs/screenshots/zh-CN/home.png" width="100%" alt="ScribeWatch v0.6.2 中文首页"></p>
+<p align="center"><img src="docs/screenshots/zh-CN/home.png" width="100%" alt="ScribeWatch v0.6.4 中文首页"></p>
 
 ## ScribeWatch v0.6.2 下载
+
+**源代码版本：v0.6.4。** 在 v0.6.4 发布验证完成前，下列安装包链接仍指向最后一个已正式发布并校验的 **v0.6.2**。界面截图采集自隔离运行的 v0.6.4，布局未改变。
+
+
 
 | 系统 | 版本 | 官方安装包 | 说明 |
 |---|---|---|---|

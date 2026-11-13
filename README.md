@@ -34,6 +34,10 @@ It is especially useful as a **voice notes → Obsidian** bridge, but nothing is
 
 ## Download ScribeWatch v0.6.2
 
+**Source code: v0.6.4.** The installer links below intentionally remain on the last **published and verified release, v0.6.2**, while v0.6.4 runs its release checks. The interface screenshots are from an isolated live v0.6.4 instance; the layout is unchanged.
+
+
+
 **[Latest official release](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [Source code](https://github.com/GodsQuantum/ScribeWatch) · [Verify SHA-256 checksums](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.2)
 
 | Platform | Edition | Download | What is included |
@@ -57,7 +61,7 @@ Desktop binaries are not guaranteed to be code-signed or Apple-notarized; verify
 
 **Home** provides an overview and access to quick transcription and watched folders. **REC** is the recording workspace. **Documents** contains completed jobs and exports. **Settings** contains transcription providers, local/external AI engines, structure profiles and advanced options. The interface supports **English, French and Simplified Chinese**, five themes, and **Simple / Advanced** modes.
 
-<p align="center"><img src="docs/screenshots/en/record.png" width="49%" alt="ScribeWatch v0.6.2 REC recording workspace"><img src="docs/screenshots/en/settings.png" width="49%" alt="ScribeWatch v0.6.2 Settings"></p>
+<p align="center"><img src="docs/screenshots/en/record.png" width="49%" alt="ScribeWatch v0.6.4 REC recording workspace"><img src="docs/screenshots/en/settings.png" width="49%" alt="ScribeWatch v0.6.4 Settings"></p>
 
 Captures are from an isolated demonstration instance running the release itself, not mockups and not patient material.
 

@@ -34,6 +34,10 @@ Le cas d’usage naturel est **notes vocales → Obsidian**, mais rien n’est v
 
 ## Télécharger ScribeWatch v0.6.2
 
+**Code source : v0.6.4.** Les liens ci-dessous restent volontairement sur la dernière version **officiellement publiée et vérifiée, v0.6.2**, pendant la qualification de v0.6.4. Les captures proviennent d’une instance réelle isolée de v0.6.4 ; l’interface est inchangée.
+
+
+
 **[Dernière version officielle](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [Code source](https://github.com/GodsQuantum/ScribeWatch) · [Vérifier les empreintes SHA-256](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.2)
 
 | Système | Édition | Télécharger | Contenu |
@@ -57,7 +61,7 @@ Les binaires ne sont pas nécessairement signés ni notarisés par Apple ; véri
 
 **Accueil** donne accès à la transcription rapide et aux dossiers surveillés. **REC** sert à enregistrer. **Documents** regroupe les tâches et les exports. **Paramètres** configure les fournisseurs de transcription, les moteurs IA internes/externes, les profils et les options avancées. L'interface propose **français, anglais et chinois simplifié**, cinq thèmes et les modes **Simple / Avancé**.
 
-<p align="center"><img src="docs/screenshots/fr/record.png" width="49%" alt="Espace d'enregistrement REC de ScribeWatch v0.6.2"><img src="docs/screenshots/fr/settings.png" width="49%" alt="Paramètres de ScribeWatch v0.6.2"></p>
+<p align="center"><img src="docs/screenshots/fr/record.png" width="49%" alt="Espace d'enregistrement REC de ScribeWatch v0.6.4"><img src="docs/screenshots/fr/settings.png" width="49%" alt="Paramètres de ScribeWatch v0.6.4"></p>
 
 Les captures proviennent d'une instance de démonstration isolée de la vraie version, sans donnée patient.
 
