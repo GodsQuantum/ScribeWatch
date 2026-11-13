@@ -38,6 +38,31 @@ def run(*args: str | Path, env: dict[str,str] | None=None) -> None:
     subprocess.run([str(x) for x in args],env=env,check=True,timeout=900)
 
 
+
+def detach_owned_test_dmg(mount: Path) -> None:
+    """Unmount only our disposable, read-only macOS CI DMG.
+
+    macOS can hold the image briefly after running binaries/fonts directly
+    from the mount. Exit code 16 is an EBUSY race, not evidence that the
+    installer failed its smoke tests. Never force-unmount arbitrary paths.
+    """
+    if not mount.is_dir() or not mount.name.startswith("trio-dmg-mount-"):
+        raise ValueError("Refusing to detach an unexpected macOS mount")
+    for attempt in range(8):
+        result = subprocess.run(
+            ["hdiutil", "detach", "-quiet", str(mount)],
+            check=False, timeout=45, capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            return
+        if attempt < 7:
+            print("MACOS_DMG_DETACH_RETRY", attempt + 1, result.returncode, flush=True)
+            time.sleep(min(attempt + 1, 4))
+    # The CI mount is read-only and lives exclusively under our temp folder.
+    # It is safe to force only this explicitly owned test image, after bounded retries.
+    print("MACOS_DMG_DETACH_FORCE_OWNED_READONLY_TEST_MOUNT", mount, flush=True)
+    run("hdiutil", "detach", "-force", "-quiet", mount)
+
 def main() -> None:
     print("NATIVE_INSTALLER_BUILD",APPNAME,VERSION,platform.platform(),VARIANT,flush=True)
     FF=Path(tempfile.mkdtemp(prefix="trio-ffmpeg-"))
@@ -158,7 +183,7 @@ def main() -> None:
                         env=env,
                     )
             finally:
-                run("hdiutil","detach","-quiet",mount)
+                detach_owned_test_dmg(mount)
                 mount.rmdir()
             print("MACOS_DMG_MOUNT_AND_NATIVE_APP_SMOKE_OK",APPNAME)
         import hashlib

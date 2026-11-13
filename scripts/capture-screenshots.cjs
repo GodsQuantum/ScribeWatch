@@ -1,5 +1,5 @@
 /**
- * Reproducible, privacy-safe v0.6.2 screenshots.
+ * Reproducible, privacy-safe screenshots of the current tagged code.
  * Use only against a freshly initialised demo instance, NEVER production with patient data.
  * npm install --no-save playwright; npx playwright install chromium
  */
@@ -8,9 +8,9 @@ const path = require('node:path');
 const fs = require('node:fs');
 const base = process.env.SCRIBEWATCH_SCREENSHOT_URL || 'http://127.0.0.1:39200';
 const out = path.resolve(__dirname, '../docs/screenshots');
-const expectedVersion = process.env.SCRIBEWATCH_EXPECT_VERSION || '0.6.2';
+const expectedVersion = process.env.SCRIBEWATCH_EXPECT_VERSION || require('../frontend/package.json').version;
 (async () => {
-  const browser = await chromium.launch({headless:true,args:['--no-sandbox']});
+  const browser = await chromium.launch({headless:true,args:['--no-sandbox'],...(process.env.SCRIBEWATCH_CHROMIUM_EXECUTABLE?{executablePath:process.env.SCRIBEWATCH_CHROMIUM_EXECUTABLE}:{})});
   try {
     const response = await fetch(new URL('/api/v1/ready', base));
     const status = await response.json();
@@ -27,7 +27,7 @@ const expectedVersion = process.env.SCRIBEWATCH_EXPECT_VERSION || '0.6.2';
       const nav=page.locator('nav').first().getByRole('button');
       await nav.nth(0).click(); await page.waitForTimeout(450);
       await page.screenshot({path:path.join(out,dir,'home.png'),fullPage:false});
-      if (await nav.count() < 4) throw new Error('Unexpected v0.6.2 navigation: '+await page.locator('nav').first().innerText());
+      if (await nav.count() < 4) throw new Error('Unexpected versioned navigation: '+await page.locator('nav').first().innerText());
       for (const [index,file] of [[1,'record.png'],[2,'documents.png'],[3,'settings.png']]) {
         await nav.nth(index).click();
         await page.waitForTimeout(220);
