@@ -1,5 +1,5 @@
 use crate::{
-    api::embedded::{EmbeddedManager, Mode, Modes},
+    api::embedded::{EmbeddedManager, Mode, Modes, native_llm_port, native_stt_port},
     config::Config,
     db::Database,
     domain::{Job, JobEvent, JobStatus, LlmProvider, Provider, StructureProfile, Workflow},
@@ -62,7 +62,10 @@ fn default_native_transcriber() -> Provider {
     Provider {
         id: AUTO_ASR_ID.into(),
         name: "Parakeet Ultra (local)".into(),
-        transcription_url: "http://127.0.0.1:38005/v1/audio/transcriptions".into(),
+        transcription_url: format!(
+            "http://127.0.0.1:{}/v1/audio/transcriptions",
+            native_stt_port()
+        ),
         model: "handy-computer/parakeet-ultra-gguf".into(),
         api_key: String::new(),
         timeout_seconds: 1800,
@@ -74,7 +77,7 @@ fn default_native_writer() -> LlmProvider {
     LlmProvider {
         id: AUTO_LLM_ID.into(),
         name: "Qwen3.5-4B Q4_K_M (local)".into(),
-        chat_completions_url: "http://127.0.0.1:38080/v1/chat/completions".into(),
+        chat_completions_url: format!("http://127.0.0.1:{}/v1/chat/completions", native_llm_port()),
         model: "unsloth/Qwen3.5-4B-GGUF:Q4_K_M".into(),
         api_key: String::new(),
         timeout_seconds: 1200,
@@ -114,6 +117,42 @@ impl AppState {
             )?;
             providers.push(stt);
             llm_providers.push(llm);
+        }
+        // The launcher can choose new ports after an OS restart or if another
+        // application reserves a formerly free port. Only our own local
+        // zero-config rows are adjusted; custom/external providers remain as-is.
+        if std::env::var("SCRIBEWATCH_NATIVE_AUTOINIT").as_deref() == Ok("1")
+            && std::env::var("SCRIBEWATCH_DESKTOP_MODE").as_deref() == Ok("1")
+            && config.host == "127.0.0.1"
+        {
+            let stt_url = default_native_transcriber().transcription_url;
+            for provider in &mut providers {
+                if provider.id == AUTO_ASR_ID
+                    && provider.transcription_url.starts_with("http://127.0.0.1:")
+                    && provider
+                        .transcription_url
+                        .ends_with("/v1/audio/transcriptions")
+                    && provider.transcription_url != stt_url
+                {
+                    provider.transcription_url = stt_url.clone();
+                    db.upsert("provider", &provider.id, provider)?;
+                }
+            }
+            let llm_url = default_native_writer().chat_completions_url;
+            for provider in &mut llm_providers {
+                if provider.id == AUTO_LLM_ID
+                    && provider
+                        .chat_completions_url
+                        .starts_with("http://127.0.0.1:")
+                    && provider
+                        .chat_completions_url
+                        .ends_with("/v1/chat/completions")
+                    && provider.chat_completions_url != llm_url
+                {
+                    provider.chat_completions_url = llm_url.clone();
+                    db.upsert("llm_provider", &provider.id, provider)?;
+                }
+            }
         }
         // Retain legacy rows for historical jobs; expose only the five
         // current built-ins. Repair only obviously mojibaked built-in text,

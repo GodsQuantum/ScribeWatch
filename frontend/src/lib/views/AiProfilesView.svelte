@@ -95,6 +95,8 @@
   }
 
   let embedded:EmbeddedRuntimeStatus={desktop:false,engines:[],download:{status:'',model:''}};
+  $: embeddedSttOrigin = embedded.engines.find((engine)=>engine.kind==='stt')?.endpoint
+    ?.replace(/\/v1\/audio\/transcriptions$/, '') ?? 'http://127.0.0.1:38005';
   let embeddedBusy=false;
   let selectedSTT='handy-computer/parakeet-ultra-gguf';
   let selectedLLM='unsloth/Qwen3.5-4B-GGUF:Q4_K_M';
@@ -187,7 +189,7 @@
     const model=embeddedLlmModels[0]??'';
     newProvider();
     providerDraft={...providerDraft,name:'LLM intégré ScribeWatch',
-      chatCompletionsUrl:'http://127.0.0.1:38080/v1/chat/completions',model};
+      chatCompletionsUrl:embedded.engines.find((e)=>e.kind==='llm')?.endpoint??'http://127.0.0.1:38080/v1/chat/completions',model};
     providerModels=[...embeddedLlmModels];
   }
   async function connectEmbeddedStt(){
@@ -196,7 +198,7 @@
     embeddedBusy=true;
     try{
       await api.saveProvider({id:'',name:'Transcription intégrée ScribeWatch',
-        transcriptionUrl:'http://127.0.0.1:38005/v1/audio/transcriptions',
+        transcriptionUrl:embedded.engines.find((e)=>e.kind==='stt')?.endpoint??'http://127.0.0.1:38005/v1/audio/transcriptions',
         model,timeoutSeconds:600,enabled:true,apiKey:''});
       await refresh();
       notify('success','Fournisseur de transcription interne créé. Choisissez-le pour vos workflows.');
@@ -328,7 +330,7 @@
               <div class="row wrap">
                 <button class="btn" disabled={embeddedBusy} on:click={()=>downloadEmbedded('stt')}>Télécharger le modèle ASR</button>
                 <button class="btn" disabled={embeddedBusy||!embeddedSttModels.length} on:click={connectEmbeddedStt}>Configurer ce moteur comme fournisseur STT</button>
-                <a href="http://127.0.0.1:38005/" target="_blank" rel="noopener noreferrer">Gestion avancée des modèles ASR</a>
+                <a href={embeddedSttOrigin+'/'} target="_blank" rel="noopener noreferrer">Gestion avancée des modèles ASR</a>
               </div>
               <div class="row wrap">
                 <button class="btn primary" disabled={asrBusy} on:click={installAcousticPack}>

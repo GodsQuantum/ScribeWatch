@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod browse;
 pub mod dashboard;
+pub mod dictation;
 pub mod embedded;
 pub mod events;
 pub mod jobs;
@@ -61,6 +62,14 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/ready", get(ready))
         .route("/api/v1/dashboard", get(dashboard::stats))
         .route("/api/v1/events", get(events::events))
+        .route(
+            "/api/v1/dictation/settings",
+            get(dictation::settings).put(dictation::save_settings),
+        )
+        .route(
+            "/api/v1/dictation/transcribe",
+            post(dictation::transcribe).layer(axum::extract::DefaultBodyLimit::disable()),
+        )
         .route("/api/v1/browse", get(browse::browse))
         .route(
             "/api/v1/providers",

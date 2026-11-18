@@ -9,6 +9,7 @@
   import DashboardView from '$lib/views/DashboardView.svelte';
   import QuickTranscribeView from '$lib/views/QuickTranscribeView.svelte';
   import LiveRecordView from '$lib/views/LiveRecordView.svelte';
+  import DictationView from '$lib/views/DictationView.svelte';
   import WorkflowsView from '$lib/views/WorkflowsView.svelte';
   import SettingsView from '$lib/views/SettingsView.svelte';
   import JobsView from '$lib/views/JobsView.svelte';
@@ -124,6 +125,7 @@
   {:else if active==='home'}<DashboardView {stats} {jobs} {workflows} onnav={nav}/>
   {:else if active==='quick'}<QuickTranscribeView {providers} {structureProfiles} {jobs} {selectedSpace} onassign={assignJob} refresh={refreshJobs} {notify}/>
   {:else if active==='live'}<!-- REC is rendered persistently above. -->
+  {:else if active==='dictation'}<DictationView {providers} {structureProfiles} {notify}/>
   {:else if active==='workflows'}<WorkflowsView {workflows} {providers} {structureProfiles} refresh={loadAll} {notify}/>
   {:else if active==='settings'}<SettingsView {uiMode} onmode={changeUiMode} {providers} {llmProviders} {structureProfiles} refresh={loadAll} {notify}/>
   {:else}<JobsView {jobs} {workflows} {spaces} {assignments} {selectedSpace} {searchQuery}

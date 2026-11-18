@@ -1,8 +1,8 @@
 import { parseApiResponse } from './api-response.js';
 import type {
-  EmbeddedRuntimeStatus, Space, SpaceMembership, SpaceKind,
+  DictationResult, DictationSettings, EmbeddedRuntimeStatus, Space, SpaceMembership, SpaceKind,
   BrowseResponse, DashboardStats, ExportFormat, Job, LiveUploadManifest, LlmProvider, LlmProviderInput,
-  Provider, ProviderInput, QuickOptions, ReportEncounter, SavedReport, StructureProfile, Workflow
+  Provider, ProviderInput, TranscriptionRoute, QuickOptions, ReportEncounter, SavedReport, StructureProfile, Workflow
 } from './types';
 
 export class ApiError extends Error {
@@ -163,6 +163,21 @@ export const api = {
   retryJob: (id: string) => request<Job>(`/api/v1/jobs/${id}/retry`, { method: 'POST' }),
   cancelJob: (id: string) => request<Job>(`/api/v1/jobs/${id}/cancel`, { method: 'POST' }),
   deleteJob: (id: string) => request<void>(`/api/v1/jobs/${id}`, { method: 'DELETE' }),
+  dictationSettings: () => request<DictationSettings>('/api/v1/dictation/settings'),
+  saveDictationSettings: (settings:DictationSettings) =>
+    request<DictationSettings>('/api/v1/dictation/settings', {
+      method:'PUT',body:JSON.stringify(settings)
+    }),
+  dictationTranscribe: async (
+    file:File,
+    options:{transcriptionChain:TranscriptionRoute[];language?:string},
+  ):Promise<DictationResult> => {
+    const form=new FormData();
+    form.append('file',file);
+    form.append('transcriptionChain',JSON.stringify(options.transcriptionChain));
+    form.append('language',options.language??'');
+    return request<DictationResult>('/api/v1/dictation/transcribe',{method:'POST',body:form});
+  },
   quickServer: (sourcePath: string, options: QuickOptions) => request<Job>('/api/v1/quick/server', {
     method: 'POST', body: JSON.stringify({ sourcePath, ...options })
   }),

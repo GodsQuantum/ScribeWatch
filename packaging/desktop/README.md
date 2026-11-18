@@ -46,8 +46,18 @@ Smoke CI, Docker, network-only deployments and existing configured profiles
 are excluded to preserve user settings and external engines.
 
 Advanced Settings still permit Internal, External and Disabled separately.
-Native STT binds only to 127.0.0.1:38005 and LLM to 127.0.0.1:38080.
-Switching to External/Disabled stops the owned child without deleting files.
+Installed Windows, macOS and Linux launcher uses a loopback-only HTTP server,
+preferring 127.0.0.1:3052. When that port is occupied by another application,
+it selects a free ephemeral port through the OS, opens the correct URL, and
+stores the chosen port in user-local server.port for subsequent launches.
+The native STT and LLM engines similarly prefer 38005 and 38080 respectively,
+falling back to separate OS-selected free ports without interfering with
+existing services. Their actual URLs are returned through embedded/status
+and reflected in ScribeWatch-owned provider configuration at launch, including
+after a port change. Docker/server CLI explicitly configured ports remain
+unchanged; external endpoints and other applications are never stopped.
+Switching to External/Disabled stops only ScribeWatch-owned child engines,
+without deleting files.
 
 The STT model UI reuses Speaches-compatible native model APIs and single HF cache:
 Whisper, Parakeet Ultra, Qwen3-ASR, Nemotron and custom GGUF quantizations.

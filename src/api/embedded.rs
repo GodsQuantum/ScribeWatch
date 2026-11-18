@@ -34,6 +34,24 @@ const ID: &str = "selection";
 const STT_PORT: u16 = 38005;
 const LLM_PORT: u16 = 38080;
 const MAX_BYTES: usize = 1024 * 1024;
+
+/// The native launcher passes ports chosen by the OS. A standalone server or
+/// Docker retains its documented defaults unless explicitly configured.
+fn configured_port(name: &str, default: u16) -> u16 {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .filter(|port| *port != 0)
+        .unwrap_or(default)
+}
+
+pub(crate) fn native_stt_port() -> u16 {
+    configured_port("SCRIBEWATCH_STT_PORT", STT_PORT)
+}
+pub(crate) fn native_llm_port() -> u16 {
+    configured_port("SCRIBEWATCH_LLM_PORT", LLM_PORT)
+}
+
 const PACK_MODELS: &[&str] = &[
     "handy-computer/parakeet-ultra-gguf",
     "handy-computer/whisper-large-v3-turbo-gguf",
@@ -248,8 +266,8 @@ pub enum EngineKind {
 impl EngineKind {
     fn port(self) -> u16 {
         match self {
-            Self::Stt => STT_PORT,
-            Self::Llm => LLM_PORT,
+            Self::Stt => native_stt_port(),
+            Self::Llm => native_llm_port(),
         }
     }
     fn name(self) -> &'static str {
@@ -260,8 +278,8 @@ impl EngineKind {
     }
     fn url(self) -> String {
         match self {
-            Self::Stt => format!("http://127.0.0.1:{STT_PORT}/v1/audio/transcriptions"),
-            Self::Llm => format!("http://127.0.0.1:{LLM_PORT}/v1/chat/completions"),
+            Self::Stt => format!("http://127.0.0.1:{}/v1/audio/transcriptions", self.port()),
+            Self::Llm => format!("http://127.0.0.1:{}/v1/chat/completions", self.port()),
         }
     }
 }
@@ -640,7 +658,7 @@ impl EmbeddedManager {
         // Request Qwen first; llama.cpp performs/resumes the full download
         // asynchronously while the acoustic pack is provisioned locally.
         let llm_model = "unsloth/Qwen3.5-4B-GGUF:Q4_K_M";
-        let llm_url = format!("http://127.0.0.1:{LLM_PORT}");
+        let llm_url = format!("http://127.0.0.1:{}", native_llm_port());
         let cached = match client.get(format!("{llm_url}/v1/models")).send().await {
             Ok(response) if response.status().is_success() => response
                 .json::<Value>()
@@ -681,7 +699,7 @@ impl EmbeddedManager {
         // The acoustic pack CLI defaults to WHISPER, not Parakeet. Request
         // exactly the benchmark-validated Parakeet Ultra through the upstream
         // native transcribe.cpp GGUF catalog API instead.
-        let stt_url = format!("http://127.0.0.1:{STT_PORT}/v1/models");
+        let stt_url = format!("http://127.0.0.1:{}/v1/models", native_stt_port());
         let stt_ready = match client.get(&stt_url).send().await {
             Ok(response) if response.status().is_success() => response
                 .json::<Value>()
@@ -856,7 +874,7 @@ pub async fn status(State(state): State<AppState>) -> Json<RuntimeStatusResponse
         // router maintains downloads and memory status; no timer or polling loop.
         if let Ok(client) = http()
             && let Ok(response) = client
-                .get(format!("http://127.0.0.1:{LLM_PORT}/models"))
+                .get(format!("http://127.0.0.1:{}/models", native_llm_port()))
                 .send()
                 .await
             && let Ok(doc) = bounded_json(response).await
@@ -992,7 +1010,8 @@ pub async fn asr_variants(
         .map_err(|e| AppError::Internal(e.into()))?;
     let response = client
         .post(format!(
-            "http://127.0.0.1:{STT_PORT}/v1/desktop-asr/variants"
+            "http://127.0.0.1:{}/v1/desktop-asr/variants",
+            native_stt_port()
         ))
         .json(&json!({"source":input.source}))
         .send()
@@ -1042,7 +1061,8 @@ pub async fn asr_install(
                 .map_err(|e| e.to_string())?;
             let response = client
                 .post(format!(
-                    "http://127.0.0.1:{STT_PORT}/v1/desktop-asr/install"
+                    "http://127.0.0.1:{}/v1/desktop-asr/install",
+                    native_stt_port()
                 ))
                 .json(&input)
                 .send()
@@ -1116,7 +1136,7 @@ fn select_asr_variant_for_memory(variants: &[Value], ram_mib: Option<u64>) -> Op
 // Shared upstream-native curated ASR download used by initial desktop
 // provisioning and explicit model selection. No secondary downloader service.
 async fn install_curated_asr(client: &Client, model: &str) -> Result<(), String> {
-    let origin = format!("http://127.0.0.1:{STT_PORT}");
+    let origin = format!("http://127.0.0.1:{}", native_stt_port());
     let variants = client
         .post(format!("{origin}/v1/desktop-asr/variants"))
         .json(&json!({"source": model}))
@@ -1215,7 +1235,7 @@ pub async fn download(
                 return Ok::<_, String>(());
             }
             let response = client
-                .post(format!("http://127.0.0.1:{LLM_PORT}/models"))
+                .post(format!("http://127.0.0.1:{}/models", native_llm_port()))
                 .json(&json!({"model": input.model, "sidecars": []}))
                 .send()
                 .await
