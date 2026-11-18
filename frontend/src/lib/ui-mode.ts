@@ -1,9 +1,10 @@
 /** A reduced navigation surface; advanced features are never disabled. */
 export type UiMode='simple'|'advanced';
-export type View='home'|'quick'|'live'|'workflows'|'jobs'|'settings';
+export type View='home'|'quick'|'live'|'dictation'|'workflows'|'jobs'|'settings';
 const simpleItems=[
   {id:'home',label:'Home',glyph:'⌂'},
   {id:'live',label:'REC',glyph:'●'},
+  {id:'dictation',label:'Dictée',glyph:'⌨'},
   {id:'jobs',label:'Documents',glyph:'≡'},
   {id:'settings',label:'Settings',glyph:'⚙'}
 ] as const;
@@ -11,6 +12,7 @@ const advancedItems=[
   {id:'home',label:'Home',glyph:'⌂'},
   {id:'quick',label:'Quick',glyph:'✦'},
   {id:'live',label:'REC',glyph:'●'},
+  {id:'dictation',label:'Dictée',glyph:'⌨'},
   {id:'workflows',label:'Workflows',glyph:'↻'},
   {id:'jobs',label:'Documents',glyph:'≡'},
   {id:'settings',label:'Settings',glyph:'⚙'}

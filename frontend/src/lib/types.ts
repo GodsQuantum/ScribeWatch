@@ -176,6 +176,13 @@ export interface Job {
   updatedAtMs: number;
 }
 
+export interface DictationResult {
+  text: string;
+  providerId: string;
+  model: string;
+  elapsedMs: number;
+}
+
 export interface QuickOptions {
   providerId?: string;
   model?: string;

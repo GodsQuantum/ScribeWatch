@@ -2,16 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { navigationItems, navigationAllows, normalizeMode, normalizeView } from '../src/lib/ui-mode.ts';
 
-test('new installs expose only the four essential destinations', () => {
+test('new installs expose recording, dictation and essential destinations', () => {
   assert.equal(normalizeMode(null), 'simple');
-  assert.deepEqual(navigationItems('simple').map(item => item.id), ['home', 'live', 'jobs', 'settings']);
+  assert.deepEqual(navigationItems('simple').map(item => item.id), ['home', 'live', 'dictation', 'jobs', 'settings']);
   assert.equal(navigationAllows('simple', 'providers'), false);
   assert.equal(navigationAllows('simple', 'settings'), true);
+  assert.equal(navigationAllows('simple', 'dictation'), true);
 });
 
 test('advanced mode preserves existing workflows without showing two configuration sections in the rail', () => {
   assert.deepEqual(navigationItems('advanced').map(item => item.id),
-    ['home', 'quick', 'live', 'workflows', 'jobs', 'settings']);
+    ['home', 'quick', 'live', 'dictation', 'workflows', 'jobs', 'settings']);
   assert.equal(navigationAllows('advanced', 'workflows'), true);
   assert.equal(navigationAllows('advanced', 'ai'), false);
   assert.equal(normalizeMode('advanced'), 'advanced');
