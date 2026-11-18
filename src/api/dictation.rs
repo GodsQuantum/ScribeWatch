@@ -386,6 +386,64 @@ mod integration_tests {
     }
 
     #[tokio::test]
+    async fn provider_failure_falls_back_to_the_next_selected_endpoint() {
+        let (_tmp, state, base) = setup().await;
+        let fail = Router::new().route(
+            "/v1/audio/transcriptions",
+            post(|| async {
+                (
+                    axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                    Json(json!({"error":"test"})),
+                )
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let upstream = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, fail).await.unwrap() });
+        let provider = Provider {
+            id: "failing-test".into(),
+            name: "Failing test".into(),
+            transcription_url: format!("http://{upstream}/v1/audio/transcriptions"),
+            model: "missing".into(),
+            api_key: String::new(),
+            timeout_seconds: 3,
+            enabled: true,
+        };
+        state.providers.write().await.push(provider);
+        let chain = json!([
+            {"providerId":"failing-test","model":"missing"},
+            {"providerId":"local-test","model":"fake-asr"}
+        ]);
+        let response = reqwest::Client::new()
+            .post(format!("{base}/api/v1/dictation/transcribe"))
+            .multipart(
+                Form::new()
+                    .text("transcriptionChain", chain.to_string())
+                    .part(
+                        "file",
+                        Part::bytes(tiny_wav())
+                            .file_name("test.wav")
+                            .mime_str("audio/wav")
+                            .unwrap(),
+                    ),
+            )
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let result: Value = response.json().await.unwrap();
+        assert_eq!(result["providerId"], "local-test");
+        assert_eq!(result["text"], "bonjour dictée");
+        assert!(
+            state
+                .db
+                .list::<crate::domain::Job>("job")
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[tokio::test]
     async fn invalid_provider_and_oversized_body_fail_without_jobs() {
         let (_tmp, state, base) = setup().await;
         let client = reqwest::Client::new();
