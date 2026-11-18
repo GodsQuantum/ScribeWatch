@@ -51,9 +51,23 @@ jobs:
           # The static fallback must match the current app even when the
           # latest-release API cannot be reached by the visitor.
           expected="$(node -p "require('./frontend/package.json').version")"
-          for locale in fr en zh-CN; do
-            grep -Fq "id=\"release-tag\">v$expected</span>" "$target/$locale/index.html"
-          done
+          # Assert the deployed file actually contains the version generated
+          # from this tagged application. Include diagnostics on failure.
+          node - "$target" "$expected" <<'JS'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const [root, version] = process.argv.slice(2);
+          for (const locale of ['fr', 'en', 'zh-CN']) {
+            const file = path.join(root, locale, 'index.html');
+            const html = fs.readFileSync(file, 'utf8');
+            const actual = html.match(/id="release-tag">([^<]+)<\/span>/)?.[1];
+            console.log('Deployed static release version:', locale, actual);
+            if (actual !== 'v' + version) {
+              console.error('Static release mismatch:', {locale, actual, expected: 'v' + version});
+              process.exitCode = 1;
+            }
+          }
+          JS
           git -C "$target" add -A
           # Explicitly include localized pages; never silently accept an
           # untracked or globally ignored release-version update.
