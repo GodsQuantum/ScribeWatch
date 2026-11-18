@@ -23,6 +23,70 @@ def localhost_port():
 
 
 class NativeFirstRun(unittest.TestCase):
+    def test_port_selection_preserves_zero_config_providers_and_custom_endpoints(self):
+        with tempfile.TemporaryDirectory(prefix="scribe-dynamic-native-ports-") as temp:
+            root=pathlib.Path(temp)
+            for name in ("config","data","engines","frontend"):
+                (root/name).mkdir()
+            def reserve():
+                sock=socket.socket()
+                sock.bind(("127.0.0.1",0))
+                sock.listen(3)
+                return sock
+            with reserve() as main, reserve() as stt, reserve() as llm:
+                main_port=main.getsockname()[1]
+                stt_used=stt.getsockname()[1]
+                llm_used=llm.getsockname()[1]
+                with reserve() as candidate_stt, reserve() as candidate_llm:
+                    stt_port=candidate_stt.getsockname()[1]
+                    llm_port=candidate_llm.getsockname()[1]
+                env={**os.environ,
+                    "SCRIBEWATCH_NATIVE_AUTOINIT":"1",
+                    "SCRIBEWATCH_DESKTOP_MODE":"1",
+                    "SCRIBEWATCH_EMBEDDED_DIR":str(root/"engines"),
+                    "SCRIBEWATCH_STT_PORT":str(stt_port),
+                    "SCRIBEWATCH_LLM_PORT":str(llm_port),
+                }
+                args=[str(APP),"--host","127.0.0.1","--port",str(localhost_port()),
+                      "--config-dir",str(root/"config"),"--data-dir",str(root/"data"),
+                      "--dist-dir",str(root/"frontend"),"--allowed-roots",str(root/"data")]
+                proc=subprocess.Popen(args,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+                try:
+                    port=int(args[args.index("--port")+1])
+                    base=f"http://127.0.0.1:{port}"
+                    for _ in range(90):
+                        self.assertIsNone(proc.poll(),"native server crashed")
+                        try:
+                            with urllib.request.urlopen(base+"/api/v1/ready",timeout=1) as resp:
+                                if resp.status==200:break
+                        except (OSError,ValueError):
+                            time.sleep(.09)
+                    else:self.fail("dynamic-port desktop server did not start")
+                    def read(endpoint):
+                        with urllib.request.urlopen(base+endpoint,timeout=3) as response:
+                            return json.load(response)
+                    providers=read("/api/v1/providers")
+                    writers=read("/api/v1/llm-providers")
+                    engines=read("/api/v1/embedded/status")["engines"]
+                    self.assertEqual(len(providers),1)
+                    self.assertEqual(len(writers),1)
+                    self.assertEqual(providers[0]["transcriptionUrl"],
+                                     f"http://127.0.0.1:{stt_port}/v1/audio/transcriptions")
+                    self.assertEqual(writers[0]["chatCompletionsUrl"],
+                                     f"http://127.0.0.1:{llm_port}/v1/chat/completions")
+                    self.assertEqual(
+                        {e["kind"]:e["endpoint"] for e in engines},
+                        {"stt":providers[0]["transcriptionUrl"],"llm":writers[0]["chatCompletionsUrl"]}
+                    )
+                    self.assertEqual(main.getsockname()[1],main_port)
+                    self.assertEqual(stt.getsockname()[1],stt_used)
+                    self.assertEqual(llm.getsockname()[1],llm_used)
+                finally:
+                    proc.terminate()
+                    try:proc.wait(timeout=7)
+                    except subprocess.TimeoutExpired:proc.kill();proc.wait(timeout=5)
+                    if proc.stderr:proc.stderr.close()
+
     def test_fresh_native_providers_and_five_profiles_without_weights(self):
         with tempfile.TemporaryDirectory(prefix="scribe-native-fixture-") as temp:
             root = pathlib.Path(temp)

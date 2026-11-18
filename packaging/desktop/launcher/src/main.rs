@@ -4,7 +4,7 @@ use std::{
     env,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
-    net::{SocketAddr, TcpStream},
+    net::{SocketAddr, TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     thread,
@@ -185,6 +185,53 @@ fn open_browser(port: u16) -> Result<(), String> {
     }
 }
 
+/// Choose loopback ports using the OS. Never probe another program's API.
+fn available_port(preferred: u16, forbidden: &[u16]) -> Result<u16, String> {
+    if preferred != 0
+        && !forbidden.contains(&preferred)
+        && let Ok(listener) = TcpListener::bind(("127.0.0.1", preferred))
+    {
+        return Ok(listener.local_addr().map_err(|e| e.to_string())?.port());
+    }
+    for _ in 0..12 {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|e| e.to_string())?;
+        let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+        if !forbidden.contains(&port) {
+            return Ok(port);
+        }
+    }
+    Err("No available loopback port for ScribeWatch".into())
+}
+
+fn installed_port_file(base: &Path) -> PathBuf {
+    base.join("server.port")
+}
+
+fn read_installed_port(base: &Path) -> Option<u16> {
+    fs::read_to_string(installed_port_file(base))
+        .ok()
+        .and_then(|s| s.trim().parse::<u16>().ok())
+        .filter(|port| *port != 0)
+}
+
+fn persist_installed_port(base: &Path, port: u16) -> Result<(), String> {
+    let tmp = base.join(format!("server.port.{}.tmp", std::process::id()));
+    fs::write(&tmp, format!("{port}\n")).map_err(|e| e.to_string())?;
+    let dest = installed_port_file(base);
+    #[cfg(target_os = "windows")]
+    if dest.is_file() {
+        // Windows rename does not replace an existing target.
+        fs::remove_file(&dest).map_err(|e| e.to_string())?;
+    }
+    fs::rename(&tmp, dest).map_err(|e| e.to_string())
+}
+
+fn desktop_engine_ports(main_port: u16) -> Result<(u16, u16), String> {
+    let stt = available_port(38005, &[main_port])?;
+    let llm = available_port(38080, &[main_port, stt])?;
+    Ok((stt, llm))
+}
+
 fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
     let root = resources()?;
     let server = root.join("bin").join(executable(SERVER_NAME));
@@ -222,30 +269,34 @@ fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
     for folder in [&base, &config, &data, &fonts] {
         fs::create_dir_all(folder).map_err(|e| format!("{}: {e}", folder.display()))?;
     }
-    let port = env::var(format!("{APP_ENV}_PORT"))
+    let preferred = env::var(format!("{APP_ENV}_PORT"))
         .ok()
         .and_then(|value| value.parse::<u16>().ok())
+        .filter(|port| *port != 0)
         .unwrap_or(DEFAULT_PORT);
-    if http_health(port).is_ok() {
-        if env::args().any(|arg| arg == "--dictate-toggle") {
-            return desktop_tray::request_dictation(&base);
+    // Find our previously launched backend even if its preferred port was
+    // already occupied by another service at first installation.
+    let previous = read_installed_port(&base);
+    for port in [previous, Some(preferred)].into_iter().flatten() {
+        if http_health(port).is_ok() {
+            if env::args().any(|arg| arg == "--dictate-toggle") {
+                return desktop_tray::request_dictation(&base);
+            }
+            if smoke {
+                return Err("A server already occupies the smoke test port".into());
+            }
+            desktop_tray::request_show(&base);
+            if !no_browser {
+                open_browser(port)?;
+            }
+            return Ok(());
         }
-        if smoke {
-            return Err("A server already occupies the smoke test port".into());
-        }
-        // A second launch restores the hidden tray without restarting the backend.
-        desktop_tray::request_show(&base);
-        if !no_browser {
-            open_browser(port)?;
-        }
-        return Ok(());
     }
     if env::args().any(|arg| arg == "--dictate-toggle") {
         return Err("ScribeWatch doit être lancé avant une dictée globale".into());
     }
-    if TcpStream::connect(SocketAddr::from(([127, 0, 0, 1], port))).is_ok() {
-        return Err(format!("Port {port} is used by another application"));
-    }
+    let port = available_port(preferred, &[])?;
+    let (stt_port, llm_port) = desktop_engine_ports(port)?;
 
     let path = env::var_os("PATH").unwrap_or_default();
     let path = env::join_paths(std::iter::once(root.join("bin")).chain(env::split_paths(&path)))
@@ -274,6 +325,8 @@ fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
         .env("SCRIBEWATCH_NATIVE_AUTOINIT", if smoke { "0" } else { "1" })
         .env("SCRIBEWATCH_EMBEDDED_DIR", root.join("bin").join("engines"))
         .env(format!("{APP_ENV}_PORT"), port.to_string())
+        .env("SCRIBEWATCH_STT_PORT", stt_port.to_string())
+        .env("SCRIBEWATCH_LLM_PORT", llm_port.to_string())
         .env(format!("{APP_ENV}_CONFIG_DIR"), &config)
         .env(format!("{APP_ENV}_DATA_DIR"), &data)
         .env(format!("{APP_ENV}_DIST_DIR"), &frontend)
@@ -301,6 +354,9 @@ fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
             "Server did not become healthy; see {}",
             logpath.display()
         ));
+    }
+    if !smoke {
+        persist_installed_port(&base, port)?;
     }
     if smoke {
         child.kill().map_err(|e| e.to_string())?;
@@ -330,6 +386,40 @@ fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
         return Err(format!("Server exited: {status}"));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod port_tests {
+    use super::*;
+    #[test]
+    fn occupied_primary_and_engine_ports_select_loopback_fallbacks() {
+        let taken_app = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let app_port = taken_app.local_addr().unwrap().port();
+        let chosen = available_port(app_port, &[]).unwrap();
+        assert_ne!(chosen, app_port);
+        let stt_busy = TcpListener::bind(("127.0.0.1", 38005)).ok();
+        let llm_busy = TcpListener::bind(("127.0.0.1", 38080)).ok();
+        let (stt, llm) = desktop_engine_ports(chosen).unwrap();
+        assert_ne!(stt, llm);
+        assert_ne!(stt, chosen);
+        assert_ne!(llm, chosen);
+        if stt_busy.is_some() {
+            assert_ne!(stt, 38005);
+        }
+        if llm_busy.is_some() {
+            assert_ne!(llm, 38080);
+        }
+        assert!(TcpListener::bind(("127.0.0.1", stt)).is_ok());
+        assert!(TcpListener::bind(("127.0.0.1", llm)).is_ok());
+    }
+    #[test]
+    fn persisted_port_is_recovered_without_guessing_default() {
+        let path = std::env::temp_dir().join(format!("scribe-port-test-{}", uuid::Uuid::new_v4()));
+        fs::create_dir(&path).unwrap();
+        persist_installed_port(&path, 45981).unwrap();
+        assert_eq!(read_installed_port(&path), Some(45981));
+        fs::remove_dir_all(path).unwrap();
+    }
 }
 
 fn main() {

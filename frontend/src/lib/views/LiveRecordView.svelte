@@ -378,7 +378,7 @@
   const exportFormats:ExportFormat[]=['md','txt','html','docx','odt','pdf'];
 
   $: if(!chainInitialized&&providers.length){
-    const provider=providers.find((candidate)=>candidate.enabled && /parakeet.ultra/i.test(candidate.model) && /127\.0\.0\.1:38005|localhost:38005/i.test(candidate.transcriptionUrl))??providers.find((candidate)=>candidate.enabled && /parakeet.ultra/i.test(candidate.model))??providers.find((candidate)=>candidate.enabled)??providers[0];
+    const provider=providers.find((candidate)=>candidate.enabled && candidate.id==='scribewatch-native-parakeet' && /parakeet.ultra/i.test(candidate.model))??providers.find((candidate)=>candidate.enabled && /parakeet.ultra/i.test(candidate.model))??providers.find((candidate)=>candidate.enabled)??providers[0];
     transcriptionChain=[{providerId:provider.id,model:provider.model}];
     chainInitialized=true;
   }
