@@ -98,16 +98,14 @@ pub async fn save_settings(
         .structure_profile_id
         .as_ref()
         .filter(|v| !v.is_empty())
-    {
-        if !state
+        && !state
             .structure_profiles
             .read()
             .await
             .iter()
             .any(|p| p.id == *id && !p.provider_id.is_empty())
-        {
-            return Err(AppError::BadRequest("AI profile unavailable".into()));
-        }
+    {
+        return Err(AppError::BadRequest("AI profile unavailable".into()));
     }
     if settings.language.len() > 20
         || settings
