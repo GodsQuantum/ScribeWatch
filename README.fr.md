@@ -34,25 +34,25 @@ Le cas d’usage naturel est **notes vocales → Obsidian**, mais rien n’est v
   <a href="docs/screenshots/fr/home.png"><img src="docs/screenshots/fr/home.png" width="100%" alt="Tableau de bord ScribeWatch et Quick Transcribe"></a>
 </p>
 
-## Télécharger ScribeWatch v0.6.5
+## Télécharger ScribeWatch v0.6.6
 
-**[Site officiel](https://scribewatch.arezkichougar.com/)** · **[Dernière release GitHub](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [Empreintes SHA-256](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.5) · [Code source](https://github.com/GodsQuantum/ScribeWatch)
+**[Site officiel](https://scribewatch.arezkichougar.com/)** · **[Dernière release GitHub](https://github.com/GodsQuantum/ScribeWatch/releases/latest)** · [Empreintes SHA-256](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.6) · [Code source](https://github.com/GodsQuantum/ScribeWatch)
 
 **Choisissez la version complète pour commencer.** Elle contient les moteurs de transcription et de rédaction locale. Les modèles sont téléchargés au premier lancement ; ensuite, ces traitements locaux ne nécessitent pas d'envoyer les enregistrements ou les textes à un serveur distant.
 
 | Système | Version locale complète | Installateur |
 |---|---|---|
-| **Windows 11 x64** | Recommandée | [Installateur Windows complet](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-windows-amd64-standalone-setup.exe) |
-| macOS Apple Silicon | IA locale incluse | [DMG Apple Silicon](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-darwin-arm64-standalone.dmg) |
-| macOS Intel | IA locale incluse | [DMG Intel](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-darwin-amd64-standalone.dmg) |
-| Linux x86-64 | IA locale incluse | [AppImage complète](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-x86_64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/scribewatch_0.6.5_amd64.deb) |
-| Linux ARM64 | IA locale incluse | [AppImage complète](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/ScribeWatch-0.6.5-aarch64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.5/scribewatch_0.6.5_arm64.deb) |
+| **Windows 11 x64** | Recommandée | [Installateur Windows complet](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.6/ScribeWatch-0.6.6-windows-amd64-standalone-setup.exe) |
+| macOS Apple Silicon | IA locale incluse | [DMG Apple Silicon](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.6/ScribeWatch-0.6.6-darwin-arm64-standalone.dmg) |
+| macOS Intel | IA locale incluse | [DMG Intel](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.6/ScribeWatch-0.6.6-darwin-amd64-standalone.dmg) |
+| Linux x86-64 | IA locale incluse | [AppImage complète](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.6/ScribeWatch-0.6.6-x86_64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.6/scribewatch_0.6.6_amd64.deb) |
+| Linux ARM64 | IA locale incluse | [AppImage complète](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.6/ScribeWatch-0.6.6-aarch64-standalone.AppImage) · [Debian/Ubuntu .deb](https://github.com/GodsQuantum/ScribeWatch/releases/download/v0.6.6/scribewatch_0.6.6_arm64.deb) |
 
 **Première utilisation :** installez ScribeWatch, laissez les modèles se télécharger une fois (plusieurs gigaoctets), choisissez un type de note, enregistrez ou importez un audio, puis exportez en PDF, Word, ODT, HTML, TXT ou Markdown. Les versions complètes embarquent Pandoc 3.14, Typst 0.15.1 et les polices nécessaires ; inutile de les installer séparément. Un processeur 64 bits récent suffit pour démarrer, mais une carte graphique compatible accélère les traitements ; **16 Go de RAM sont conseillés pour les comptes rendus structurés**, sans constituer un minimum certifié.
 
-**Prochain correctif des ports (PR brouillon nº 52, non inclus dans les téléchargements v0.6.5) :** sur Windows, macOS et Linux, l’application installée choisit automatiquement un port local libre si son port HTTP habituel est occupé. Les moteurs ASR et LLM intégrés choisissent également des ports libres distincts. Leurs adresses réelles sont réutilisées aux lancements suivants, sans modifier ni arrêter les autres logiciels, ni remplacer les fournisseurs externes configurés.
+**Sélection automatique des ports locaux (incluse en v0.6.6) :** sur Windows, macOS et Linux, l’application installée choisit automatiquement un port local libre si son port HTTP habituel est occupé. Les moteurs ASR et LLM intégrés choisissent également des ports libres distincts. Leurs adresses réelles sont réutilisées aux lancements suivants, sans modifier ni arrêter les autres logiciels, ni remplacer les fournisseurs externes configurés.
 
-**Pour utilisateurs avancés :** des versions légères Windows/macOS/Linux existent dans les [releases GitHub](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.5). Elles **n'installent pas de moteur local de transcription ou de rédaction**. Elles s'adressent à ceux qui disposent déjà de services STT/LLM compatibles.
+**Pour utilisateurs avancés :** des versions légères Windows/macOS/Linux existent dans les [releases GitHub](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.6). Elles **n'installent pas de moteur local de transcription ou de rédaction**. Elles s'adressent à ceux qui disposent déjà de services STT/LLM compatibles.
 
 Les installateurs complets et leurs moteurs passent la CI multi-OS, mais les microphones physiques, tous les GPU et la qualité des rapports cliniques ne sont **pas certifiés sur chaque ordinateur**. Les brouillons médicaux doivent être relus par le praticien. Si vous choisissez un fournisseur externe, ses règles de confidentialité s'appliquent. Les binaires peuvent être non signés ou non notarisés : vérifiez les SHA-256.
 
@@ -299,7 +299,7 @@ bash scripts/e2e-v02.sh
 
 ## Profil matériel prudent, détecté sans modification
 
-**Versions :** [Tous les installateurs officiels ScribeWatch v0.6.5](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.5), potentiellement non signés ni notarisés. Vérifier les SHA256.
+**Versions :** [Tous les installateurs officiels ScribeWatch v0.6.6](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.6), potentiellement non signés ni notarisés. Vérifier les SHA256.
 
 ~~~bash
 python3 scripts/auto-tune.py
