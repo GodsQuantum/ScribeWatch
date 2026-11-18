@@ -176,6 +176,12 @@ export interface Job {
   updatedAtMs: number;
 }
 
+export interface DictationSettings {
+  transcriptionChain: TranscriptionRoute[];
+  language: string;
+  structureProfileId?: string | null;
+}
+
 export interface DictationResult {
   text: string;
   providerId: string;

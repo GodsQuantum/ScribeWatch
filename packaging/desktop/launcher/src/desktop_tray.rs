@@ -7,10 +7,16 @@ use std::{
     time::{Duration, Instant},
 };
 
+use super::native_dictation::{NativeDictation, transcribe_to_clipboard};
+use global_hotkey::{
+    GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
+    hotkey::{Code, HotKey, Modifiers},
+};
 use tray_icon::{
     Icon, TrayIcon, TrayIconBuilder,
     menu::{Menu, MenuEvent, MenuItem},
 };
+use uuid::Uuid;
 use winit::{
     event::{Event, StartCause},
     event_loop::{ControlFlow, EventLoop},
@@ -23,10 +29,33 @@ use super::open_browser;
 enum Signal {
     Menu(MenuEvent),
     Show,
+    DictationToggle,
+    DictationFinished(Result<String, String>),
 }
 
 fn show_file(base: &Path) -> PathBuf {
     base.join("tray-ipc.port")
+}
+
+fn token_file(base: &Path) -> PathBuf {
+    base.join("tray-ipc.token")
+}
+
+pub fn request_dictation(base: &Path) -> Result<(), String> {
+    let port = fs::read_to_string(show_file(base)).map_err(|e| e.to_string())?;
+    let token = fs::read_to_string(token_file(base)).map_err(|e| e.to_string())?;
+    let port: u16 = port
+        .trim()
+        .parse()
+        .map_err(|e: std::num::ParseIntError| e.to_string())?;
+    let socket = UdpSocket::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
+    socket
+        .send_to(
+            format!("DICTATE:{}", token.trim()).as_bytes(),
+            ("127.0.0.1", port),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 pub fn request_show(base: &Path) {
@@ -143,18 +172,29 @@ pub fn run(port: u16, base: PathBuf, mut child: Child) -> Result<(), String> {
     let socket = UdpSocket::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
     let ipc_port = socket.local_addr().map_err(|e| e.to_string())?.port();
     fs::write(show_file(&base), ipc_port.to_string()).map_err(|e| e.to_string())?;
+    let token = Uuid::new_v4().to_string();
+    fs::write(token_file(&base), &token).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(token_file(&base), fs::Permissions::from_mode(0o600))
+            .map_err(|e| e.to_string())?;
+    }
     let sender = event_loop.create_proxy();
     thread::spawn(move || {
-        let mut buf = [0u8; 32];
+        let mut buf = [0u8; 128];
         while let Ok((count, _)) = socket.recv_from(&mut buf) {
             if &buf[..count] == b"SHOW" {
                 let _ = sender.send_event(Signal::Show);
+            } else if &buf[..count] == format!("DICTATE:{token}").as_bytes() {
+                let _ = sender.send_event(Signal::DictationToggle);
             }
         }
     });
 
     let menu = Menu::new();
     let open = MenuItem::new("Ouvrir ScribeWatch", true, None);
+    let dictate = MenuItem::new("Démarrer la dictée", true, None);
     let startup = MenuItem::new("Lancement automatique", true, None);
     let hide = MenuItem::new(
         "Masquer l'icône (jusqu'à la prochaine ouverture)",
@@ -162,7 +202,7 @@ pub fn run(port: u16, base: PathBuf, mut child: Child) -> Result<(), String> {
         None,
     );
     let quit = MenuItem::new("Quitter ScribeWatch", true, None);
-    menu.append_items(&[&open, &startup, &hide, &quit])
+    menu.append_items(&[&open, &dictate, &startup, &hide, &quit])
         .map_err(|e| e.to_string())?;
     startup.set_text(if autostart_enabled() {
         "Désactiver le lancement automatique"
@@ -172,8 +212,27 @@ pub fn run(port: u16, base: PathBuf, mut child: Child) -> Result<(), String> {
     let image = application_icon()?;
     let mut tray: Option<TrayIcon> = None;
     let mut last_health = Instant::now();
+    // Different from browser-only Ctrl+Shift+D to avoid duplicate toggles
+    // when the browser is focused and the global shortcut is pressed.
+    let shortcut = HotKey::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyD);
+    let hotkey_manager = GlobalHotKeyManager::new().ok();
+    let hotkey_registered = hotkey_manager
+        .as_ref()
+        .is_some_and(|manager| manager.register(shortcut).is_ok());
+    if hotkey_registered {
+        let proxy = event_loop.create_proxy();
+        GlobalHotKeyEvent::set_event_handler(Some(move |event: GlobalHotKeyEvent| {
+            if event.id == shortcut.id() && event.state == HotKeyState::Pressed {
+                let _ = proxy.send_event(Signal::DictationToggle);
+            }
+        }));
+    }
+    let event_proxy = event_loop.create_proxy();
+    let mut dictation: Option<NativeDictation> = None;
+    let mut processing = false;
     event_loop
         .run(move |event, target| {
+            let _keep_global_shortcut_registered = &hotkey_manager;
             target.set_control_flow(ControlFlow::WaitUntil(
                 Instant::now() + Duration::from_secs(2),
             ));
@@ -198,9 +257,67 @@ pub fn run(port: u16, base: PathBuf, mut child: Child) -> Result<(), String> {
                         let _ = icon.set_visible(true);
                     }
                 }
+                Event::UserEvent(Signal::DictationToggle) => {
+                    if processing {
+                        eprintln!("ScribeWatch dictation already transcribing");
+                    } else if let Some(recording) = dictation.take() {
+                        let _ = dictate.set_text("Transcription en cours…");
+                        processing = true;
+                        match recording.stop() {
+                            Ok(audio) => {
+                                let sender = event_proxy.clone();
+                                thread::spawn(move || {
+                                    let result = transcribe_to_clipboard(port, audio);
+                                    let _ = sender.send_event(Signal::DictationFinished(result));
+                                });
+                            }
+                            Err(error) => {
+                                eprintln!("ScribeWatch dictation: {error}");
+                                processing = false;
+                                let _ = dictate.set_text("Démarrer la dictée");
+                            }
+                        }
+                    } else {
+                        match NativeDictation::start(&base) {
+                            Ok(recording) => {
+                                dictation = Some(recording);
+                                let _ = dictate.set_text("Arrêter la dictée");
+                                if let Some(icon) = &tray {
+                                    let _ = icon
+                                        .set_tooltip(Some("ScribeWatch — dictée micro en cours"));
+                                }
+                            }
+                            Err(error) => {
+                                eprintln!("ScribeWatch microphone: {error}");
+                            }
+                        }
+                    }
+                }
+                Event::UserEvent(Signal::DictationFinished(outcome)) => {
+                    processing = false;
+                    let _ = dictate.set_text("Démarrer la dictée");
+                    match outcome {
+                        Ok(message) => {
+                            if let Some(icon) = &tray {
+                                let _ = icon.set_tooltip(Some(&message));
+                            }
+                        }
+                        Err(error) => {
+                            eprintln!("ScribeWatch transcription: {error}");
+                            if let Some(icon) = &tray {
+                                let _ = icon.set_tooltip(Some(&format!(
+                                    "ScribeWatch — {}",
+                                    error.chars().take(180).collect::<String>()
+                                )));
+                            }
+                        }
+                    }
+                }
                 Event::UserEvent(Signal::Menu(event)) => {
                     if event.id == open.id() {
                         let _ = open_browser(port);
+                    } else if event.id == dictate.id() {
+                        let _ = event_proxy.send_event(Signal::DictationToggle);
                     } else if event.id == startup.id() {
                         if let Err(err) = set_autostart(!autostart_enabled()) {
                             eprintln!("Startup preference failed: {err}");
@@ -225,9 +342,15 @@ pub fn run(port: u16, base: PathBuf, mut child: Child) -> Result<(), String> {
                     }
                 }
                 Event::LoopExiting => {
+                    if let Some(active) = dictation.take() {
+                        if let Err(error) = active.stop() {
+                            eprintln!("ScribeWatch dictation recovery: {error}");
+                        }
+                    }
                     let _ = child.kill();
                     let _ = child.wait();
                     let _ = fs::remove_file(show_file(&base));
+                    let _ = fs::remove_file(token_file(&base));
                 }
                 _ => {}
             }

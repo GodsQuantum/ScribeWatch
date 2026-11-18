@@ -44,6 +44,7 @@ fn show_error(message: &str) {
 }
 
 mod desktop_tray;
+mod native_dictation;
 
 const APP_NAME: &str = "ScribeWatch";
 const APP_ENV: &str = "SCRIBEWATCH";
@@ -226,6 +227,9 @@ fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(DEFAULT_PORT);
     if http_health(port).is_ok() {
+        if env::args().any(|arg| arg == "--dictate-toggle") {
+            return desktop_tray::request_dictation(&base);
+        }
         if smoke {
             return Err("A server already occupies the smoke test port".into());
         }
@@ -235,6 +239,9 @@ fn launch(smoke: bool, no_browser: bool) -> Result<(), String> {
             open_browser(port)?;
         }
         return Ok(());
+    }
+    if env::args().any(|arg| arg == "--dictate-toggle") {
+        return Err("ScribeWatch doit être lancé avant une dictée globale".into());
     }
     if TcpStream::connect(SocketAddr::from(([127, 0, 0, 1], port))).is_ok() {
         return Err(format!("Port {port} is used by another application"));

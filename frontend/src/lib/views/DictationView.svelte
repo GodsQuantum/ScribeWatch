@@ -11,6 +11,7 @@
 
   let routes:TranscriptionRoute[]=[{providerId:'',model:''}];
   let initialized=false;
+  let saving=false;
   let language='fr';
   let profileId='';
   let recording=false;
@@ -107,8 +108,29 @@
       notify('error','Copie indisponible : sélectionnez le texte manuellement.');
     }
   }
+  async function saveSettings(){
+    if(!routes.length||routes.some(route=>!route.providerId)||saving)return;
+    saving=true;
+    try{
+      await api.saveDictationSettings({
+        transcriptionChain:routes,language,structureProfileId:profileId||null
+      });
+      notify('success','Préférences enregistrées pour la dictée système.');
+    }catch(error){
+      notify('error',error instanceof Error?error.message:String(error));
+    }finally{saving=false;}
+  }
   onMount(()=>{
     disposed=false;
+    void api.dictationSettings().then(settings=>{
+      if(disposed)return;
+      if(settings.transcriptionChain.length){
+        routes=settings.transcriptionChain;
+        initialized=true;
+      }
+      language=settings.language||'fr';
+      profileId=settings.structureProfileId||'';
+    }).catch(()=>{});
     function shortcut(event:KeyboardEvent){
       if(event.ctrlKey&&event.shiftKey&&event.code==='KeyD'
         &&!(event.target instanceof HTMLInputElement)
@@ -135,7 +157,7 @@
     <div>
       <p class="page-kicker">DICTÉE · LOCAL OU DISTANT</p>
       <h1 class="page-title">Dictée</h1>
-      <p class="page-copy">Enregistrez quelques secondes, puis copiez le texte. Aucun enregistrement ni job permanent.</p>
+      <p class="page-copy">Enregistrez sans limite de durée imposée. Transcrivez avec le moteur choisi ; aucun audio n’est conservé après réussite.</p>
     </div>
   </div>
   <div class="quick-layout">
@@ -162,8 +184,11 @@
             </select>
           </div>
         </div>
+        <button class="btn" disabled={saving||!routes[0]?.providerId} on:click={saveSettings}>
+          {saving?'Enregistrement…':'Enregistrer moteur et profil pour la dictée système'}
+        </button>
         <strong>2. Microphone</strong>
-        <p class="help">Ctrl+Maj+D dans cette fenêtre. Le raccourci système global nécessite une extension du lanceur natif.</p>
+        <p class="help">Navigateur : Ctrl+Maj+D. Application installée : Ctrl+Alt+D partout (raccourci global) ou menu ScribeWatch dans la zone de notification. La transcription sera insérée dans l’application active si les permissions système le permettent.</p>
         {#if recording}
           <button class="btn primary" on:click={stop}>■ Arrêter et transcrire</button>
           <span class="help">Enregistrement en cours…</span>

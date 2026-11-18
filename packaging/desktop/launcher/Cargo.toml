@@ -15,6 +15,27 @@ winresource = "=0.1.34"
 tray-icon = { version = "=0.26.1", default-features = false, features = ["ksni"] }
 winit = { version = "=0.30.12", default-features = false, features = ["x11", "wayland"] }
 image = { version = "=0.25.9", default-features = false, features = ["png"] }
+# Native cross-platform microphone capture extracted from Handy (MIT).
+handy-recorder = "=0.1.1"
+# Stream 16-kHz PCM to disk instead of storing the entire recording in RAM.
+hound = "=3.5.1"
+# Reuse ScribeWatch's local ASR/LLM HTTP API; these do not launch another engine.
+reqwest = { version = "=0.13.4", default-features = false, features = ["blocking", "multipart", "json", "rustls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+# Native clipboard with Wayland data-control, X11, Windows, macOS.
+arboard = { version = "=3.7.0", default-features = false, features = ["wayland-data-control"] }
+# Global desktop hotkeys, including the XDG GlobalShortcuts portal on KDE Wayland.
+global_hotkey = { package = "wayclip-global-hotkey", version = "=0.7.0" }
+# Input injection is native Rust, not OS-specific external scripts.
+[target.'cfg(target_os = "linux")'.dependencies]
+enigo = { version = "=0.6.1", default-features = false, features = ["x11rb", "libei_tokio", "platform_specific"] }
+
+[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
+enigo = { version = "=0.6.1", default-features = false }
+
+
 
 [target.'cfg(windows)'.dependencies]
 winreg = "=0.55.0"

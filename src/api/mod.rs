@@ -63,10 +63,12 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/dashboard", get(dashboard::stats))
         .route("/api/v1/events", get(events::events))
         .route(
+            "/api/v1/dictation/settings",
+            get(dictation::settings).put(dictation::save_settings),
+        )
+        .route(
             "/api/v1/dictation/transcribe",
-            post(dictation::transcribe).layer(axum::extract::DefaultBodyLimit::max(
-                12 * 1024 * 1024 + 8192,
-            )),
+            post(dictation::transcribe).layer(axum::extract::DefaultBodyLimit::disable()),
         )
         .route("/api/v1/browse", get(browse::browse))
         .route(

@@ -8,14 +8,15 @@ use axum::{
     Json,
     extract::{Multipart, State},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, time::Instant};
+use tokio::io::AsyncWriteExt;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-/// Short dictation is intentionally stateless: no database job, retained recording,
-/// second STT engine, or background process. The active provider and model are reused.
-const MAX_AUDIO_BYTES: usize = 12 * 1024 * 1024;
+/// Dictation is stateless: no retained recording, no separate ASR process.
+/// Audio streams straight to a temporary file; the existing configurable
+/// ScribeWatch upload quota guards disk exhaustion without a duration cap.
 const MAX_ROUTES: usize = 4;
 
 #[derive(Serialize)]
@@ -25,6 +26,101 @@ pub struct DictationResult {
     provider_id: String,
     model: String,
     elapsed_ms: u64,
+}
+
+const SETTINGS_KIND: &str = "dictation_settings";
+const SETTINGS_ID: &str = "desktop";
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DictationSettings {
+    pub transcription_chain: Vec<TranscriptionRoute>,
+    pub language: String,
+    #[serde(default)]
+    pub structure_profile_id: Option<String>,
+}
+
+async fn effective_settings(state: &AppState) -> AppResult<DictationSettings> {
+    if let Some(saved) = state
+        .db
+        .get::<DictationSettings>(SETTINGS_KIND, SETTINGS_ID)?
+    {
+        return Ok(saved);
+    }
+    let providers = state.providers.read().await;
+    let first = providers
+        .iter()
+        .filter(|p| p.enabled)
+        .find(|p| p.model.to_ascii_lowercase().contains("parakeet"))
+        .or_else(|| providers.iter().find(|p| p.enabled));
+    Ok(DictationSettings {
+        transcription_chain: first
+            .map(|p| {
+                vec![TranscriptionRoute {
+                    provider_id: p.id.clone(),
+                    model: p.model.clone(),
+                    fallback_after_seconds: None,
+                }]
+            })
+            .unwrap_or_default(),
+        language: "fr".into(),
+        structure_profile_id: None,
+    })
+}
+
+pub async fn settings(State(state): State<AppState>) -> AppResult<Json<DictationSettings>> {
+    Ok(Json(effective_settings(&state).await?))
+}
+
+pub async fn save_settings(
+    State(state): State<AppState>,
+    Json(settings): Json<DictationSettings>,
+) -> AppResult<Json<DictationSettings>> {
+    if settings.transcription_chain.is_empty() || settings.transcription_chain.len() > MAX_ROUTES {
+        return Err(AppError::BadRequest(
+            "select a valid transcription chain".into(),
+        ));
+    }
+    let providers = state.providers.read().await;
+    for route in &settings.transcription_chain {
+        if route.provider_id.trim().is_empty()
+            || route.fallback_after_seconds == Some(0)
+            || !providers
+                .iter()
+                .any(|p| p.enabled && p.id == route.provider_id)
+        {
+            return Err(AppError::BadRequest(
+                "transcription provider unavailable".into(),
+            ));
+        }
+    }
+    drop(providers);
+    if let Some(id) = settings
+        .structure_profile_id
+        .as_ref()
+        .filter(|v| !v.is_empty())
+    {
+        if !state
+            .structure_profiles
+            .read()
+            .await
+            .iter()
+            .any(|p| p.id == *id && !p.provider_id.is_empty())
+        {
+            return Err(AppError::BadRequest("AI profile unavailable".into()));
+        }
+    }
+    if settings.language.len() > 20
+        || settings
+            .language
+            .chars()
+            .any(|c| !c.is_ascii_alphabetic() && c != '-')
+    {
+        return Err(AppError::BadRequest(
+            "invalid transcription language".into(),
+        ));
+    }
+    state.db.upsert(SETTINGS_KIND, SETTINGS_ID, &settings)?;
+    Ok(Json(settings))
 }
 
 struct StagedAudio(PathBuf);
@@ -103,8 +199,8 @@ pub async fn transcribe(
     State(state): State<AppState>,
     mut multipart: Multipart,
 ) -> AppResult<Json<DictationResult>> {
-    let mut bytes: Option<Vec<u8>> = None;
-    let mut extension = "webm";
+    let mut staged: Option<StagedAudio> = None;
+    let mut bytes_received = 0u64;
     let mut provider_id = String::new();
     let mut model = String::new();
     let mut language = String::new();
@@ -116,27 +212,42 @@ pub async fn transcribe(
     {
         let name = field.name().unwrap_or_default().to_owned();
         if name == "file" {
-            if bytes.is_some() {
+            if staged.is_some() {
                 return Err(AppError::BadRequest(
                     "only one audio file is accepted".into(),
                 ));
             }
-            extension = audio_extension(
+            let extension = audio_extension(
                 field.content_type().unwrap_or(""),
                 field.file_name().unwrap_or(""),
             );
-            let mut audio = Vec::new();
+            let path = state.config.quick_upload_dir().join(format!(
+                "dictation-{}.{}",
+                Uuid::new_v4(),
+                extension
+            ));
+            let mut file = tokio::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+                .await
+                .map_err(AppError::from)?;
+            staged = Some(StagedAudio(path));
             while let Some(chunk) = field
                 .chunk()
                 .await
                 .map_err(|_| AppError::BadRequest("invalid audio data".into()))?
             {
-                if audio.len().saturating_add(chunk.len()) > MAX_AUDIO_BYTES {
-                    return Err(AppError::BadRequest("dictation exceeds 12 MiB".into()));
+                bytes_received = bytes_received.saturating_add(chunk.len() as u64);
+                if bytes_received > state.config.max_upload_bytes {
+                    return Err(AppError::BadRequest(
+                        "dictation exceeds the configured ScribeWatch upload quota".into(),
+                    ));
                 }
-                audio.extend_from_slice(&chunk);
+                file.write_all(&chunk).await.map_err(AppError::from)?;
             }
-            bytes = Some(audio);
+            file.flush().await.map_err(AppError::from)?;
+            drop(file);
         } else if matches!(
             name.as_str(),
             "providerId" | "model" | "language" | "transcriptionChain"
@@ -157,13 +268,51 @@ pub async fn transcribe(
             }
         }
     }
-    let audio = bytes.ok_or_else(|| AppError::BadRequest("audio file is required".into()))?;
-    if audio.len() < 128 {
+    let file = staged.ok_or_else(|| AppError::BadRequest("audio file is required".into()))?;
+    if bytes_received < 128 {
         return Err(AppError::BadRequest(
             "audio file is empty or too short".into(),
         ));
     }
-    let routes = parse_routes(chain.as_deref(), &provider_id, &model)?;
+    // Native Rust microphone submits only the audio: load all preferences
+    // (model selection, fallback chain AND language) from the same saved
+    // configuration as the browser UI. In particular, an empty language field
+    // breaks strict forced alignment models such as Parakeet Ultra.
+    let needs_routes =
+        chain.as_deref().is_none_or(|v| v.trim().is_empty()) && provider_id.trim().is_empty();
+    let saved = if needs_routes || language.trim().is_empty() {
+        Some(effective_settings(&state).await?)
+    } else {
+        None
+    };
+    let routes = if needs_routes {
+        saved
+            .as_ref()
+            .map(|s| s.transcription_chain.clone())
+            .unwrap_or_default()
+    } else {
+        parse_routes(chain.as_deref(), &provider_id, &model)?
+    };
+    if language.trim().is_empty() {
+        language = saved
+            .as_ref()
+            .map(|s| s.language.clone())
+            .unwrap_or_else(|| "fr".into());
+    }
+    if routes.is_empty() {
+        return Err(AppError::BadRequest(
+            "no transcription provider is configured".into(),
+        ));
+    }
+    if language.len() > 20
+        || language
+            .chars()
+            .any(|c| !c.is_ascii_alphabetic() && c != '-')
+    {
+        return Err(AppError::BadRequest(
+            "invalid transcription language".into(),
+        ));
+    }
     let available = state.providers.read().await.clone();
     // Reject an invalid/unavailable selection rather than silently routing elsewhere.
     for route in &routes {
@@ -176,16 +325,6 @@ pub async fn transcribe(
             ));
         }
     }
-    let path =
-        state
-            .config
-            .quick_upload_dir()
-            .join(format!("dictation-{}.{}", Uuid::new_v4(), extension));
-    tokio::fs::write(&path, &audio)
-        .await
-        .map_err(AppError::from)?;
-    drop(audio);
-    let file = StagedAudio(path);
     let _slot = state
         .transcription_slots
         .clone()
@@ -315,10 +454,12 @@ mod integration_tests {
             ffmpeg_threads: 1,
         };
         let state = AppState::load(config).await.unwrap();
-        let stub = Router::new().route(
-            "/v1/audio/transcriptions",
-            post(|_body: Bytes| async { Json(json!({"text":"bonjour dictée"})) }),
-        );
+        let stub = Router::new()
+            .route(
+                "/v1/audio/transcriptions",
+                post(|_body: Bytes| async { Json(json!({"text":"bonjour dictée"})) }),
+            )
+            .layer(axum::extract::DefaultBodyLimit::disable());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let upstream = listener.local_addr().unwrap();
         tokio::spawn(async move { axum::serve(listener, stub).await.unwrap() });
@@ -444,6 +585,110 @@ mod integration_tests {
     }
 
     #[tokio::test]
+    async fn native_file_only_request_uses_persisted_language_and_model() {
+        let (_tmp, state, base) = setup().await;
+        let upstream = Router::new().route(
+            "/v1/audio/transcriptions",
+            post(|body: Bytes| async move {
+                let raw = String::from_utf8_lossy(&body);
+                if raw.contains(r#"name="language""#)
+                    && raw.contains("\r\n\r\nfr\r\n")
+                    && raw.contains(r#"name="model""#)
+                    && raw.contains("\r\n\r\nstrict-asr\r\n")
+                {
+                    (
+                        axum::http::StatusCode::OK,
+                        Json(json!({"text": "français vérifié"})),
+                    )
+                } else {
+                    (
+                        axum::http::StatusCode::BAD_REQUEST,
+                        Json(json!({"error": "language or model missing"})),
+                    )
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+        let strict = Provider {
+            id: "strict-asr".into(),
+            name: "Forced-aligner".into(),
+            transcription_url: format!("http://{addr}/v1/audio/transcriptions"),
+            model: "strict-asr".into(),
+            api_key: String::new(),
+            timeout_seconds: 10,
+            enabled: true,
+        };
+        state.providers.write().await.push(strict);
+        let client = reqwest::Client::new();
+        let settings = json!({
+            "transcriptionChain": [{"providerId": "strict-asr", "model": "strict-asr"}],
+            "language": "fr", "structureProfileId": null,
+        });
+        let saved = client
+            .put(format!("{base}/api/v1/dictation/settings"))
+            .json(&settings)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(saved.status(), reqwest::StatusCode::OK);
+        let retrieved: Value = client
+            .get(format!("{base}/api/v1/dictation/settings"))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(retrieved, settings);
+        let answer = client
+            .post(format!("{base}/api/v1/dictation/transcribe"))
+            .multipart(
+                Form::new().part(
+                    "file",
+                    Part::bytes(tiny_wav())
+                        .file_name("micro.wav")
+                        .mime_str("audio/wav")
+                        .unwrap(),
+                ),
+            )
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(answer.status(), reqwest::StatusCode::OK);
+        let result: Value = answer.json().await.unwrap();
+        assert_eq!(result["text"], "français vérifié");
+        assert_eq!(result["providerId"], "strict-asr");
+    }
+
+    #[tokio::test]
+    async fn streamed_upload_over_the_old_twelve_mib_limit_succeeds() {
+        let (_tmp, state, base) = setup().await;
+        let large = vec![0u8; 13 * 1024 * 1024];
+        let result = reqwest::Client::new()
+            .post(format!("{base}/api/v1/dictation/transcribe"))
+            .multipart(form("local-test", large))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(result.status(), reqwest::StatusCode::OK);
+        assert!(
+            state
+                .db
+                .list::<crate::domain::Job>("job")
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            std::fs::read_dir(state.config.quick_upload_dir())
+                .unwrap()
+                .filter_map(Result::ok)
+                .all(|e| !e.file_name().to_string_lossy().starts_with("dictation-"))
+        );
+    }
+
+    #[tokio::test]
     async fn invalid_provider_and_oversized_body_fail_without_jobs() {
         let (_tmp, state, base) = setup().await;
         let client = reqwest::Client::new();
@@ -456,7 +701,7 @@ mod integration_tests {
         assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
         let response = client
             .post(format!("{base}/api/v1/dictation/transcribe"))
-            .multipart(form("local-test", vec![1u8; 12 * 1024 * 1024 + 1]))
+            .multipart(form("local-test", vec![1u8; 16 * 1024 * 1024 + 1]))
             .send()
             .await
             .unwrap();

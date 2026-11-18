@@ -1,6 +1,6 @@
 import { parseApiResponse } from './api-response.js';
 import type {
-  DictationResult, EmbeddedRuntimeStatus, Space, SpaceMembership, SpaceKind,
+  DictationResult, DictationSettings, EmbeddedRuntimeStatus, Space, SpaceMembership, SpaceKind,
   BrowseResponse, DashboardStats, ExportFormat, Job, LiveUploadManifest, LlmProvider, LlmProviderInput,
   Provider, ProviderInput, TranscriptionRoute, QuickOptions, ReportEncounter, SavedReport, StructureProfile, Workflow
 } from './types';
@@ -163,6 +163,11 @@ export const api = {
   retryJob: (id: string) => request<Job>(`/api/v1/jobs/${id}/retry`, { method: 'POST' }),
   cancelJob: (id: string) => request<Job>(`/api/v1/jobs/${id}/cancel`, { method: 'POST' }),
   deleteJob: (id: string) => request<void>(`/api/v1/jobs/${id}`, { method: 'DELETE' }),
+  dictationSettings: () => request<DictationSettings>('/api/v1/dictation/settings'),
+  saveDictationSettings: (settings:DictationSettings) =>
+    request<DictationSettings>('/api/v1/dictation/settings', {
+      method:'PUT',body:JSON.stringify(settings)
+    }),
   dictationTranscribe: async (
     file:File,
     options:{transcriptionChain:TranscriptionRoute[];language?:string},
