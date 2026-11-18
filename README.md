@@ -50,6 +50,8 @@ It is especially useful as a **voice notes → Obsidian** bridge, but nothing is
 
 **Getting started:** Install ScribeWatch, allow the initial model downloads (several gigabytes), choose a note type, record or import audio, then export PDF, DOCX, ODT, HTML, TXT or Markdown. The complete editions bundle Pandoc 3.14, Typst 0.15.1 and multilingual fonts; you do not need system-wide PDF tools. A modern 64-bit processor works, but a compatible GPU speeds up local processing; **16 GB RAM is recommended for structured reports**, not a certified minimum.
 
+**Upcoming desktop port-collision fix (draft PR #52, not yet included in the v0.6.5 downloads):** On Windows, macOS and Linux, the installed application automatically chooses a free local port if the preferred HTTP port is occupied. Its built-in ASR and LLM engines also fall back to separate free ports; the actual addresses are kept for subsequent launches. This never modifies or stops another application, and externally configured endpoints remain unchanged.
+
 **For advanced users only:** Lightweight Windows/macOS/Linux builds are also provided in [GitHub releases](https://github.com/GodsQuantum/ScribeWatch/releases/tag/v0.6.5). They **do not install local transcription or writing engines**. Choose them only if you have an existing compatible STT/LLM service.
 
 The complete editions install and start on their certified CI runners, but the physical microphone, every GPU and medical-report accuracy are **not independently certified on all possible computers**. Medical drafts require practitioner review. If you configure an optional external provider, its privacy terms apply; do not assume external providers are local. Binaries may be unsigned or non-notarized; compare SHA-256 checksums before running them.
