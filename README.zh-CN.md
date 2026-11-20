@@ -2,7 +2,7 @@
 <h1 align="center">ScribeWatch</h1>
 <p align="center"><strong>从录音到可用的文档，数据由您掌控。</strong><br>开源、隐私优先的录音、转录和结构化笔记工具。</p>
 <p align="center"><a href="README.md">English</a> · <a href="README.fr.md">Français</a> · <strong>简体中文</strong></p>
-<p align="center"><a href="https://github.com/GodsQuantum/ScribeWatch/releases/latest">下载最新版本</a> · <a href="https://github.com/GodsQuantum/ScribeWatch/issues">反馈问题</a> · <a href="https://arezkichougar.com">作者 Arezki Chougar</a></p>
+<p align="center"><a href="https://github.com/GodsQuantum/ScribeWatch/releases/latest">下载最新版本</a> · <a href="https://github.com/GodsQuantum/ScribeWatch/issues">反馈问题</a> · <a href="https://github.com/GodsQuantum">作者 GodsQuantum</a></p>
 
 <p align="center"><a href="docs/screenshots/zh-CN/home.png"><img src="docs/screenshots/zh-CN/home.png" width="100%" alt="ScribeWatch 中文首页"></a></p>
 
@@ -79,6 +79,6 @@ python3 scripts/auto-tune.py --env
 
 ## 开发与贡献
 
-后端采用 Rust/Axum、SQLite；前端采用 SvelteKit，使用 FFmpeg/FFprobe 和文档导出工具。欢迎通过 [GitHub Issues](https://github.com/GodsQuantum/ScribeWatch/issues) 报告可重现的问题，也欢迎提交 Pull Request；请遵守 [CONTRIBUTING](.github/CONTRIBUTING.md) 与 [SECURITY](.github/SECURITY.md)。源码采用 [MIT 许可证](LICENSE)，作者 [Arezki Chougar](https://arezkichougar.com)。
+后端采用 Rust/Axum、SQLite；前端采用 SvelteKit，使用 FFmpeg/FFprobe 和文档导出工具。欢迎通过 [GitHub Issues](https://github.com/GodsQuantum/ScribeWatch/issues) 报告可重现的问题，也欢迎提交 Pull Request；请遵守 [CONTRIBUTING](.github/CONTRIBUTING.md) 与 [SECURITY](.github/SECURITY.md)。源码采用 [MIT 许可证](LICENSE)，作者 [GodsQuantum](https://github.com/GodsQuantum)。
 
 **转录引擎来源：** Windows 完整安装包含 **[Speaches Reloaded](https://github.com/GodsQuantum/Speaches-Reloaded)** 原生可执行程序与完整依赖，不只是 `transcribe.cpp`；旧版可执行文件名仍为 `Cloud9-Speaches`。

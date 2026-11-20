@@ -360,6 +360,6 @@ If ScribeWatch earns a place in your stack, a ⭐ helps other voice-note and Obs
 
 [MIT](LICENSE)
 
-Maintained by [Arezki Chougar](https://arezkichougar.com) · [MIT](LICENSE).
+Maintained by [GodsQuantum](https://github.com/GodsQuantum) · [MIT](LICENSE).
 
 **Transcription engine provenance:** the full Windows installer ships a portable build of **[Speaches Reloaded](https://github.com/GodsQuantum/Speaches-Reloaded)** (its historical executable name is still `Cloud9-Speaches`), not just `transcribe.cpp`. The portable package includes the Speaches API, executors and dependencies; `transcribe.cpp` is one engine option.
